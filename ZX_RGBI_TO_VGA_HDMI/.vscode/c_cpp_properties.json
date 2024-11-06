@@ -1,0 +1,66 @@
+{
+    "configurations": [
+        {
+            "name": "ArduinoCli",
+            "includePath": [
+                "${workspaceFolder}",
+                "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040",
+                "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/include",
+                "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/cores/rp2040",
+                "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/variants/rpipico",
+                ""
+            ],
+            "browse": {
+                "limitSymbolsToIncludedHeaders": true,
+                "path": [
+                    "${workspaceFolder}",
+                    "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040",
+                    "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/include",
+                    "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/cores/rp2040",
+                    "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/variants/rpipico",
+                    ""
+                ]
+            },
+            "defines": [
+                "CFG_TUSB_MCU=OPT_MCU_RP2040",
+                "DUSBD_PID=0x000a",
+                "DUSBD_VID=0x2e8a",
+                "DUSBD_MAX_POWER_MA=250",
+                "USB_MANUFACTURER=Raspberry Pi",
+                "USB_PRODUCT=Pico",
+                "PICO_CYW43_ARCH_THREADSAFE_BACKGROUND=1",
+                "CYW43_LWIP=1",
+                "LWIP_IPV6=0",
+                "LWIP_IPV4=1",
+                "LWIP_IGMP=1",
+                "LWIP_CHECKSUM_CTRL_PER_NETIF=1",
+                "ARDUINO_VARIANT=rpipico",
+                "TARGET_RP2040",
+                "PICO_FLASH_SIZE_BYTES=2097152",
+                "ARM_MATH_CM0_FAMILY",
+                "ARM_MATH_CM0_PLUS",
+                "F_CPU=133000000L",
+                "ARDUINO=10607",
+                "ARDUINO_RASPBERRY_PI_PICO",
+                "BOARD_NAME=RASPBERRY_PI_PICO",
+                "ARDUINO_ARCH_RP2040",
+                "WIFICC=CYW43_COUNTRY_WORLDWIDE",
+                ""
+            ],
+            "cStandard": "gnu11",
+            "cppStandard": "gnu++17",
+            "compilerPath": "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/tools/pqt-gcc/4.0.1-8ec9d6f/bin/arm-none-eabi-g++",
+            "compilerArgs": [
+                "-mcpu=cortex-m0plus",
+                "-march=armv6-m",
+                "-mthumb",
+                "-iprefix${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/",
+                "@${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/lib/core_inc.txt",
+                "@${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/lib/rp2040/platform_def.txt",
+                "@${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/lib/rp2040/platform_inc.txt",
+                ""
+            ]
+        }
+    ],
+    "version": 4
+}
