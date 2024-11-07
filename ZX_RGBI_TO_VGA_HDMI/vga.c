@@ -149,7 +149,7 @@ void __not_in_flash_func(dma_handler_vga)()
   {
     if (scanlines_mode)
     {
-      if (1) // (1) - scanline on 1 of 4 lines, (0) - 1 of 2
+      if (1) // (1) - narrow scanline - show scanline once every four lines // (0) - wide scanline - twice in four lines
       {
         if (line > 1)
           line--;
@@ -250,21 +250,21 @@ void start_vga(video_mode_t v_mode)
 
   // palette initialization
   for (int i = 0; i < 16; i++)
-    palette[i] = palette8[i] | (NO_SYNC ^ video_mode.sync_polality);
+    palette[i] = palette8[i] | (NO_SYNC ^ video_mode.sync_polarity);
 
   // allocate memory for line template definitions
   uint8_t *base_ptr = calloc(whole_line * 4, sizeof(uint8_t));
   line_patterns[0] = (uint32_t *)base_ptr;
 
   // empty line
-  memset(base_ptr, (NO_SYNC ^ video_mode.sync_polality), whole_line);
-  memset(base_ptr + h_sync_pulse_front, (H_SYNC ^ video_mode.sync_polality), h_sync_pulse);
+  memset(base_ptr, (NO_SYNC ^ video_mode.sync_polarity), whole_line);
+  memset(base_ptr + h_sync_pulse_front, (H_SYNC ^ video_mode.sync_polarity), h_sync_pulse);
 
   // vertical sync
   base_ptr += whole_line;
   line_patterns[1] = (uint32_t *)base_ptr;
-  memset(base_ptr, (V_SYNC ^ video_mode.sync_polality), whole_line);
-  memset(base_ptr + h_sync_pulse_front, (VH_SYNC ^ video_mode.sync_polality), h_sync_pulse);
+  memset(base_ptr, (V_SYNC ^ video_mode.sync_polarity), whole_line);
+  memset(base_ptr + h_sync_pulse_front, (VH_SYNC ^ video_mode.sync_polarity), h_sync_pulse);
 
   //
   base_ptr += whole_line;

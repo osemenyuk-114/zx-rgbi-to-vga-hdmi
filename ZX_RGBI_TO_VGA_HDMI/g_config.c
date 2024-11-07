@@ -13,7 +13,7 @@ video_mode_t vga_640x480 = {
     .v_front_porch = 10,
     .v_sync_pulse = 2,
     .v_back_porch = 33,
-    .sync_polality = 0b11000000, // negative
+    .sync_polarity = 0b11000000, // negative
     .div = 2,
 };
 
@@ -30,7 +30,7 @@ video_mode_t vga_800x600 = {
     .v_front_porch = 1,
     .v_sync_pulse = 4,
     .v_back_porch = 23,
-    .sync_polality = 0b00000000, // positive
+    .sync_polarity = 0b00000000, // positive
     .div = 2,
 };
 
@@ -47,7 +47,7 @@ video_mode_t vga_1024x768 = {
     .v_front_porch = 3,
     .v_sync_pulse = 6,
     .v_back_porch = 29,
-    .sync_polality = 0b11000000, // negative
+    .sync_polarity = 0b11000000, // negative
     .div = 3,
 };
 
@@ -64,12 +64,12 @@ video_mode_t vga_1280x1024_d3 = {
     .v_front_porch = 1,
     .v_sync_pulse = 3,
     .v_back_porch = 38,
-    .sync_polality = 0b00000000, // positive
+    .sync_polarity = 0b00000000, // positive
     .div = 3,
 };
 
 video_mode_t vga_1280x1024_d4 = {
-    .sys_freq = 252000, // 243000, // when scanline mode is on, a black line randomly appears on the screen for a short moment
+    .sys_freq = 252000, // 243000, // when scanlines mode is on, a black line randomly appears on the screen for a short moment
     .pixel_freq = 108000000.0,
     .h_visible_area = 1280,
     .v_visible_area = 1024,
@@ -81,10 +81,10 @@ video_mode_t vga_1280x1024_d4 = {
     .v_front_porch = 1,
     .v_sync_pulse = 3,
     .v_back_porch = 38,
-    .sync_polality = 0b00000000, // positive
+    .sync_polarity = 0b00000000, // positive
     .div = 4,
 };
 
 video_mode_t *vga_modes[] = {&vga_640x480, &vga_640x480, &vga_800x600, &vga_1024x768, &vga_1280x1024_d3, &vga_1280x1024_d4};
 
-uint8_t g_gbuf[V_BUF_SZ * 3];
+uint8_t g_v_buf[V_BUF_SZ * 3];

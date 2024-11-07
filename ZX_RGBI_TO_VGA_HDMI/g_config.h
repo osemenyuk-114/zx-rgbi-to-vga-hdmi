@@ -58,7 +58,7 @@ typedef struct video_mode_t
   uint8_t v_front_porch;
   uint8_t v_sync_pulse;
   uint8_t v_back_porch;
-  uint8_t sync_polality;
+  uint8_t sync_polarity;
   uint8_t div;
 } video_mode_t;
 
@@ -70,7 +70,7 @@ extern video_mode_t vga_1280x1024_d4;
 
 extern video_mode_t *vga_modes[];
 
-extern uint8_t g_gbuf[];
+extern uint8_t g_v_buf[];
 extern uint32_t frame_count;
 
 #define BOARD_CODE_36LJU22

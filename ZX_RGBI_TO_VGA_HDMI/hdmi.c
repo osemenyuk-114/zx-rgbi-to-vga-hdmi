@@ -84,14 +84,13 @@ static uint64_t get_ser_diff_data(uint16_t dataR, uint16_t dataG, uint16_t dataB
 static uint tmds_encoder(uint8_t d8)
 {
   int s1 = 0;
+  uint8_t xnor = 0;
 
   for (int i = 0; i < 8; i++)
     s1 += (d8 & (1u << i)) ? 1 : 0;
 
-  bool xnor = false;
-
   if ((s1 > 4) || ((s1 == 4) && ((d8 & 1) == 0)))
-    xnor = true;
+    xnor = 1;
 
   uint16_t d_out = d8 & 1;
   uint16_t qi = d_out;
@@ -102,7 +101,7 @@ static uint tmds_encoder(uint8_t d8)
     qi = d_out & (1u << i);
   }
 
-  if (xnor)
+  if (xnor == 1)
     d_out |= 1u << 9;
   else
     d_out |= 1u << 8;

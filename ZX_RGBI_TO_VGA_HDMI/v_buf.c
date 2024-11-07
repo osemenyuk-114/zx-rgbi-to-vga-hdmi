@@ -1,7 +1,7 @@
 #include "g_config.h"
 #include "v_buf.h"
 
-uint8_t *v_bufs[3] = {g_gbuf, g_gbuf + V_BUF_SZ, g_gbuf + 2 * V_BUF_SZ};
+uint8_t *v_bufs[3] = {g_v_buf, g_v_buf + V_BUF_SZ, g_v_buf + 2 * V_BUF_SZ};
 
 bool show_v_buf[] = {false, false, false};
 
