@@ -1,3 +1,4 @@
+docs/*/
 hardware/*/
-*/*/temp
+*/*/*/
 */.vscode/settings.json
