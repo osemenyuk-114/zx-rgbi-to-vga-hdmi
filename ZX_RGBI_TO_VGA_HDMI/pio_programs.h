@@ -12,10 +12,6 @@ extern const uint16_t set_opcode;
 
 extern const struct pio_program pio_program_capture_1;
 extern uint16_t pio_program_capture_1_instructions[];
-/*
-extern const struct pio_program pio_program_capture_2;
-extern uint16_t pio_program_capture_2_instructions[];
-*/
 
 extern const struct pio_program pio_program_vga;
 extern uint16_t pio_program_vga_instructions[];

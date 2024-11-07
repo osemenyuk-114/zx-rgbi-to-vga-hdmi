@@ -11,7 +11,7 @@ uint16_t pio_program_capture_0_instructions[] = {
     0x8020, //  2: push   block
     0xa842, //  3: nop    [8]
     0x00c1, //  4: jmp    pin, 1
-    0x4008, //  5: in     pins, 8    // subsynchronization by sync pulse
+    0x4008, //  5: in     pins, 8    // sub-synchronization by sync pulse
     0x8020, //  6: push   block
     0x00c0, //  7: jmp    pin, 0
     0x00c0, //  8: jmp    pin, 0
@@ -62,28 +62,6 @@ const struct pio_program pio_program_capture_1 = {
     .length = 16,
     .origin = -1,
 };
-
-/*
-// PIO program with Z80 CLK capture clock source // сapture occurs on the rise and fall of the CPU clock pulse
-uint16_t pio_program_capture_2_instructions[] = {
-    //                         .wrap_target
-    0x2080 | F_PIN, //  0: wait   1 gpio, 0
-    0xa042,         //  1: nop               // a capture delay will be added to this command // pulse rise
-    0x4008,         //  2: in     pins, 8
-    0x8020,         //  3: push   block
-    0x2000 | F_PIN, //  4: wait   0 gpio, 0
-    0xa042,         //  5: nop               // a capture delay will be added to this command // pulse fall
-    0x4008,         //  6: in     pins, 8
-    0x8020,         //  7: push   block
-                    //     .wrap
-};
-
-const struct pio_program pio_program_capture_2 = {
-    .instructions = pio_program_capture_2_instructions,
-    .length = 8,
-    .origin = -1,
-};
-*/
 
 uint16_t pio_program_vga_instructions[] = {
     //             .wrap_target

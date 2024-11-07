@@ -58,7 +58,7 @@ void print_main_menu()
   Serial.println("");
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit configureation mode");
+  Serial.println("  q   exit configuration mode");
   Serial.println("  w   save configuration and restart");
   Serial.println("");
 }
@@ -110,7 +110,7 @@ void print_buffering_mode_menu()
 void print_cap_sync_mode_menu()
 {
   Serial.println("");
-  Serial.println("      * Capture synchrozization source *");
+  Serial.println("      * Capture synchronization source *");
   Serial.println("");
   Serial.println("  1   self-synchronizing");
   Serial.println("  2   external clock");
@@ -233,12 +233,12 @@ void print_video_out_mode()
 
 void print_scanlines_mode()
 {
-  Serial.print("  Scanlines mode .............. ");
+  Serial.print("  Scanlines ................... ");
 
   if (settings.scanlines_mode)
-    Serial.println("on");
+    Serial.println("enabled");
   else
-    Serial.println("off");
+    Serial.println("disabled");
 }
 
 void print_buffering_mode()

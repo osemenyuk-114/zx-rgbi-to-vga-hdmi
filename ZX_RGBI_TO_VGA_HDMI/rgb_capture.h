@@ -5,9 +5,9 @@
 #define H_SYNC_PULSE (4 * 7)  //  4 µs @ 7.0 MHz pixel clock
 #define V_SYNC_PULSE (30 * 7) // 30 µs @ 7.0 MHz pixel clock
 
-#define CAP_LINE_LENGHT 1024
+#define CAP_LINE_LENGTH 1024
 #define CAP_DMA_BUF_CNT 8
-#define CAP_DMA_BUF_SIZE (CAP_LINE_LENGHT * CAP_DMA_BUF_CNT)
+#define CAP_DMA_BUF_SIZE (CAP_LINE_LENGTH * CAP_DMA_BUF_CNT)
 
 extern uint32_t frame_count;
 

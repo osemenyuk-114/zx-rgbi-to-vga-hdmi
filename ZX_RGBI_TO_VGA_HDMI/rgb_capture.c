@@ -126,7 +126,7 @@ void __not_in_flash_func(dma_handler_capture())
   register int x = x_s;
   register int y = y_s;
 
-  static uint8_t *cap_buf8_s = g_gbuf;
+  static uint8_t *cap_buf8_s = g_v_buf;
   uint8_t *cap_buf8 = cap_buf8_s;
 
   static uint CS_idx_s = 0;
