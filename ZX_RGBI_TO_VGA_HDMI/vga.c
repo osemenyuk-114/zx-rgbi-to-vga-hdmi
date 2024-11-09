@@ -81,18 +81,19 @@ void __not_in_flash_func(dma_handler_vga)()
 
   if (y >= video_mode.v_visible_area && y < (video_mode.v_visible_area + video_mode.v_front_porch))
   {
-    // VS front
+    // vertical sync front porch
     dma_channel_set_read_addr(dma_ch1, &line_patterns[0], false);
     return;
   }
   else if (y >= (video_mode.v_visible_area + video_mode.v_front_porch) && y < (video_mode.v_visible_area + video_mode.v_front_porch + video_mode.v_sync_pulse))
   {
-    // VS SYNC
+    // vertical sync pulse
     dma_channel_set_read_addr(dma_ch1, &line_patterns[1], false);
     return;
   }
   else if (y >= (video_mode.v_visible_area + video_mode.v_front_porch + video_mode.v_sync_pulse) && y < video_mode.whole_frame)
   {
+    // vertical sync back porch
     dma_channel_set_read_addr(dma_ch1, &line_patterns[0], false);
     return;
   }
@@ -115,7 +116,6 @@ void __not_in_flash_func(dma_handler_vga)()
 
   uint8_t line = y % (2 * video_mode.div);
 
-  // correct line mapping for different
   switch (video_mode.div)
   {
   case 2:
@@ -149,7 +149,7 @@ void __not_in_flash_func(dma_handler_vga)()
   {
     if (scanlines_mode)
     {
-      if (1) // (1) - narrow scanline - show scanline once every four lines // (0) - wide scanline - twice in four lines
+      if (1) // (1) - narrow scanline - show scanline once every four lines // (0) - wide scanline - show twice in four lines
       {
         if (line > 1)
           line--;
@@ -260,23 +260,23 @@ void start_vga(video_mode_t v_mode)
   memset(base_ptr, (NO_SYNC ^ video_mode.sync_polarity), whole_line);
   memset(base_ptr + h_sync_pulse_front, (H_SYNC ^ video_mode.sync_polarity), h_sync_pulse);
 
-  // vertical sync
+  // vertical sync pulse
   base_ptr += whole_line;
   line_patterns[1] = (uint32_t *)base_ptr;
   memset(base_ptr, (V_SYNC ^ video_mode.sync_polarity), whole_line);
   memset(base_ptr + h_sync_pulse_front, (VH_SYNC ^ video_mode.sync_polarity), h_sync_pulse);
 
-  //
+  // image line
   base_ptr += whole_line;
   line_patterns[2] = (uint32_t *)base_ptr;
   memcpy(base_ptr, line_patterns[0], whole_line);
 
-  //
+  // image line
   base_ptr += whole_line;
   line_patterns[3] = (uint32_t *)base_ptr;
   memcpy(base_ptr, line_patterns[0], whole_line);
 
-  // VGA pins
+  // set VGA pins
   for (int i = VGA_PIN_D0; i < VGA_PIN_D0 + 8; i++)
   {
     gpio_init(i);
