@@ -229,6 +229,7 @@ void start_capture(settings_t *settings)
   pinMode(PIN_LED, OUTPUT);
   digitalWrite(PIN_LED, LOW);
 
+  // set capture pins
   for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)
   {
     gpio_init(i);

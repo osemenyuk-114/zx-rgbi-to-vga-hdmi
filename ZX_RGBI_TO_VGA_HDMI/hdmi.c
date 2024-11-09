@@ -27,10 +27,7 @@ static uint64_t palette[32];
 static void __not_in_flash_func(memset64)(uint64_t *dst, const uint64_t data, uint32_t size)
 {
   dst[0] = data;
-  /*
-    for (int i = 1; i < size; i++)
-      *++dst = *(dst - 1);
-  */
+
   for (int i = 1; i < size; i++)
     *++dst = data;
 }
@@ -126,7 +123,7 @@ static void __not_in_flash_func(dma_handler_hdmi)()
     screen_buf = get_v_buf_out();
   }
 
-  if ((y & 1))
+  if (y & 1)
     return;
 
   dma_buf_idx++;
@@ -154,20 +151,21 @@ static void __not_in_flash_func(dma_handler_hdmi)()
       *line_buf++ = *c64;
     }
 
-    // H_SYNC
+    // horizontal sync
     memset64(active_buf + video_mode.h_visible_area, sync_data[0b00], video_mode.h_front_porch);
     memset64(active_buf + video_mode.h_visible_area + video_mode.h_front_porch, sync_data[0b01], video_mode.h_sync_pulse);
     memset64(active_buf + video_mode.h_visible_area + video_mode.h_front_porch + video_mode.h_sync_pulse, sync_data[0b00], video_mode.h_back_porch);
   }
   else if (y >= (video_mode.v_visible_area + video_mode.v_front_porch) && y < (video_mode.v_visible_area + video_mode.v_front_porch + video_mode.v_sync_pulse))
   {
-    // V_SYNC
+    // vertical sync pulse
     memset64(active_buf, sync_data[0b10], video_mode.h_visible_area + video_mode.h_front_porch);
     memset64(active_buf + video_mode.h_visible_area + video_mode.h_front_porch, sync_data[0b11], video_mode.h_sync_pulse);
     memset64(active_buf + video_mode.h_visible_area + video_mode.h_front_porch + video_mode.h_sync_pulse, sync_data[0b10], video_mode.h_back_porch);
   }
   else
   {
+    // vertical sync back porch
     memset64(active_buf, sync_data[0b00], video_mode.h_visible_area + video_mode.h_front_porch);
     memset64(active_buf + video_mode.h_visible_area + video_mode.h_front_porch, sync_data[0b01], video_mode.h_sync_pulse);
     memset64(active_buf + video_mode.h_visible_area + video_mode.h_front_porch + video_mode.h_sync_pulse, sync_data[0b00], video_mode.h_back_porch);
@@ -220,7 +218,7 @@ void start_hdmi(video_mode_t v_mode)
   v_out_dma_buf[0] = calloc(video_mode.whole_line * 2, sizeof(uint32_t));
   v_out_dma_buf[1] = calloc(video_mode.whole_line * 2, sizeof(uint32_t));
 
-  // HDMI data pins
+  // set HDMI data pins
   for (int i = HDMI_PIN_D0; i < HDMI_PIN_D0 + 6; i++)
   {
     gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
@@ -229,7 +227,7 @@ void start_hdmi(video_mode_t v_mode)
     gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
   }
 
-  // HDMI clock pins
+  // set HDMI clock pins
   for (int i = HDMI_PIN_CLK0; i < HDMI_PIN_CLK0 + 2; i++)
   {
     pio_gpio_init(PIO_HDMI, i);
