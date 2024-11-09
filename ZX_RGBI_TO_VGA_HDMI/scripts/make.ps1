@@ -1,46 +1,46 @@
 Param(
-    [Parameter(Mandatory = $True, Position = 0)]
+    [Parameter(Mandatory = $true, Position = 0)]
     [ValidateSet("build", "upload", "monitor")]
-    [string]$Action
+    [string]$Action,
+    
+    [Parameter(Mandatory = $false, Position = 1, ValueFromRemainingArguments = $true)]
+    [string[]]$OptParams
 )
 
 # Arduino CLI executable name and config
 $ARDUINO_CLI = "arduino-cli.exe"
 $CONFIG_DIR = "$($env:USERPROFILE)\.arduinoIDE"
 # Arduino CLI Board type
-$BOARD_TYPE = "rp2040:rp2040:rpipico"
+$FQBN = "rp2040:rp2040:rpipico"
 # Default port to upload to
-$SERIAL_PORT = "COM6"
-
-# Build flags
-$EXTRA_BUILD_FLAGS = "-O3"
-
+$PORT = "COM6"
 # Optional verbose compile/upload trigger
-$VERBOSE = "-v"
+$VERBOSE = "--verbose"
+# Exter build flags
+$ExtraBuildFlags = "build.flags.optimize=-O3" -split "\s+"
+# $ExtraBuildFlags += "compiler.c.extra_flags=-save-temps compiler.cpp.extra_flags=-save-temps" -split "\s+"
 
-$buildFlags = $EXTRA_BUILD_FLAGS.Split(" ")
+$BuildFlags = @()
 
-$BUILD_FLAGS = "" # --build-property compiler.c.extra_flags=-save-temps --build-property compiler.cpp.extra_flags=-save-temps"
-
-foreach ($buildFlag in $buildFlags) {
-    if ($buildFlag -match "-O\d{1}") {
-        $BUILD_FLAGS += " --build-property build.flags.optimize=$buildFlag"
-    }
+foreach ($buildFlag in $ExtraBuildFlags) {
+    $BuildFlags += "--build-property" 
+    $BuildFlags += "$buildFlag"
 }
 
+$Params = @()
+
 if ($Action -eq "build") {
-    $Params = $("compile --config-dir $CONFIG_DIR $VERBOSE $BUILD_FLAGS -b $BOARD_TYPE") -split "\s+"
+    $Params = ("compile --config-dir $CONFIG_DIR $VERBOSE --port $PORT --fqbn $FQBN" -split "\s+") + $BuildFlags
 }
 
 if ($Action -eq "upload") {
-    $Params = $("upload --config-dir $CONFIG_DIR $VERBOSE -p $SERIAL_PORT --fqbn $BOARD_TYPE") -split "\s+"
+    $Params = "upload --config-dir $CONFIG_DIR $VERBOSE --port $PORT --fqbn $FQBN" -split "\s+"
 }
 
 if ($Action -eq "monitor") {
-    $Params = $("monitor --config-dir $CONFIG_DIR -p $SERIAL_PORT") -split "\s+"
+    $Params = "monitor --config-dir $CONFIG_DIR --port $PORT" -split "\s+"
 }
 
-iF ($Params.Count -gt 0)
-{
-    & $ARDUINO_CLI $Params
+iF ($Params.Count -gt 0) {
+    & $ARDUINO_CLI ($Params + $OptParams)
 }
