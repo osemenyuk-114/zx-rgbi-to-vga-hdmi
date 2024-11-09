@@ -4,7 +4,7 @@
 extern "C"
 {
 #include "g_config.h"
-#include "hdmi.h"
+#include "dvi.h"
 #include "rgb_capture.h"
 #include "v_buf.h"
 #include "vga.h"
@@ -202,7 +202,7 @@ void print_video_out_mode()
   Serial.print("  Video output mode ........... ");
   switch (settings.video_out_mode)
   {
-  case HDMI:
+  case DVI:
     Serial.println("HDMI 640x480");
     break;
 
@@ -396,8 +396,8 @@ void print_settings()
 
 void set_scanlines_mode()
 {
-  if (settings.video_out_mode == HDMI)
-    set_hdmi_scanlines_mode(settings.scanlines_mode);
+  if (settings.video_out_mode == DVI)
+    set_dvi_scanlines_mode(settings.scanlines_mode);
   else
     set_vga_scanlines_mode(settings.scanlines_mode);
 }
@@ -417,9 +417,9 @@ void setup()
 
   set_scanlines_mode();
 
-  if (settings.video_out_mode == HDMI)
+  if (settings.video_out_mode == DVI)
   {
-    start_hdmi(*(vga_modes[settings.video_out_mode]));
+    start_dvi(*(vga_modes[settings.video_out_mode]));
   }
   else
   {
@@ -486,7 +486,7 @@ void loop()
           break;
 
         case '1':
-          settings.video_out_mode = HDMI;
+          settings.video_out_mode = DVI;
           print_video_out_mode();
           break;
 
