@@ -16,7 +16,7 @@ extern uint16_t pio_program_capture_1_instructions[];
 extern const struct pio_program pio_program_vga;
 extern uint16_t pio_program_vga_instructions[];
 
-extern const struct pio_program pio_program_hdmi;
-extern uint16_t pio_program_hdmi_instructions[];
+extern const struct pio_program pio_program_dvi;
+extern uint16_t pio_program_dvi_instructions[];
 
 #endif

@@ -1,5 +1,5 @@
 #include "g_config.h"
-#include "hdmi.h"
+#include "dvi.h"
 #include "pio_programs.h"
 #include "v_buf.h"
 
@@ -55,14 +55,14 @@ static uint64_t get_ser_diff_data(uint16_t dataR, uint16_t dataG, uint16_t dataB
     bG |= (bG ^ 1) << 1;
     bB |= (bB ^ 1) << 1;
 
-    if (HDMI_PIN_invert_diffpairs)
+    if (DVI_PIN_invert_diffpairs)
     {
       bR ^= 0b11;
       bG ^= 0b11;
       bB ^= 0b11;
     }
 
-    if (HDMI_PIN_RGB_notBGR)
+    if (DVI_PIN_RGB_notBGR)
     {
       d6 = (bR << 4) | (bG << 2) | (bB << 0);
     }
@@ -106,7 +106,7 @@ static uint tmds_encoder(uint8_t d8)
   return d_out;
 }
 
-static void __not_in_flash_func(dma_handler_hdmi)()
+static void __not_in_flash_func(dma_handler_dvi)()
 {
   static uint16_t dma_buf_idx;
   static uint16_t y;
@@ -172,12 +172,12 @@ static void __not_in_flash_func(dma_handler_hdmi)()
   }
 }
 
-void set_hdmi_scanlines_mode(bool sl_mode)
+void set_dvi_scanlines_mode(bool sl_mode)
 {
   scanlines_mode = sl_mode;
 }
 
-void start_hdmi(video_mode_t v_mode)
+void start_dvi(video_mode_t v_mode)
 {
   video_mode = v_mode;
 
@@ -218,44 +218,44 @@ void start_hdmi(video_mode_t v_mode)
   v_out_dma_buf[0] = calloc(video_mode.whole_line * 2, sizeof(uint32_t));
   v_out_dma_buf[1] = calloc(video_mode.whole_line * 2, sizeof(uint32_t));
 
-  // set HDMI data pins
-  for (int i = HDMI_PIN_D0; i < HDMI_PIN_D0 + 6; i++)
+  // set DVI data pins
+  for (int i = DVI_PIN_D0; i < DVI_PIN_D0 + 6; i++)
   {
     gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
-    pio_gpio_init(PIO_HDMI, i);
+    pio_gpio_init(PIO_DVI, i);
     gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_12MA);
     gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
   }
 
-  // set HDMI clock pins
-  for (int i = HDMI_PIN_CLK0; i < HDMI_PIN_CLK0 + 2; i++)
+  // set DVI clock pins
+  for (int i = DVI_PIN_CLK0; i < DVI_PIN_CLK0 + 2; i++)
   {
-    pio_gpio_init(PIO_HDMI, i);
+    pio_gpio_init(PIO_DVI, i);
     gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_12MA);
     gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
   }
 
   // PIO initialization
   // PIO program load
-  uint offset = pio_add_program(PIO_HDMI, &pio_program_hdmi);
+  uint offset = pio_add_program(PIO_DVI, &pio_program_dvi);
 
   pio_sm_config c = pio_get_default_sm_config();
 
-  pio_sm_set_pins_with_mask(PIO_HDMI, SM_HDMI, 3u << HDMI_PIN_CLK0, 3u << HDMI_PIN_CLK0);
-  pio_sm_set_pindirs_with_mask(PIO_HDMI, SM_HDMI, 3u << HDMI_PIN_CLK0, 3u << HDMI_PIN_CLK0);
-  pio_sm_set_consecutive_pindirs(PIO_HDMI, SM_HDMI, HDMI_PIN_D0, 6, true);
+  pio_sm_set_pins_with_mask(PIO_DVI, SM_DVI, 3u << DVI_PIN_CLK0, 3u << DVI_PIN_CLK0);
+  pio_sm_set_pindirs_with_mask(PIO_DVI, SM_DVI, 3u << DVI_PIN_CLK0, 3u << DVI_PIN_CLK0);
+  pio_sm_set_consecutive_pindirs(PIO_DVI, SM_DVI, DVI_PIN_D0, 6, true);
 
-  sm_config_set_wrap(&c, offset, offset + (pio_program_hdmi.length - 1));
+  sm_config_set_wrap(&c, offset, offset + (pio_program_dvi.length - 1));
   sm_config_set_out_shift(&c, true, true, 30);
-  sm_config_set_out_pins(&c, HDMI_PIN_D0, 6);
+  sm_config_set_out_pins(&c, DVI_PIN_D0, 6);
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
 
   // PIO side set pins
-  sm_config_set_sideset_pins(&c, HDMI_PIN_CLK0);
+  sm_config_set_sideset_pins(&c, DVI_PIN_CLK0);
   sm_config_set_sideset(&c, 2, false, false);
 
-  pio_sm_init(PIO_HDMI, SM_HDMI, offset, &c);
-  pio_sm_set_enabled(PIO_HDMI, SM_HDMI, true);
+  pio_sm_init(PIO_DVI, SM_DVI, offset, &c);
+  pio_sm_set_enabled(PIO_DVI, SM_DVI, true);
 
   // DMA initialization
   int dma_ch0 = dma_claim_unused_channel(true);
@@ -267,13 +267,13 @@ void start_hdmi(video_mode_t v_mode)
   channel_config_set_transfer_data_size(&c0, DMA_SIZE_32);
   channel_config_set_read_increment(&c0, true);
   channel_config_set_write_increment(&c0, false);
-  channel_config_set_dreq(&c0, DREQ_PIO_HDMI + SM_HDMI);
+  channel_config_set_dreq(&c0, DREQ_PIO_DVI + SM_DVI);
   channel_config_set_chain_to(&c0, dma_ch1); // chain to control channel
 
   dma_channel_configure(
       dma_ch0,
       &c0,
-      &PIO_HDMI->txf[SM_HDMI],   // write address
+      &PIO_DVI->txf[SM_DVI],   // write address
       &v_out_dma_buf[0][0],      // read address
       video_mode.whole_line * 2, //
       false                      // don't start yet
@@ -302,7 +302,7 @@ void start_hdmi(video_mode_t v_mode)
   dma_channel_set_irq0_enabled(dma_ch1, true);
 
   // configure the processor to run dma_handler() when DMA IRQ 0 is asserted
-  irq_set_exclusive_handler(DMA_IRQ_0, dma_handler_hdmi);
+  irq_set_exclusive_handler(DMA_IRQ_0, dma_handler_dvi);
   irq_set_enabled(DMA_IRQ_0, true);
 
   dma_start_channel_mask((1u << dma_ch0));

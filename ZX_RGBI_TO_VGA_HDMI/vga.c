@@ -67,6 +67,8 @@ void __not_in_flash_func(memset32)(uint32_t *dst, const uint32_t data, uint32_t 
 
 void __not_in_flash_func(dma_handler_vga)()
 {
+  uint32_t **v_out_dma_buf_addr;
+
   dma_hw->ints0 = 1u << dma_ch1;
   static uint16_t y = 0;
   static uint8_t *screen_buf = NULL;
@@ -111,9 +113,6 @@ void __not_in_flash_func(dma_handler_vga)()
   }
 
   // image area
-  uint32_t **v_out_dma_buf_addr = &line_patterns[2];
-  uint8_t *scr_buf = &screen_buf[(uint16_t)((y - v_margin) / video_mode.div) * V_BUF_W / 2];
-
   uint8_t line = y % (2 * video_mode.div);
 
   switch (video_mode.div)
@@ -212,6 +211,7 @@ void __not_in_flash_func(dma_handler_vga)()
     break;
   }
 
+  uint8_t *scr_buf = &screen_buf[(uint16_t)((y - v_margin) / video_mode.div) * V_BUF_W / 2];
   uint8_t *line_buf = (uint8_t *)(*v_out_dma_buf_addr);
 
   for (int i = h_visible_area; i--;)

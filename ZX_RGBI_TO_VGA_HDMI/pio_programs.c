@@ -75,7 +75,7 @@ const struct pio_program pio_program_vga = {
     .origin = -1,
 };
 
-uint16_t pio_program_hdmi_instructions[] = {
+uint16_t pio_program_dvi_instructions[] = {
     //             .wrap_target
     0x7006, //  0: out pins, 6   side 2
     0x7006, //  1: out pins, 6   side 2
@@ -90,8 +90,8 @@ uint16_t pio_program_hdmi_instructions[] = {
             //     .wrap
 };
 
-const struct pio_program pio_program_hdmi = {
-    .instructions = pio_program_hdmi_instructions,
+const struct pio_program pio_program_dvi = {
+    .instructions = pio_program_dvi_instructions,
     .length = 10,
     .origin = -1,
 };

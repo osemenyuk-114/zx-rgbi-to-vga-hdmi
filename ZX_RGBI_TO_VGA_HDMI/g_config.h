@@ -20,14 +20,14 @@ enum cap_sync_mode_t
 
 enum video_out_mode_t
 {
-  VGA_MODE_MIN,
-  HDMI = VGA_MODE_MIN,
+  VIDEO_MODE_MIN,
+  DVI = VIDEO_MODE_MIN,
   VGA640x480,
   VGA800x600,
   VGA1024x768,
   VGA1280x1024_d3,
   VGA1280x1024_d4,
-  VGA_MODE_MAX = VGA1280x1024_d4,
+  VIDEO_MODE_MAX = VGA1280x1024_d4,
 };
 
 typedef struct settings_t
@@ -81,25 +81,25 @@ extern uint32_t frame_count;
 // 36LJU22
 // first VGA pin
 #define VGA_PIN_D0 8
-// HDMI pins and settings
-#define HDMI_PIN_D0 8
-#define HDMI_PIN_CLK0 (HDMI_PIN_D0 + 6)
+// DVI pins and settings
+#define DVI_PIN_D0 8
+#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
 
 #elif defined(BOARD_CODE_09LJV23)
 // 09LJV23
 // first VGA pin
 #define VGA_PIN_D0 7
-// HDMI pins and settings
-#define HDMI_PIN_D0 7
-#define HDMI_PIN_CLK0 (HDMI_PIN_D0 + 6)
+// DVI pins and settings
+#define DVI_PIN_D0 7
+#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
 
 #else
 // defaults
 // first VGA pin
 #define VGA_PIN_D0 7
-// HDMI pins and settings
-#define HDMI_PIN_D0 7
-#define HDMI_PIN_CLK0 (HDMI_PIN_D0 + 6)
+// DVI pins and settings
+#define DVI_PIN_D0 7
+#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
 
 #endif
 
@@ -116,13 +116,13 @@ extern uint32_t frame_count;
 #define F_PIN (CAP_PIN_D0 + 6)
 #endif
 
-// HDMI pins and settings
-#ifndef HDMI_PIN_invert_diffpairs
-#define HDMI_PIN_invert_diffpairs 0
+// DVI pins and settings
+#ifndef DVI_PIN_invert_diffpairs
+#define DVI_PIN_invert_diffpairs 0
 #endif
 
-#ifndef HDMI_PIN_RGB_notBGR
-#define HDMI_PIN_RGB_notBGR 0
+#ifndef DVI_PIN_RGB_notBGR
+#define DVI_PIN_RGB_notBGR 0
 #endif
 
 // PIO and SM for VGA
@@ -137,17 +137,17 @@ extern uint32_t frame_count;
 
 #define SM_VGA 0
 
-// PIO and SM for HDMI
-#define PIO_HDMI_NUM 0
-#if PIO_HDMI_NUM == 0
-#define PIO_HDMI pio0
-#define DREQ_PIO_HDMI DREQ_PIO0_TX0
+// PIO and SM for DVI
+#define PIO_DVI_NUM 0
+#if PIO_DVI_NUM == 0
+#define PIO_DVI pio0
+#define DREQ_PIO_DVI DREQ_PIO0_TX0
 #else
-#define PIO_HDMI pio1
-#define DREQ_PIO_HDMI DREQ_PIO0_TX0
+#define PIO_DVI pio1
+#define DREQ_PIO_DVI DREQ_PIO0_TX0
 #endif
 
-#define SM_HDMI 0
+#define SM_DVI 0
 
 // capture PIO and SM
 #define PIO_CAP_NUM 1
@@ -167,7 +167,7 @@ extern uint32_t frame_count;
 #define V_BUF_SZ (V_BUF_H * V_BUF_W / 2)
 
 // settings MIN values
-#define VIDEO_OUT_MODE_MIN VGA_MODE_MIN
+#define VIDEO_OUT_MODE_MIN VIDEO_MODE_MIN
 #define CAP_SYNC_MODE_MIN SYNC_MODE_MIN
 #define FREQUENCY_MIN 6000000
 #define EXT_CLK_DIVIDER_MIN 1
@@ -176,7 +176,7 @@ extern uint32_t frame_count;
 #define shY_MIN 0
 
 // settings MAX values
-#define VIDEO_OUT_MODE_MAX VGA_MODE_MAX
+#define VIDEO_OUT_MODE_MAX VIDEO_MODE_MAX
 #define CAP_SYNC_MODE_MAX SYNC_MODE_MAX
 #define FREQUENCY_MAX 8000000
 #define EXT_CLK_DIVIDER_MAX 5
