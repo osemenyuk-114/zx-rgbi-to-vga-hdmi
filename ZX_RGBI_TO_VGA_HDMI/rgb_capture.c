@@ -12,7 +12,7 @@
 static int dma_ch1;
 uint8_t *cap_buf;
 settings_t capture_settings;
-uint offset;
+uint16_t offset;
 
 uint32_t frame_count = 0;
 
@@ -105,12 +105,19 @@ int8_t set_capture_delay(int8_t delay)
   return capture_settings.delay;
 }
 
+void set_video_sync_mode(bool video_sync_mode)
+{
+  capture_settings.video_sync_mode = video_sync_mode;
+}
+
 void __not_in_flash_func(dma_handler_capture())
 {
   static uint32_t dma_buf_idx;
   static uint8_t pix8_s;
   static int x_s;
   static int y_s;
+
+  uint8_t sync_mask = (capture_settings.video_sync_mode & (1u << VS_PIN)) | (1u << HS_PIN);
 
   dma_hw->ints1 = 1u << dma_ch1;
   dma_channel_set_read_addr(dma_ch1, &cap_dma_buf_addr[dma_buf_idx & 1], false);
@@ -138,7 +145,7 @@ void __not_in_flash_func(dma_handler_capture())
 
     x++;
 
-    if (!(val8 & (1u << HS_PIN))) // detect active sync pulse
+    if ((val8 & sync_mask) != sync_mask) // detect active sync pulses
     {
       if (CS_idx == H_SYNC_PULSE / 2) // start in the middle of the H_SYNC pulse // this should help ignore the spikes
       {

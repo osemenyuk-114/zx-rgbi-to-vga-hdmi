@@ -35,6 +35,7 @@ typedef struct settings_t
   enum video_out_mode_t video_out_mode;
   bool scanlines_mode : 1;
   bool x3_buffering_mode : 1;
+  bool video_sync_mode : 1;
   enum cap_sync_mode_t cap_sync_mode;
   uint32_t frequency;
   uint8_t ext_clk_divider;
@@ -110,6 +111,10 @@ extern uint32_t frame_count;
 
 #ifndef HS_PIN
 #define HS_PIN (CAP_PIN_D0 + 4)
+#endif
+
+#ifndef VS_PIN
+#define VS_PIN (CAP_PIN_D0 + 5)
 #endif
 
 #ifndef F_PIN

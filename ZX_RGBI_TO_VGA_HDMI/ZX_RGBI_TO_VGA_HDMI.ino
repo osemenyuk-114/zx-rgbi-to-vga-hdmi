@@ -42,6 +42,20 @@ void print_byte_hex(uint8_t byte)
   Serial.print(byte, HEX);
 }
 
+String binary_to_string(uint8_t value, bool mask_1)
+{
+  uint8_t binary = value;
+  String str = "";
+
+  for (int i = 0; i < 8; i++)
+  {
+    str += binary & 0b10000000 ? (mask_1 ? "X" : "1") : "0";
+    binary <<= 1;
+  }
+
+  return str;
+}
+
 void print_main_menu()
 {
   Serial.println("");
@@ -53,6 +67,7 @@ void print_main_menu()
   Serial.println("  c   set capture synchronization source");
   Serial.println("  f   set capture frequency");
   Serial.println("  d   set external clock divider");
+  Serial.println("  y   set video sync mode");
   Serial.println("  t   set capture delay and image position");
   Serial.println("  m   set pin inversion mask");
   Serial.println("");
@@ -143,6 +158,19 @@ void print_ext_clk_divider_menu()
   Serial.println("");
   Serial.println("  a   increment divider (+1)");
   Serial.println("  z   decrement divider (-1)");
+  Serial.println("");
+  Serial.println("  p   show configuration");
+  Serial.println("  h   show help (this menu)");
+  Serial.println("  q   exit to main menu");
+  Serial.println("");
+}
+
+void print_video_sync_mode_menu()
+{
+  Serial.println("");
+  Serial.println("      * Video synchronization mode *");
+  Serial.println("");
+  Serial.println("  y   change synchronization mode");
   Serial.println("");
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
@@ -357,18 +385,13 @@ void print_dividers()
   Serial.println("");
 }
 
-String binary_to_string(uint8_t value, bool mask_1)
+void print_video_sync_mode()
 {
-  uint8_t binary = value;
-  String str = "";
-
-  for (int i = 0; i < 8; i++)
-  {
-    str += binary & 0b10000000 ? (mask_1 ? "X" : "1") : "0";
-    binary <<= 1;
-  }
-
-  return str;
+  Serial.print("  Video synchronization mode .. ");
+  if (settings.video_sync_mode)
+    Serial.println("separate");
+  else
+    Serial.println("composite");
 }
 
 void print_pin_inversion_mask()
@@ -386,6 +409,7 @@ void print_settings()
   print_cap_sync_mode();
   print_capture_frequency();
   print_ext_clk_divider();
+  print_video_sync_mode();
   print_capture_delay();
   print_x_offset();
   print_y_offset();
@@ -788,6 +812,49 @@ void loop()
         case 'z':
           settings.ext_clk_divider = settings.ext_clk_divider > EXT_CLK_DIVIDER_MIN ? (settings.ext_clk_divider - 1) : EXT_CLK_DIVIDER_MIN;
           print_ext_clk_divider();
+          break;
+
+        default:
+          break;
+        }
+
+        if (inbyte == 'q')
+        {
+          inbyte = 'h';
+          break;
+        }
+
+        inbyte = 0;
+      }
+
+      break;
+    }
+
+    case 'y':
+    {
+      inbyte = 'h';
+
+      while (1)
+      {
+        sleep_ms(10);
+
+        if (inbyte != 'h' && Serial.available())
+          inbyte = Serial.read();
+
+        switch (inbyte)
+        {
+        case 'p':
+          print_video_sync_mode();
+          break;
+
+        case 'h':
+          print_video_sync_mode_menu();
+          break;
+
+        case 'y':
+          settings.video_sync_mode = !settings.video_sync_mode;
+          print_video_sync_mode();
+          set_video_sync_mode(settings.video_sync_mode);
           break;
 
         default:
