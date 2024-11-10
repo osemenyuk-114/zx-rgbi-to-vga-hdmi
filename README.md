@@ -25,4 +25,3 @@ For detailed hardware and original software information, please refer to the sou
 ### Removed Features
 
 - Z80 CLK external clock source.
-- Separate horizontal and vertical sync inputs. (Now only composite sync is supported.)
