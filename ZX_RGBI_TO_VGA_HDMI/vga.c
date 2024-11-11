@@ -281,6 +281,8 @@ void start_vga(video_mode_t v_mode)
   {
     gpio_init(i);
     gpio_set_dir(i, GPIO_OUT);
+    gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_4MA);
+    gpio_set_slew_rate(i, GPIO_SLEW_RATE_SLOW);
     pio_gpio_init(PIO_VGA, i);
   }
 
