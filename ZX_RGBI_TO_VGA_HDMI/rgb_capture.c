@@ -117,7 +117,7 @@ void __not_in_flash_func(dma_handler_capture())
   static int x_s;
   static int y_s;
 
-  uint8_t sync_mask = (capture_settings.video_sync_mode & (1u << VS_PIN)) | (1u << HS_PIN);
+  uint8_t sync_mask = capture_settings.video_sync_mode ? ((1u << VS_PIN) | (1u << HS_PIN)) : (1u << HS_PIN);
 
   dma_hw->ints1 = 1u << dma_ch1;
   dma_channel_set_read_addr(dma_ch1, &cap_dma_buf_addr[dma_buf_idx & 1], false);
@@ -158,7 +158,12 @@ void __not_in_flash_func(dma_handler_capture())
       CS_idx++;
       x = -shX - 1;
 
-      if (CS_idx < V_SYNC_PULSE) // detect V_SYNC pulse
+      if (sync_mask == (1u << HS_PIN)) // composite sync
+      {
+        if (CS_idx < V_SYNC_PULSE) // detect V_SYNC pulse
+          continue;
+      }
+      else if (val8 & (1u << VS_PIN))
         continue;
 
       // start capture of a new frame
