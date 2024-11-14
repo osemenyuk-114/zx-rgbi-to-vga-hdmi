@@ -10,6 +10,15 @@
 #include "hardware/structs/systick.h"
 #include "hardware/vreg.h"
 
+// enable scanlines on 640x480 and 800x600 resolutions
+// not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler
+// #define LOW_RES_SCANLINE
+
+// select scanline thickness for the 1280x1024 video mode
+// narrow - show scanline once every four lines
+// wide   - show scanline twice in four lines
+#define NARROW_SCANLINE
+
 static int dma_ch1;
 static video_mode_t video_mode;
 
@@ -19,7 +28,7 @@ static int16_t v_margin;
 static bool scanlines_mode = false;
 
 static uint32_t *line_patterns[4];
-static uint8_t palette[16];
+static uint16_t palette[256];
 
 #ifdef BOARD_CODE_36LJU22
 uint8_t palette8[] = {
@@ -106,7 +115,8 @@ void __not_in_flash_func(dma_handler_vga)()
     return;
   }
 
-  if (y < v_margin || y > (v_visible_area + v_margin))
+  // top and bottom black bars when the vertical size of the image is smaller than the vertical resolution of the screen
+  if (y < v_margin || y >= (v_visible_area + v_margin))
   {
     dma_channel_set_read_addr(dma_ch1, &line_patterns[0], false);
     return;
@@ -119,18 +129,22 @@ void __not_in_flash_func(dma_handler_vga)()
   {
   case 2:
   {
-    /* scanlines mode not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler
-    if (scanlines_mode)
-      {
-        if (line > 0)
-          line++;
 
-        if (line == 4)
-          line++;
-      }
-      else
-    */
-    if (line > 1)
+#ifdef LOW_RES_SCANLINE
+
+    if (scanlines_mode)
+    {
+      if (line > 0)
+        line++;
+
+      if (line == 4)
+        line++;
+    }
+    else
+
+#endif
+
+        if (line > 1)
       line++;
 
     break;
@@ -148,19 +162,25 @@ void __not_in_flash_func(dma_handler_vga)()
   {
     if (scanlines_mode)
     {
-      if (1) // (1) - narrow scanline - show scanline once every four lines // (0) - wide scanline - show twice in four lines
-      {
-        if (line > 1)
-          line--;
 
-        if (line == 5)
-          line--;
-      }
-      else if (line > 2)
+#ifdef NARROW_SCANLINE
+
+      if (line > 1)
+        line--;
+
+      if (line >= 5)
+        line--;
+
+#else
+
+      if (line > 2)
         line--;
 
       if (line == 6)
         line--;
+
+#endif
+    
     }
     else
     {
@@ -212,13 +232,10 @@ void __not_in_flash_func(dma_handler_vga)()
   }
 
   uint8_t *scr_buf = &screen_buf[(uint16_t)((y - v_margin) / video_mode.div) * V_BUF_W / 2];
-  uint8_t *line_buf = (uint8_t *)(*v_out_dma_buf_addr);
+  uint16_t *line_buf = (uint16_t *)(*v_out_dma_buf_addr);
 
   for (int i = h_visible_area; i--;)
-  {
-    *line_buf++ = palette[*scr_buf & 0xf];
-    *line_buf++ = palette[*scr_buf++ >> 4];
-  }
+    *line_buf++ = palette[*scr_buf++];
 
   dma_channel_set_read_addr(dma_ch1, v_out_dma_buf_addr, false);
 }
@@ -250,7 +267,8 @@ void start_vga(video_mode_t v_mode)
 
   // palette initialization
   for (int i = 0; i < 16; i++)
-    palette[i] = palette8[i] | (NO_SYNC ^ video_mode.sync_polarity);
+    for (int j = 0; j < 16; j++)
+      palette[(i * 16) + j] = ((uint16_t)(palette8[i] | (NO_SYNC ^ video_mode.sync_polarity)) << 8) | (palette8[j] | (NO_SYNC ^ video_mode.sync_polarity));
 
   // allocate memory for line template definitions
   uint8_t *base_ptr = calloc(whole_line * 4, sizeof(uint8_t));
