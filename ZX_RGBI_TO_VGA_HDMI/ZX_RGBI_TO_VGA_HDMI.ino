@@ -59,7 +59,9 @@ String binary_to_string(uint8_t value, bool mask_1)
 void print_main_menu()
 {
   Serial.println("");
-  Serial.println("      * ZX RGB(I) to VGA/HDMI *");
+  Serial.print("      * ZX RGB(I) to VGA/HDMI ");
+  Serial.print(FW_VERSION);
+  Serial.println(" *");
   Serial.println("");
   Serial.println("  v   set video output mode");
   Serial.println("  s   set scanlines mode");
