@@ -65,7 +65,6 @@ void print_main_menu()
   Serial.println("");
   Serial.println("  v   set video output mode");
   Serial.println("  s   set scanlines mode");
-  Serial.println("  b   set buffering mode");
   Serial.println("  c   set capture synchronization source");
   Serial.println("  f   set capture frequency");
   Serial.println("  d   set external clock divider");
@@ -104,19 +103,6 @@ void print_scanlines_mode_menu()
   Serial.println("      * Scanlines mode *");
   Serial.println("");
   Serial.println("  s   change scanlines mode");
-  Serial.println("");
-  Serial.println("  p   show configuration");
-  Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
-}
-
-void print_buffering_mode_menu()
-{
-  Serial.println("");
-  Serial.println("      * Buffering mode *");
-  Serial.println("");
-  Serial.println("  b   change buffering mode");
   Serial.println("");
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
@@ -271,16 +257,6 @@ void print_scanlines_mode()
     Serial.println("disabled");
 }
 
-void print_buffering_mode()
-{
-  Serial.print("  Buffering mode .............. ");
-
-  if (settings.x3_buffering_mode)
-    Serial.println("x3");
-  else
-    Serial.println("x1");
-}
-
 void print_cap_sync_mode()
 {
   Serial.print("  Capture sync source ......... ");
@@ -407,7 +383,6 @@ void print_settings()
   Serial.println("");
   print_video_out_mode();
   print_scanlines_mode();
-  print_buffering_mode();
   print_cap_sync_mode();
   print_capture_frequency();
   print_ext_clk_divider();
@@ -436,8 +411,6 @@ void setup()
   memcpy(&settings, saved_settings, sizeof(settings_t));
   // correct if there is garbage in the cells
   check_settings(&settings);
-
-  set_v_buf_buffering_mode(settings.x3_buffering_mode);
 
   draw_welcome_screen(*(vga_modes[settings.video_out_mode]));
 
@@ -581,49 +554,6 @@ void loop()
           settings.scanlines_mode = !settings.scanlines_mode;
           print_scanlines_mode();
           set_scanlines_mode();
-          break;
-
-        default:
-          break;
-        }
-
-        if (inbyte == 'q')
-        {
-          inbyte = 'h';
-          break;
-        }
-
-        inbyte = 0;
-      }
-
-      break;
-    }
-
-    case 'b':
-    {
-      inbyte = 'h';
-
-      while (1)
-      {
-        sleep_ms(10);
-
-        if (inbyte != 'h' && Serial.available())
-          inbyte = Serial.read();
-
-        switch (inbyte)
-        {
-        case 'p':
-          print_buffering_mode();
-          break;
-
-        case 'h':
-          print_buffering_mode_menu();
-          break;
-
-        case 'b':
-          settings.x3_buffering_mode = !settings.x3_buffering_mode;
-          print_buffering_mode();
-          set_v_buf_buffering_mode(settings.x3_buffering_mode);
           break;
 
         default:
