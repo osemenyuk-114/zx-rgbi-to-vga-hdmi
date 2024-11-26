@@ -36,7 +36,6 @@ typedef struct settings_t
 {
   enum video_out_mode_t video_out_mode;
   bool scanlines_mode : 1;
-  bool x3_buffering_mode : 1;
   bool video_sync_mode : 1;
   enum cap_sync_mode_t cap_sync_mode;
   uint32_t frequency;
