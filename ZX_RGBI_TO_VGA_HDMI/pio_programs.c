@@ -32,37 +32,6 @@ const struct pio_program pio_program_capture_0 = {
     .origin = -1,
 };
 
-const uint16_t set_opcode = 0xe020;
-
-// PIO program with an external capture clock source
-uint16_t pio_program_capture_1_instructions[] = {
-    //                         .wrap_target
-    0xa042,         //  0: nop                 // a capture delay will be added to this command
-    0xe020,         //  1: set    x, 0         // an external clock divider will be added to this command
-    0x2000 | F_PIN, //  2: wait   1 gpio, 0
-    0x4008,         //  3: in     pins, 8
-    0x2080 | F_PIN, //  4: wait   0 gpio, 0
-    0x0042,         //  5: jmp    x--, 2
-    0x8020,         //  6: push   block
-    0x00c1,         //  7: jmp    pin, 1
-    0xe020,         //  8: set    x, 0         // an external clock divider will be added to this command
-    0x2000 | F_PIN, //  9: wait   1 gpio, 0
-    0x00c0,         // 10: jmp    pin, 0
-    0x4008,         // 11: in     pins, 8
-    0x2080 | F_PIN, // 12: wait   0 gpio, 1
-    0x0049,         // 13: jmp    x--, 9
-    0x8020,         // 14: push   block
-    0x0008,         // 15: jmp    8
-                    //     .wrap
-
-};
-
-const struct pio_program pio_program_capture_1 = {
-    .instructions = pio_program_capture_1_instructions,
-    .length = 16,
-    .origin = -1,
-};
-
 uint16_t pio_program_vga_instructions[] = {
     //             .wrap_target
     0x6008, //  0: out    pins, 8

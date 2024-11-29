@@ -12,14 +12,6 @@
 
 #define FW_VERSION "v1.2.1"
 
-enum cap_sync_mode_t
-{
-  SYNC_MODE_MIN,
-  SELF = SYNC_MODE_MIN,
-  EXT,
-  SYNC_MODE_MAX = EXT,
-};
-
 enum video_out_mode_t
 {
   VIDEO_MODE_MIN,
@@ -36,10 +28,7 @@ typedef struct settings_t
 {
   enum video_out_mode_t video_out_mode;
   bool scanlines_mode : 1;
-  bool video_sync_mode : 1;
-  enum cap_sync_mode_t cap_sync_mode;
   uint32_t frequency;
-  uint8_t ext_clk_divider;
   int8_t delay;
   int16_t shX;
   int16_t shY;
@@ -84,7 +73,7 @@ extern uint32_t frame_count;
 // first VGA pin
 #define VGA_PIN_D0 8
 // DVI pins and settings
-#define DVI_PIN_D0 8
+#define DVI_PIN_D0 VGA_PIN_D0
 #define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
 
 #elif defined(BOARD_CODE_09LJV23)
@@ -92,7 +81,7 @@ extern uint32_t frame_count;
 // first VGA pin
 #define VGA_PIN_D0 7
 // DVI pins and settings
-#define DVI_PIN_D0 7
+#define DVI_PIN_D0 VGA_PIN_D0
 #define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
 
 #else
@@ -100,7 +89,7 @@ extern uint32_t frame_count;
 // first VGA pin
 #define VGA_PIN_D0 7
 // DVI pins and settings
-#define DVI_PIN_D0 7
+#define DVI_PIN_D0 VGA_PIN_D0
 #define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
 
 #endif
@@ -111,15 +100,7 @@ extern uint32_t frame_count;
 #endif
 
 #ifndef HS_PIN
-#define HS_PIN (CAP_PIN_D0 + 4)
-#endif
-
-#ifndef VS_PIN
-#define VS_PIN (CAP_PIN_D0 + 5)
-#endif
-
-#ifndef F_PIN
-#define F_PIN (CAP_PIN_D0 + 6)
+#define HS_PIN (CAP_PIN_D0 + 6)
 #endif
 
 // DVI pins and settings
@@ -170,22 +151,18 @@ extern uint32_t frame_count;
 // video buffer
 #define V_BUF_W 448
 #define V_BUF_H 306
-#define V_BUF_SZ (V_BUF_H * V_BUF_W / 2)
+#define V_BUF_SZ (V_BUF_H * V_BUF_W)
 
 // settings MIN values
 #define VIDEO_OUT_MODE_MIN VIDEO_MODE_MIN
-#define CAP_SYNC_MODE_MIN SYNC_MODE_MIN
 #define FREQUENCY_MIN 6000000
-#define EXT_CLK_DIVIDER_MIN 1
 #define DELAY_MIN 0
 #define shX_MIN 0
 #define shY_MIN 0
 
 // settings MAX values
 #define VIDEO_OUT_MODE_MAX VIDEO_MODE_MAX
-#define CAP_SYNC_MODE_MAX SYNC_MODE_MAX
 #define FREQUENCY_MAX 8000000
-#define EXT_CLK_DIVIDER_MAX 5
 #define DELAY_MAX 31
 #define shX_MAX 200
 #define shY_MAX 200

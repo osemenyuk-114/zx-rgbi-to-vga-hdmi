@@ -22,7 +22,7 @@ static uint32_t *v_out_dma_buf[2];
 static uint32_t *v_out_dma_buf_addr[2];
 static uint64_t sync_data[4];
 static uint64_t R64, G64, B64, Y64;
-static uint64_t palette[32];
+static uint64_t palette[128];
 
 static void __not_in_flash_func(memset64)(uint64_t *dst, const uint64_t data, uint32_t size)
 {
@@ -136,17 +136,13 @@ static void __not_in_flash_func(dma_handler_dvi)()
   if (y < video_mode.v_visible_area)
   {
     // image area
-    uint8_t *scr_buf = &screen_buf[(uint16_t)(y / video_mode.div) * V_BUF_W / 2];
+    uint8_t *scr_buf = &screen_buf[(uint16_t)(y / video_mode.div) * V_BUF_W];
     uint64_t *line_buf = active_buf;
 
     for (int i = h_visible_area; i--;)
     {
       uint8_t c2 = *scr_buf++;
-      uint64_t *c64 = &palette[(c2 & 0xf) * 2];
-      *line_buf++ = *c64++;
-      *line_buf++ = *c64;
-      c2 >>= 4;
-      c64 = &palette[(c2 & 0xf) * 2];
+      uint64_t *c64 = &palette[(c2 & 0x3f) * 2];
       *line_buf++ = *c64++;
       *line_buf++ = *c64;
     }
@@ -181,7 +177,7 @@ void start_dvi(video_mode_t v_mode)
 {
   video_mode = v_mode;
 
-  h_visible_area = video_mode.h_visible_area / (2 * video_mode.div);
+  h_visible_area = video_mode.h_visible_area / video_mode.div;
 
   // initialization of constants
   uint16_t b0 = 0b1101010100;
@@ -205,15 +201,16 @@ void start_dvi(video_mode_t v_mode)
   sleep_ms(10);
 
   // palette initialization
-  for (int c = 0; c < 16; c++)
-  {
-    uint8_t Y = (c >> 3) & 1;
-    uint8_t R = ((c >> 2) & 1) ? (Y ? 255 : 170) : 0;
-    uint8_t G = ((c >> 1) & 1) ? (Y ? 255 : 170) : 0;
-    uint8_t B = ((c >> 0) & 1) ? (Y ? 255 : 170) : 0;
-    palette[c * 2] = get_ser_diff_data(tmds_encoder(R), tmds_encoder(G), tmds_encoder(B));
-    palette[c * 2 + 1] = palette[c * 2] ^ 0x0003ffffffffffffl;
-  }
+  for (int i = 0; i < 8; i++)
+    for (int j = 0; j < 8; j++)
+    {
+      uint8_t c2 = ((i * 8) + j) * 2;
+      uint8_t R = (j & 4) ? ((i & 1) ? 255 : 128) : 0;
+      uint8_t G = (j & 2) ? ((i & 2) ? 255 : 128) : 0;
+      uint8_t B = (j & 1) ? ((i & 4) ? 255 : 128) : 0;
+      palette[c2] = get_ser_diff_data(tmds_encoder(R), tmds_encoder(G), tmds_encoder(B));
+      palette[c2 + 1] = palette[c2] ^ 0x0003ffffffffffffl;
+    }
 
   v_out_dma_buf[0] = calloc(video_mode.whole_line * 2, sizeof(uint32_t));
   v_out_dma_buf[1] = calloc(video_mode.whole_line * 2, sizeof(uint32_t));
@@ -273,7 +270,7 @@ void start_dvi(video_mode_t v_mode)
   dma_channel_configure(
       dma_ch0,
       &c0,
-      &PIO_DVI->txf[SM_DVI],   // write address
+      &PIO_DVI->txf[SM_DVI],     // write address
       &v_out_dma_buf[0][0],      // read address
       video_mode.whole_line * 2, //
       false                      // don't start yet

@@ -5,9 +5,9 @@
             "includePath": [
                 "${workspaceFolder}",
                 "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040",
-                "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/include",
-                "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/cores/rp2040",
-                "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/variants/rpipico",
+                "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.3.0/include",
+                "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.3.0/cores/rp2040",
+                "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.3.0/variants/rpipico",
                 ""
             ],
             "browse": {
@@ -15,9 +15,9 @@
                 "path": [
                     "${workspaceFolder}",
                     "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040",
-                    "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/include",
-                    "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/cores/rp2040",
-                    "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/variants/rpipico",
+                    "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.3.0/include",
+                    "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.3.0/cores/rp2040",
+                    "${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.3.0/variants/rpipico",
                     ""
                 ]
             },
@@ -54,10 +54,10 @@
                 "-mcpu=cortex-m0plus",
                 "-march=armv6-m",
                 "-mthumb",
-                "-iprefix${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/",
-                "@${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/lib/core_inc.txt",
-                "@${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/lib/rp2040/platform_def.txt",
-                "@${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.1.1/lib/rp2040/platform_inc.txt",
+                "-iprefix${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.3.0/",
+                "@${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.3.0/lib/core_inc.txt",
+                "@${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.3.0/lib/rp2040/platform_def.txt",
+                "@${env.LOCALAPPDATA}/Arduino15/packages/rp2040/hardware/rp2040/4.3.0/lib/rp2040/platform_inc.txt",
                 ""
             ]
         }
