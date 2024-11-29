@@ -15,7 +15,6 @@ static uint8_t *screen_buf;
 static video_mode_t video_mode;
 
 static int16_t h_visible_area;
-static bool scanlines_mode = false;
 
 // the number of DMA buffers can be increased if there is image fluttering
 static uint32_t *v_out_dma_buf[2];
@@ -172,11 +171,6 @@ static void __not_in_flash_func(dma_handler_dvi)()
   }
 }
 
-void set_dvi_scanlines_mode(bool sl_mode)
-{
-  scanlines_mode = sl_mode;
-}
-
 void start_dvi(video_mode_t v_mode)
 {
   video_mode = v_mode;
@@ -273,7 +267,7 @@ void start_dvi(video_mode_t v_mode)
   dma_channel_configure(
       dma_ch0,
       &c0,
-      &PIO_DVI->txf[SM_DVI],   // write address
+      &PIO_DVI->txf[SM_DVI],     // write address
       &v_out_dma_buf[0][0],      // read address
       video_mode.whole_line * 2, //
       false                      // don't start yet

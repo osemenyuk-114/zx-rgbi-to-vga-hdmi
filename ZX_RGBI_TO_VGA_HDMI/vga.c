@@ -30,7 +30,6 @@ static bool scanlines_mode = false;
 static uint32_t *line_patterns[4];
 static uint16_t palette[256];
 
-#ifdef BOARD_CODE_36LJU22
 uint8_t palette8[] = {
     0b00000000,
     0b00100000,
@@ -50,27 +49,6 @@ uint8_t palette8[] = {
     0b00001111,
     0b00111111,
 };
-#else
-uint8_t palette8[] = {
-    0b00000000,
-    0b00100000,
-    0b00001000,
-    0b00101000,
-    0b00000010,
-    0b00100010,
-    0b00001010,
-    0b00101010,
-
-    0b00000000,
-    0b00110000,
-    0b00001100,
-    0b00111100,
-    0b00000011,
-    0b00110011,
-    0b00001111,
-    0b00111111,
-};
-#endif
 
 void __not_in_flash_func(memset32)(uint32_t *dst, const uint32_t data, uint32_t size);
 
@@ -180,7 +158,7 @@ void __not_in_flash_func(dma_handler_vga)()
         line--;
 
 #endif
-    
+
     }
     else
     {

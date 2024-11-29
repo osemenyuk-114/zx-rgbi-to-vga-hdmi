@@ -85,7 +85,7 @@ extern uint32_t frame_count;
 // first VGA pin
 #define VGA_PIN_D0 8
 // DVI pins and settings
-#define DVI_PIN_D0 8
+#define DVI_PIN_D0 VGA_PIN_D0
 #define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
 
 #elif defined(BOARD_CODE_09LJV23)
@@ -93,7 +93,7 @@ extern uint32_t frame_count;
 // first VGA pin
 #define VGA_PIN_D0 7
 // DVI pins and settings
-#define DVI_PIN_D0 7
+#define DVI_PIN_D0 VGA_PIN_D0
 #define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
 
 #else
@@ -101,7 +101,7 @@ extern uint32_t frame_count;
 // first VGA pin
 #define VGA_PIN_D0 7
 // DVI pins and settings
-#define DVI_PIN_D0 7
+#define DVI_PIN_D0 VGA_PIN_D0
 #define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
 
 #endif

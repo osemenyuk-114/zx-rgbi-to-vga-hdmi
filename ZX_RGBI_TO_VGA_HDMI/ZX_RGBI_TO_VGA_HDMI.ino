@@ -422,9 +422,7 @@ void print_settings()
 
 void set_scanlines_mode()
 {
-  if (settings.video_out_mode == DVI)
-    set_dvi_scanlines_mode(settings.scanlines_mode);
-  else
+  if (settings.video_out_mode != DVI)
     set_vga_scanlines_mode(settings.scanlines_mode);
 }
 

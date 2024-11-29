@@ -71,7 +71,10 @@ void draw_welcome_screen(video_mode_t video_mode)
     for (int x = 0; x < V_BUF_W; x++)
     {
       uint8_t i = 15 - ((16 * x * video_mode.div) / video_mode.h_visible_area);
-      uint8_t c = (!(i & 1) << 3) | ((i >> 2) & 2) | (i & 4) | ((i >> 1) & 1);
+      uint8_t R = (i & 4) ? ((i & 1) ? 0b0100 : 0b1100) : 0;
+      uint8_t G = (i & 8) ? ((i & 1) ? 0b0010 : 0b1010) : 0;
+      uint8_t B = (i & 2) ? ((i & 1) ? 0b0001 : 0b1001) : 0;
+      uint8_t c = R | G | B;
 
       if (x & 1)
         *v_buf++ |= (c << 4) & 0xf0;
@@ -92,9 +95,11 @@ void draw_welcome_screen_h(video_mode_t video_mode)
 
   for (int y = 0; y < V_BUF_H; y++)
   {
-
     uint8_t i = (16 * y * video_mode.div) / v_area;
-    uint8_t c = ((i & 1) << 3) | ((i >> 2) & 2) | (i & 4) | ((i >> 1) & 1);
+    uint8_t R = (i & 4) ? ((i & 1) ? 0b0100 : 0b1100) : 0;
+    uint8_t G = (i & 8) ? ((i & 1) ? 0b0010 : 0b1010) : 0;
+    uint8_t B = (i & 2) ? ((i & 1) ? 0b0001 : 0b1001) : 0;
+    uint8_t c = R | G | B;
 
     for (int x = 0; x < V_BUF_W / 2; x++)
     {
