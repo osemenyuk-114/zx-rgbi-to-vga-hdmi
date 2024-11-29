@@ -65,10 +65,7 @@ void print_main_menu()
   Serial.println("");
   Serial.println("  v   set video output mode");
   Serial.println("  s   set scanlines mode");
-  Serial.println("  c   set capture synchronization source");
   Serial.println("  f   set capture frequency");
-  Serial.println("  d   set external clock divider");
-  Serial.println("  y   set video sync mode");
   Serial.println("  t   set capture delay and image position");
   Serial.println("  m   set pin inversion mask");
   Serial.println("");
@@ -110,20 +107,6 @@ void print_scanlines_mode_menu()
   Serial.println("");
 }
 
-void print_cap_sync_mode_menu()
-{
-  Serial.println("");
-  Serial.println("      * Capture synchronization source *");
-  Serial.println("");
-  Serial.println("  1   self-synchronizing");
-  Serial.println("  2   external clock");
-  Serial.println("");
-  Serial.println("  p   show configuration");
-  Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
-}
-
 void print_capture_frequency_menu()
 {
   Serial.println("");
@@ -132,33 +115,6 @@ void print_capture_frequency_menu()
   Serial.println("  1   7000000 Hz (ZX Spectrum  48K)");
   Serial.println("  2   7093790 Hz (ZX Spectrum 128K)");
   Serial.println("  3   custom");
-  Serial.println("");
-  Serial.println("  p   show configuration");
-  Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
-}
-
-void print_ext_clk_divider_menu()
-{
-  Serial.println("");
-  Serial.println("      * External clock divider *");
-  Serial.println("");
-  Serial.println("  a   increment divider (+1)");
-  Serial.println("  z   decrement divider (-1)");
-  Serial.println("");
-  Serial.println("  p   show configuration");
-  Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
-}
-
-void print_video_sync_mode_menu()
-{
-  Serial.println("");
-  Serial.println("      * Video synchronization mode *");
-  Serial.println("");
-  Serial.println("  y   change synchronization mode");
   Serial.println("");
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
@@ -257,35 +213,11 @@ void print_scanlines_mode()
     Serial.println("disabled");
 }
 
-void print_cap_sync_mode()
-{
-  Serial.print("  Capture sync source ......... ");
-  switch (settings.cap_sync_mode)
-  {
-  case SELF:
-    Serial.println("self-synchronizing");
-    break;
-
-  case EXT:
-    Serial.println("external clock");
-    break;
-
-  default:
-    break;
-  }
-}
-
 void print_capture_frequency()
 {
   Serial.print("  Capture frequency ........... ");
   Serial.print(settings.frequency, DEC);
   Serial.println(" Hz");
-}
-
-void print_ext_clk_divider()
-{
-  Serial.print("  External clock divider ...... ");
-  Serial.println(settings.ext_clk_divider, DEC);
 }
 
 void print_capture_delay()
@@ -363,15 +295,6 @@ void print_dividers()
   Serial.println("");
 }
 
-void print_video_sync_mode()
-{
-  Serial.print("  Video synchronization mode .. ");
-  if (settings.video_sync_mode)
-    Serial.println("separate");
-  else
-    Serial.println("composite");
-}
-
 void print_pin_inversion_mask()
 {
   Serial.print("  Pin inversion mask .......... ");
@@ -383,10 +306,7 @@ void print_settings()
   Serial.println("");
   print_video_out_mode();
   print_scanlines_mode();
-  print_cap_sync_mode();
   print_capture_frequency();
-  print_ext_clk_divider();
-  print_video_sync_mode();
   print_capture_delay();
   print_x_offset();
   print_y_offset();
@@ -572,53 +492,6 @@ void loop()
       break;
     }
 
-    case 'c':
-    {
-      inbyte = 'h';
-
-      while (1)
-      {
-        sleep_ms(10);
-
-        if (inbyte != 'h' && Serial.available())
-          inbyte = Serial.read();
-
-        switch (inbyte)
-        {
-        case 'p':
-          print_cap_sync_mode();
-          break;
-
-        case 'h':
-          print_cap_sync_mode_menu();
-          break;
-
-        case '1':
-          settings.cap_sync_mode = SELF;
-          print_cap_sync_mode();
-          break;
-
-        case '2':
-          settings.cap_sync_mode = EXT;
-          print_cap_sync_mode();
-          break;
-
-        default:
-          break;
-        }
-
-        if (inbyte == 'q')
-        {
-          inbyte = 'h';
-          break;
-        }
-
-        inbyte = 0;
-      }
-
-      break;
-    }
-
     case 'f':
     {
       inbyte = 'h';
@@ -697,97 +570,6 @@ void loop()
 
           break;
         }
-
-        default:
-          break;
-        }
-
-        if (inbyte == 'q')
-        {
-          inbyte = 'h';
-          break;
-        }
-
-        inbyte = 0;
-      }
-
-      break;
-    }
-
-    case 'd':
-    {
-      inbyte = 'h';
-
-      while (1)
-      {
-        sleep_ms(10);
-
-        if (inbyte != 'h' && Serial.available())
-          inbyte = Serial.read();
-
-        switch (inbyte)
-        {
-
-        case 'p':
-          print_ext_clk_divider();
-          break;
-
-        case 'h':
-          print_ext_clk_divider_menu();
-          break;
-
-        case 'a':
-          settings.ext_clk_divider = settings.ext_clk_divider < EXT_CLK_DIVIDER_MAX ? (settings.ext_clk_divider + 1) : EXT_CLK_DIVIDER_MAX;
-          print_ext_clk_divider();
-          break;
-
-        case 'z':
-          settings.ext_clk_divider = settings.ext_clk_divider > EXT_CLK_DIVIDER_MIN ? (settings.ext_clk_divider - 1) : EXT_CLK_DIVIDER_MIN;
-          print_ext_clk_divider();
-          break;
-
-        default:
-          break;
-        }
-
-        if (inbyte == 'q')
-        {
-          inbyte = 'h';
-          break;
-        }
-
-        inbyte = 0;
-      }
-
-      break;
-    }
-
-    case 'y':
-    {
-      inbyte = 'h';
-
-      while (1)
-      {
-        sleep_ms(10);
-
-        if (inbyte != 'h' && Serial.available())
-          inbyte = Serial.read();
-
-        switch (inbyte)
-        {
-        case 'p':
-          print_video_sync_mode();
-          break;
-
-        case 'h':
-          print_video_sync_mode_menu();
-          break;
-
-        case 'y':
-          settings.video_sync_mode = !settings.video_sync_mode;
-          print_video_sync_mode();
-          set_video_sync_mode(settings.video_sync_mode);
-          break;
 
         default:
           break;
