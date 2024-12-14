@@ -52,7 +52,7 @@ video_mode_t vga_1024x768 = {
 };
 
 video_mode_t vga_1280x1024_d3 = {
-    .sys_freq = 252000,
+    .sys_freq = 288000, // 252000,
     .pixel_freq = 108000000.0,
     .h_visible_area = 1278, // 1280
     .v_visible_area = 1024,
@@ -69,7 +69,7 @@ video_mode_t vga_1280x1024_d3 = {
 };
 
 video_mode_t vga_1280x1024_d4 = {
-    .sys_freq = 270000, // 243000, // switch to a higher system clock if the image is unstable
+    .sys_freq = 243000, // 270000, // switch to a higher system clock if the image is unstable
     .pixel_freq = 108000000.0,
     .h_visible_area = 1280,
     .v_visible_area = 1024,
