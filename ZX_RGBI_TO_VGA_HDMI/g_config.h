@@ -149,8 +149,8 @@ extern uint32_t frame_count;
 #define SM_CAP 0
 
 // video buffer
-#define V_BUF_W 448
-#define V_BUF_H 306
+#define V_BUF_W 640
+#define V_BUF_H 312
 #define V_BUF_SZ (V_BUF_H * V_BUF_W)
 
 // settings MIN values
