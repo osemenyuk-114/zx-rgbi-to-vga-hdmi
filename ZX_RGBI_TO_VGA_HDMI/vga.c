@@ -222,22 +222,24 @@ void start_vga(video_mode_t v_mode)
   set_sys_clock_khz(video_mode.sys_freq, true);
   sleep_ms(10);
 
+  uint8_t index[8] = {0x00, 0x01, 0x04, 0x05, 0x10, 0x11, 0x14, 0x15};
+
   // palette initialization
   for (int i = 0; i < 8; i++)
     for (int j = 0; j < 8; j++)
     {
-      uint8_t R1 = (j & 4) ? ((i & 4) ? 0b00000011 : 0b00000010) : 0b00000000;
+      uint8_t R1 = (j & 1) ? ((i & 1) ? 0b00000011 : 0b00000010) : 0b00000000;
       uint8_t G1 = (j & 2) ? ((i & 2) ? 0b00001100 : 0b00001000) : 0b00000000;
-      uint8_t B1 = (j & 1) ? ((i & 1) ? 0b00110000 : 0b00100000) : 0b00000000;
+      uint8_t B1 = (j & 4) ? ((i & 4) ? 0b00110000 : 0b00100000) : 0b00000000;
 
       for (int k = 0; k < 8; k++)
         for (int l = 0; l < 8; l++)
         {
-          uint8_t R0 = (l & 4) ? ((k & 4) ? 0b00000011 : 0b00000010) : 0b00000000;
+          uint8_t R0 = (l & 1) ? ((k & 1) ? 0b00000011 : 0b00000010) : 0b00000000;
           uint8_t G0 = (l & 2) ? ((k & 2) ? 0b00001100 : 0b00001000) : 0b00000000;
-          uint8_t B0 = (l & 1) ? ((k & 1) ? 0b00110000 : 0b00100000) : 0b00000000;
+          uint8_t B0 = (l & 4) ? ((k & 4) ? 0b00110000 : 0b00100000) : 0b00000000;
 
-          palette[(k * 8) + l][(i * 8) + j] = ((uint16_t)(R1 | G1 | B1 | (NO_SYNC ^ video_mode.sync_polarity)) << 8) | R0 | G0 | B0 | (NO_SYNC ^ video_mode.sync_polarity);
+          palette[2 * index[k] + index[l]][2 * index[i] + index[j]] = ((uint16_t)(R1 | G1 | B1 | (NO_SYNC ^ video_mode.sync_polarity)) << 8) | R0 | G0 | B0 | (NO_SYNC ^ video_mode.sync_polarity);
         }
     }
 
