@@ -205,9 +205,9 @@ void start_dvi(video_mode_t v_mode)
     for (int j = 0; j < 8; j++)
     {
       uint8_t c2 = ((i * 8) + j) * 2;
-      uint8_t R = (j & 4) ? ((i & 4) ? 255 : 128) : 0;
+      uint8_t R = (j & 1) ? ((i & 1) ? 255 : 128) : 0;
       uint8_t G = (j & 2) ? ((i & 2) ? 255 : 128) : 0;
-      uint8_t B = (j & 1) ? ((i & 1) ? 255 : 128) : 0;
+      uint8_t B = (j & 4) ? ((i & 4) ? 255 : 128) : 0;
       palette[c2] = get_ser_diff_data(tmds_encoder(R), tmds_encoder(G), tmds_encoder(B));
       palette[c2 + 1] = palette[c2] ^ 0x0003ffffffffffffl;
     }
