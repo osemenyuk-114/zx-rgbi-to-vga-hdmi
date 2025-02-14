@@ -206,13 +206,13 @@ void start_vga(video_mode_t v_mode)
 {
   video_mode = v_mode;
 
-  int whole_line = video_mode.whole_line / video_mode.div;
-  int h_sync_pulse_front = (video_mode.h_visible_area + video_mode.h_front_porch) / video_mode.div;
-  int h_sync_pulse = video_mode.h_sync_pulse / video_mode.div;
+  int whole_line = video_mode.whole_line;
+  int h_sync_pulse_front = video_mode.h_visible_area + video_mode.h_front_porch;
+  int h_sync_pulse = video_mode.h_sync_pulse;
 
-  h_visible_area = video_mode.h_visible_area / (video_mode.div * 2);
-  v_visible_area = V_BUF_H * video_mode.div;
-  v_margin = (int16_t)((video_mode.v_visible_area - v_visible_area) / (video_mode.div * 2)) * video_mode.div;
+  h_visible_area = video_mode.h_visible_area / 2;
+  v_visible_area = V_BUF_H;
+  v_margin = (int16_t)((video_mode.v_visible_area - v_visible_area) / 2);
 
   if (v_margin < 0)
     v_margin = 0;
@@ -290,7 +290,7 @@ void start_vga(video_mode_t v_mode)
   sm_config_set_out_pins(&c, VGA_PIN_D0, 8);
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
 
-  sm_config_set_clkdiv(&c, ((float)clock_get_hz(clk_sys) * video_mode.div) / video_mode.pixel_freq);
+  sm_config_set_clkdiv(&c, (float)clock_get_hz(clk_sys) / video_mode.pixel_freq);
 
   pio_sm_init(PIO_VGA, SM_VGA, offset, &c);
   pio_sm_set_enabled(PIO_VGA, SM_VGA, true);

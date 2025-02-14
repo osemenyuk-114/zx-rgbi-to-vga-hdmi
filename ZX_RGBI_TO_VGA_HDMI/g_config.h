@@ -162,7 +162,7 @@ extern uint32_t frame_count;
 
 // settings MAX values
 #define VIDEO_OUT_MODE_MAX VIDEO_MODE_MAX
-#define FREQUENCY_MAX 8000000
+#define FREQUENCY_MAX 18000000
 #define DELAY_MAX 31
 #define shX_MAX 200
 #define shY_MAX 200
