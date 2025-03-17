@@ -206,13 +206,13 @@ void start_vga(video_mode_t v_mode)
 {
   video_mode = v_mode;
 
-  int whole_line = video_mode.whole_line;
-  int h_sync_pulse_front = video_mode.h_visible_area + video_mode.h_front_porch;
-  int h_sync_pulse = video_mode.h_sync_pulse;
+  int whole_line = video_mode.whole_line / video_mode.div;
+  int h_sync_pulse_front = (video_mode.h_visible_area + video_mode.h_front_porch) / video_mode.div;
+  int h_sync_pulse = video_mode.h_sync_pulse / video_mode.div;
 
-  h_visible_area = video_mode.h_visible_area / 2;
-  v_visible_area = V_BUF_H;
-  v_margin = (int16_t)((video_mode.v_visible_area - v_visible_area) / 2);
+  h_visible_area = video_mode.h_visible_area / (video_mode.div * 2);
+  v_visible_area = V_BUF_H * video_mode.div;
+  v_margin = (int16_t)((video_mode.v_visible_area - v_visible_area) / (video_mode.div * 2)) * video_mode.div;
 
   if (v_margin < 0)
     v_margin = 0;
@@ -222,26 +222,21 @@ void start_vga(video_mode_t v_mode)
   set_sys_clock_khz(video_mode.sys_freq, true);
   sleep_ms(10);
 
-  uint8_t index[8] = {0x00, 0x01, 0x04, 0x05, 0x10, 0x11, 0x14, 0x15};
+  for (int i = 0; i < 64; i++)
+  {
+    uint8_t R0 = ((i % 4) != 0) ? (((i % 4) == 3) ? 0b00000011 : 0b00000010) : 0b00000000;
+    uint8_t G0 = (((i >> 2) % 4) != 0) ? ((((i >> 2) % 4) == 3) ? 0b00001100 : 0b00001000) : 0b00000000;
+    uint8_t B0 = (((i >> 4) % 4) != 0) ? ((((i >> 4) % 4) == 3) ? 0b00110000 : 0b00100000) : 0b00000000;
 
-  // palette initialization
-  for (int i = 0; i < 8; i++)
-    for (int j = 0; j < 8; j++)
+    for (int j = 0; j < 64; j++)
     {
-      uint8_t R1 = (j & 1) ? ((i & 1) ? 0b00000011 : 0b00000010) : 0b00000000;
-      uint8_t G1 = (j & 2) ? ((i & 2) ? 0b00001100 : 0b00001000) : 0b00000000;
-      uint8_t B1 = (j & 4) ? ((i & 4) ? 0b00110000 : 0b00100000) : 0b00000000;
+      uint8_t R1 = ((j % 4) != 0) ? (((j % 4) == 3) ? 0b00000011 : 0b00000010) : 0b00000000;
+      uint8_t G1 = (((j >> 2) % 4) != 0) ? ((((j >> 2) % 4) == 3) ? 0b00001100 : 0b00001000) : 0b00000000;
+      uint8_t B1 = (((j >> 4) % 4) != 0) ? ((((j >> 4) % 4) == 3) ? 0b00110000 : 0b00100000) : 0b00000000;
 
-      for (int k = 0; k < 8; k++)
-        for (int l = 0; l < 8; l++)
-        {
-          uint8_t R0 = (l & 1) ? ((k & 1) ? 0b00000011 : 0b00000010) : 0b00000000;
-          uint8_t G0 = (l & 2) ? ((k & 2) ? 0b00001100 : 0b00001000) : 0b00000000;
-          uint8_t B0 = (l & 4) ? ((k & 4) ? 0b00110000 : 0b00100000) : 0b00000000;
-
-          palette[2 * index[k] + index[l]][2 * index[i] + index[j]] = ((uint16_t)(R1 | G1 | B1 | (NO_SYNC ^ video_mode.sync_polarity)) << 8) | R0 | G0 | B0 | (NO_SYNC ^ video_mode.sync_polarity);
-        }
+      palette[i][j] = ((uint16_t)(R1 | G1 | B1 | (NO_SYNC ^ video_mode.sync_polarity)) << 8) | R0 | G0 | B0 | (NO_SYNC ^ video_mode.sync_polarity);
     }
+  }
 
   // allocate memory for line template definitions
   uint8_t *base_ptr = calloc(whole_line * 4, sizeof(uint8_t));
@@ -290,7 +285,7 @@ void start_vga(video_mode_t v_mode)
   sm_config_set_out_pins(&c, VGA_PIN_D0, 8);
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
 
-  sm_config_set_clkdiv(&c, (float)clock_get_hz(clk_sys) / video_mode.pixel_freq);
+  sm_config_set_clkdiv(&c, ((float)clock_get_hz(clk_sys) * video_mode.div) / video_mode.pixel_freq);
 
   pio_sm_init(PIO_VGA, SM_VGA, offset, &c);
   pio_sm_set_enabled(PIO_VGA, SM_VGA, true);
