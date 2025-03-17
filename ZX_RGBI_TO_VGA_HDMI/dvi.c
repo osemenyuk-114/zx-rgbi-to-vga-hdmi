@@ -201,16 +201,16 @@ void start_dvi(video_mode_t v_mode)
   sleep_ms(10);
 
   // palette initialization
-  for (int i = 0; i < 8; i++)
-    for (int j = 0; j < 8; j++)
-    {
-      uint8_t c2 = ((i * 8) + j) * 2;
-      uint8_t R = (j & 1) ? ((i & 1) ? 255 : 128) : 0;
-      uint8_t G = (j & 2) ? ((i & 2) ? 255 : 128) : 0;
-      uint8_t B = (j & 4) ? ((i & 4) ? 255 : 128) : 0;
-      palette[c2] = get_ser_diff_data(tmds_encoder(R), tmds_encoder(G), tmds_encoder(B));
-      palette[c2 + 1] = palette[c2] ^ 0x0003ffffffffffffl;
-    }
+  for (int i = 0; i < 64; i++)
+  {
+    uint8_t c2 = i * 2;
+    uint8_t R = ((i % 4) != 0) ? (((i % 4) == 3) ? 255 : 170) : 0;
+    uint8_t G = (((i >> 2) % 4) != 0) ? ((((i >> 2) % 4) == 3) ? 255 : 170) : 0;
+    uint8_t B = (((i >> 4) % 4) != 0) ? ((((i >> 4) % 4) == 3) ? 255 : 170) : 0;
+
+    palette[c2] = get_ser_diff_data(tmds_encoder(R), tmds_encoder(G), tmds_encoder(B));
+    palette[c2 + 1] = palette[c2] ^ 0x0003ffffffffffffl;
+  }
 
   v_out_dma_buf[0] = calloc(video_mode.whole_line * 2, sizeof(uint32_t));
   v_out_dma_buf[1] = calloc(video_mode.whole_line * 2, sizeof(uint32_t));

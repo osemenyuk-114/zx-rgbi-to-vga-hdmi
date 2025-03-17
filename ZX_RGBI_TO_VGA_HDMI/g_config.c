@@ -34,42 +34,8 @@ video_mode_t vga_800x600 = {
     .div = 2,
 };
 
-video_mode_t vga_1024x768 = {
-    .sys_freq = 260000,
-    .pixel_freq = 65000000.0,
-    .h_visible_area = 1023, // 1024
-    .v_visible_area = 768,
-    .whole_line = 1344,
-    .whole_frame = 806,
-    .h_front_porch = 24,
-    .h_sync_pulse = 135, // 136
-    .h_back_porch = 162, // 160
-    .v_front_porch = 3,
-    .v_sync_pulse = 6,
-    .v_back_porch = 29,
-    .sync_polarity = 0b11000000, // negative
-    .div = 3,
-};
-
-video_mode_t vga_1280x1024_d3 = {
-    .sys_freq = 288000, // 252000,
-    .pixel_freq = 108000000.0,
-    .h_visible_area = 1278, // 1280
-    .v_visible_area = 1024,
-    .whole_line = 1692, // 1688
-    .whole_frame = 1066,
-    .h_front_porch = 48,
-    .h_sync_pulse = 111, // 112
-    .h_back_porch = 255, // 248
-    .v_front_porch = 1,
-    .v_sync_pulse = 3,
-    .v_back_porch = 38,
-    .sync_polarity = 0b00000000, // positive
-    .div = 3,
-};
-
 video_mode_t vga_1280x1024_d4 = {
-    .sys_freq = 243000, // 270000, // switch to a higher system clock if the image is unstable
+    .sys_freq = 270000,
     .pixel_freq = 108000000.0,
     .h_visible_area = 1280,
     .v_visible_area = 1024,
@@ -85,6 +51,6 @@ video_mode_t vga_1280x1024_d4 = {
     .div = 4,
 };
 
-video_mode_t *vga_modes[] = {&vga_640x480, &vga_640x480, &vga_800x600, &vga_1024x768, &vga_1280x1024_d3, &vga_1280x1024_d4};
+video_mode_t *vga_modes[] = {&vga_640x480, &vga_640x480, &vga_800x600, &vga_1280x1024_d4};
 
 uint8_t g_v_buf[V_BUF_SZ];

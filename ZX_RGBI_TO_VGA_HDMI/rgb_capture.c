@@ -110,8 +110,7 @@ void __not_in_flash_func(dma_handler_capture())
 
   uint8_t *buf8 = (uint8_t *)cap_dma_buf[dma_buf_idx & 1];
   dma_buf_idx++;
-  gpio_put(PIN_LED, frame_count & 0x20);
-
+ 
   register uint8_t pix8 = pix8_s;
   register int x = x_s;
   register int y = y_s;
@@ -216,9 +215,6 @@ void start_capture(settings_t *settings)
   set_capture_settings(settings);
 
   uint8_t inv_mask = capture_settings.pin_inversion_mask;
-
-  pinMode(PIN_LED, OUTPUT);
-  digitalWrite(PIN_LED, LOW);
 
   // set capture pins
   for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)

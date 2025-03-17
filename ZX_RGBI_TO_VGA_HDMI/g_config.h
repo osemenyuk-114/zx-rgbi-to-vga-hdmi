@@ -10,7 +10,7 @@
 #include "inttypes.h"
 #include "stdbool.h"
 
-#define FW_VERSION "v1.2.1"
+#define FW_VERSION "v1.3.0-6bit"
 
 enum video_out_mode_t
 {
@@ -18,8 +18,6 @@ enum video_out_mode_t
   DVI = VIDEO_MODE_MIN,
   VGA640x480,
   VGA800x600,
-  VGA1024x768,
-  VGA1280x1024_d3,
   VGA1280x1024_d4,
   VIDEO_MODE_MAX = VGA1280x1024_d4,
 };
@@ -55,8 +53,6 @@ typedef struct video_mode_t
 
 extern video_mode_t vga_640x480;
 extern video_mode_t vga_800x600;
-extern video_mode_t vga_1024x768;
-extern video_mode_t vga_1280x1024_d3;
 extern video_mode_t vga_1280x1024_d4;
 
 extern video_mode_t *vga_modes[];
@@ -150,7 +146,7 @@ extern uint32_t frame_count;
 
 // video buffer
 #define V_BUF_W 640
-#define V_BUF_H 312
+#define V_BUF_H 288
 #define V_BUF_SZ (V_BUF_H * V_BUF_W)
 
 // settings MIN values

@@ -17,6 +17,7 @@ video_mode_t video_mode;
 
 const int *saved_settings = (const int *)(XIP_BASE + (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE));
 bool start_core0 = false;
+bool capture_active = false;
 
 void save_settings(settings_t *settings)
 {
@@ -84,9 +85,7 @@ void print_video_out_menu()
   Serial.println("  1   HDMI   640x480 (div 2)");
   Serial.println("  2   VGA    640x480 (div 2)");
   Serial.println("  3   VGA    800x600 (div 2)");
-  Serial.println("  4   VGA   1024x768 (div 3)");
-  Serial.println("  5   VGA  1280x1024 (div 3)");
-  Serial.println("  6   VGA  1280x1024 (div 4)");
+  Serial.println("  4   VGA  1280x1024 (div 4)");
   Serial.println("");
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
@@ -157,10 +156,11 @@ void print_pin_inversion_mask_menu()
 void print_test_menu()
 {
   Serial.println("");
-  Serial.println("      * Test *");
+  Serial.println("      * Tests *");
   Serial.println("");
   Serial.println("  1   draw welcome image (vertical stripes)");
   Serial.println("  2   draw welcome image (horizontal stripes)");
+  Serial.println("  3   draw \"NO SIGNAL\" screen");
   Serial.println("  i   show captured frame count");
   Serial.println("");
   Serial.println("  p   show configuration");
@@ -184,14 +184,6 @@ void print_video_out_mode()
 
   case VGA800x600:
     Serial.println("VGA 800x600");
-    break;
-
-  case VGA1024x768:
-    Serial.println("VGA 1024x768");
-    break;
-
-  case VGA1280x1024_d3:
-    Serial.println("VGA 1280x1024 (div 3)");
     break;
 
   case VGA1280x1024_d4:
@@ -420,15 +412,6 @@ void loop()
           break;
 
         case '4':
-          settings.video_out_mode = VGA1024x768;
-          print_video_out_mode();
-          break;
-
-        case '5':
-          settings.video_out_mode = VGA1280x1024_d3;
-          print_video_out_mode();
-          break;
-        case '6':
           settings.video_out_mode = VGA1280x1024_d4;
           print_video_out_mode();
           break;
@@ -773,19 +756,22 @@ void loop()
 
         case '1':
         case '2':
+        case '3':
         {
           uint32_t frame_count_temp = frame_count;
 
           sleep_ms(100);
 
-          if (frame_count - frame_count_temp == 0) // draw welcome screen only if capture is not active
+          if (frame_count == frame_count_temp) // draw the screen only if capture is not active
           {
-            Serial.println("  Drawing the welcome screen...");
+            Serial.println("  Drawing the screen...");
 
             if (inbyte == '1')
               draw_welcome_screen(*(vga_modes[settings.video_out_mode]));
-            else
+            else if (inbyte == '2')
               draw_welcome_screen_h(*(vga_modes[settings.video_out_mode]));
+            else
+              draw_no_signal(*(vga_modes[settings.video_out_mode]));
           }
 
           break;
@@ -834,6 +820,9 @@ void loop()
 
 void setup1()
 {
+  pinMode(PIN_LED, OUTPUT);
+  digitalWrite(PIN_LED, LOW);
+
   while (!start_core0)
     sleep_ms(10);
 
@@ -842,5 +831,25 @@ void setup1()
 
 void loop1()
 {
-  sleep_ms(1000);
+  uint32_t frame_count_tmp = frame_count;
+
+  sleep_ms(100);
+  if (frame_count > 1)
+  {
+    gpio_put(PIN_LED, frame_count & 0x20);
+
+    if (frame_count == frame_count_tmp)
+    {
+      if (capture_active == true)
+      {
+        capture_active = false;
+        draw_no_signal(*(vga_modes[settings.video_out_mode]));
+      }
+    }
+    else
+    {
+      if (capture_active == false)
+        capture_active = true;
+    }
+  }
 }
