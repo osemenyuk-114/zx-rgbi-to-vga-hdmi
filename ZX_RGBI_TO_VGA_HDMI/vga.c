@@ -30,26 +30,6 @@ static bool scanlines_mode = false;
 static uint32_t *line_patterns[4];
 static uint16_t palette[256];
 
-uint8_t palette8[] = {
-    0b00000000,
-    0b00100000,
-    0b00001000,
-    0b00101000,
-    0b00000010,
-    0b00100010,
-    0b00001010,
-    0b00101010,
-
-    0b00000000,
-    0b00110000,
-    0b00001100,
-    0b00111100,
-    0b00000011,
-    0b00110011,
-    0b00001111,
-    0b00111111,
-};
-
 void __not_in_flash_func(memset32)(uint32_t *dst, const uint32_t data, uint32_t size);
 
 void __not_in_flash_func(dma_handler_vga)()
@@ -158,7 +138,6 @@ void __not_in_flash_func(dma_handler_vga)()
         line--;
 
 #endif
-
     }
     else
     {
@@ -245,8 +224,22 @@ void start_vga(video_mode_t v_mode)
 
   // palette initialization
   for (int i = 0; i < 16; i++)
+  {
+    uint8_t Yi = (i >> 3) & 1;
+    uint8_t Ri = ((i >> 2) & 1) ? (Yi ? 0b00000011 : 0b00000010) : 0;
+    uint8_t Gi = ((i >> 1) & 1) ? (Yi ? 0b00001100 : 0b00001000) : 0;
+    uint8_t Bi = ((i >> 0) & 1) ? (Yi ? 0b00110000 : 0b00100000) : 0;
+
     for (int j = 0; j < 16; j++)
-      palette[(i * 16) + j] = ((uint16_t)(palette8[i] | (NO_SYNC ^ video_mode.sync_polarity)) << 8) | (palette8[j] | (NO_SYNC ^ video_mode.sync_polarity));
+    {
+      uint8_t Yj = (j >> 3) & 1;
+      uint8_t Rj = ((j >> 2) & 1) ? (Yj ? 0b00000011 : 0b00000010) : 0;
+      uint8_t Gj = ((j >> 1) & 1) ? (Yj ? 0b00001100 : 0b00001000) : 0;
+      uint8_t Bj = ((j >> 0) & 1) ? (Yj ? 0b00110000 : 0b00100000) : 0;
+
+      palette[(i * 16) + j] = ((uint16_t)(Ri | Gi | Bi | (NO_SYNC ^ video_mode.sync_polarity)) << 8) | (Rj | Gj | Bj | (NO_SYNC ^ video_mode.sync_polarity));
+    }
+  }
 
   // allocate memory for line template definitions
   uint8_t *base_ptr = calloc(whole_line * 4, sizeof(uint8_t));
