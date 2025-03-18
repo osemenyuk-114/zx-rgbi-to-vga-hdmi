@@ -17,6 +17,7 @@ video_mode_t video_mode;
 
 const int *saved_settings = (const int *)(XIP_BASE + (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE));
 bool start_core0 = false;
+bool capture_active = false;
 
 void save_settings(settings_t *settings)
 {
@@ -58,11 +59,10 @@ String binary_to_string(uint8_t value, bool mask_1)
 
 void print_main_menu()
 {
-  Serial.println("");
-  Serial.print("      * ZX RGB(I) to VGA/HDMI ");
+  Serial.print("\n      * ZX RGB(I) to VGA/HDMI ");
   Serial.print(FW_VERSION);
-  Serial.println(" *");
-  Serial.println("");
+  Serial.println(" *\n");
+
   Serial.println("  v   set video output mode");
   Serial.println("  s   set scanlines mode");
   Serial.println("  b   set buffering mode");
@@ -71,160 +71,140 @@ void print_main_menu()
   Serial.println("  d   set external clock divider");
   Serial.println("  y   set video sync mode");
   Serial.println("  t   set capture delay and image position");
-  Serial.println("  m   set pin inversion mask");
-  Serial.println("");
+  Serial.println("  m   set pin inversion mask\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
   Serial.println("  q   exit configuration mode");
-  Serial.println("  w   save configuration and restart");
-  Serial.println("");
+  Serial.println("  w   save configuration and restart\n");
 }
 
 void print_video_out_menu()
 {
-  Serial.println("");
-  Serial.println("      * Video output mode *");
-  Serial.println("");
+  Serial.println("\n      * Video output mode *\n");
+
   Serial.println("  1   HDMI   640x480 (div 2)");
   Serial.println("  2   VGA    640x480 (div 2)");
   Serial.println("  3   VGA    800x600 (div 2)");
   Serial.println("  4   VGA   1024x768 (div 3)");
   Serial.println("  5   VGA  1280x1024 (div 3)");
-  Serial.println("  6   VGA  1280x1024 (div 4)");
-  Serial.println("");
+  Serial.println("  6   VGA  1280x1024 (div 4)\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_scanlines_mode_menu()
 {
-  Serial.println("");
-  Serial.println("      * Scanlines mode *");
-  Serial.println("");
-  Serial.println("  s   change scanlines mode");
-  Serial.println("");
+  Serial.println("\n      * Scanlines mode *\n");
+
+  Serial.println("  s   change scanlines mode\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_buffering_mode_menu()
 {
-  Serial.println("");
-  Serial.println("      * Buffering mode *");
-  Serial.println("");
-  Serial.println("  b   change buffering mode");
-  Serial.println("");
+  Serial.println("\n      * Buffering mode *\n");
+
+  Serial.println("  b   change buffering mode\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_cap_sync_mode_menu()
 {
-  Serial.println("");
-  Serial.println("      * Capture synchronization source *");
-  Serial.println("");
+  Serial.println("\n      * Capture synchronization source *\n");
+
   Serial.println("  1   self-synchronizing");
-  Serial.println("  2   external clock");
-  Serial.println("");
+  Serial.println("  2   external clock\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_capture_frequency_menu()
 {
-  Serial.println("");
-  Serial.println("      * Capture frequency *");
-  Serial.println("");
+  Serial.println("\n      * Capture frequency *\n");
+
   Serial.println("  1   7000000 Hz (ZX Spectrum  48K)");
   Serial.println("  2   7093790 Hz (ZX Spectrum 128K)");
-  Serial.println("  3   custom");
-  Serial.println("");
+  Serial.println("  3   custom\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_ext_clk_divider_menu()
 {
-  Serial.println("");
-  Serial.println("      * External clock divider *");
-  Serial.println("");
+  Serial.println("\n      * External clock divider *\n");
+
   Serial.println("  a   increment divider (+1)");
-  Serial.println("  z   decrement divider (-1)");
-  Serial.println("");
+  Serial.println("  z   decrement divider (-1)\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_video_sync_mode_menu()
 {
-  Serial.println("");
-  Serial.println("      * Video synchronization mode *");
-  Serial.println("");
-  Serial.println("  y   change synchronization mode");
-  Serial.println("");
+  Serial.println("\n      * Video synchronization mode *\n");
+
+  Serial.println("  y   change synchronization mode\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_image_tuning_menu()
 {
-  Serial.println("");
-  Serial.println("      * Capture delay and image position *");
-  Serial.println("");
+  Serial.println("\n      * Capture delay and image position *\n");
+
   Serial.println("  a   increment delay (+1)");
-  Serial.println("  z   decrement delay (-1)");
-  Serial.println("");
+  Serial.println("  z   decrement delay (-1)\n");
+
   Serial.println("  i   shift image UP");
   Serial.println("  k   shift image DOWN");
   Serial.println("  j   shift image LEFT");
-  Serial.println("  l   shift image RIGHT");
-  Serial.println("");
+  Serial.println("  l   shift image RIGHT\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_pin_inversion_mask_menu()
 {
-  Serial.println("");
-  Serial.println("      * Pin inversion mask *");
-  Serial.println("");
-  Serial.println("  m   set pin inversion mask");
-  Serial.println("");
+  Serial.println("\n      * Pin inversion mask *\n");
+
+  Serial.println("  m   set pin inversion mask\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_test_menu()
 {
-  Serial.println("");
-  Serial.println("      * Test *");
-  Serial.println("");
+  Serial.println("\n      * Tests *\n");
+
   Serial.println("  1   draw welcome image (vertical stripes)");
   Serial.println("  2   draw welcome image (horizontal stripes)");
-  Serial.println("  i   show captured frame count");
-  Serial.println("");
+  Serial.println("  3   draw \"NO SIGNAL\" screen");
+  Serial.println("  i   show captured frame count\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_video_out_mode()
@@ -337,9 +317,7 @@ void print_dividers()
 
   video_mode_t video_mode = *(vga_modes[settings.video_out_mode]);
 
-  Serial.println("");
-
-  Serial.print("  System clock frequency ...... ");
+  Serial.print("\n  System clock frequency ...... ");
   Serial.print(clock_get_hz(clk_sys), 1);
   Serial.println(" Hz");
 
@@ -382,9 +360,7 @@ void print_dividers()
   print_byte_hex((uint8_t)(div_int >> 8));
   print_byte_hex((uint8_t)(div_int & 0xff));
   print_byte_hex(div_frac);
-  Serial.println(" )");
-
-  Serial.println("");
+  Serial.println(" )\n");
 }
 
 void print_video_sync_mode()
@@ -452,8 +428,7 @@ void setup()
 
   start_core0 = true;
 
-  Serial.println("  Starting...");
-  Serial.println("");
+  Serial.println("  Starting...\n");
 }
 
 void loop()
@@ -471,8 +446,7 @@ void loop()
     }
   }
 
-  Serial.println(" Entering the configuration mode");
-  Serial.println("");
+  Serial.println(" Entering the configuration mode\n");
 
   while (1)
   {
@@ -1059,19 +1033,22 @@ void loop()
 
         case '1':
         case '2':
+        case '3':
         {
-          uint32_t frame_count_temp = frame_count;
+          uint32_t frame_count_tmp = frame_count;
 
           sleep_ms(100);
 
-          if (frame_count - frame_count_temp == 0) // draw welcome screen only if capture is not active
+          if (frame_count == frame_count_tmp) // draw the screen only if capture is not active
           {
-            Serial.println("  Drawing the welcome screen...");
+            Serial.println("  Drawing the screen...");
 
             if (inbyte == '1')
               draw_welcome_screen(*(vga_modes[settings.video_out_mode]));
-            else
+            else if (inbyte == '2')
               draw_welcome_screen_h(*(vga_modes[settings.video_out_mode]));
+            else
+              draw_no_signal(*(vga_modes[settings.video_out_mode]));
           }
 
           break;
@@ -1111,8 +1088,8 @@ void loop()
     {
       inbyte = 0;
 
-      Serial.println(" Leaving the configuration mode");
-      Serial.println("");
+      Serial.println(" Leaving the configuration mode\n");
+
       break;
     }
   }
@@ -1120,6 +1097,9 @@ void loop()
 
 void setup1()
 {
+  pinMode(PIN_LED, OUTPUT);
+  digitalWrite(PIN_LED, LOW);
+
   while (!start_core0)
     sleep_ms(10);
 
@@ -1128,5 +1108,23 @@ void setup1()
 
 void loop1()
 {
-  sleep_ms(1000);
+  uint32_t frame_count_tmp1 = frame_count;
+
+  sleep_ms(100);
+
+  if (frame_count > 1)
+  {
+    digitalWrite(PIN_LED, (frame_count & 0x20) && capture_active);
+
+    if (frame_count == frame_count_tmp1)
+    {
+      if (capture_active == true)
+      {
+        capture_active = false;
+        draw_no_signal(*(vga_modes[settings.video_out_mode]));
+      }
+    }
+    else if (capture_active == false)
+      capture_active = true;
+  }
 }
