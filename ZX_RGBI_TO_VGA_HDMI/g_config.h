@@ -10,7 +10,7 @@
 #include "inttypes.h"
 #include "stdbool.h"
 
-#define FW_VERSION "v1.3.0"
+#define FW_VERSION "v1.3.1"
 
 enum cap_sync_mode_t
 {
@@ -168,11 +168,6 @@ extern uint32_t frame_count;
 
 #define SM_CAP 0
 
-// video buffer
-#define V_BUF_W 448
-#define V_BUF_H 306
-#define V_BUF_SZ (V_BUF_H * V_BUF_W / 2)
-
 // settings MIN values
 #define VIDEO_OUT_MODE_MIN VIDEO_MODE_MIN
 #define CAP_SYNC_MODE_MIN SYNC_MODE_MIN
@@ -191,5 +186,10 @@ extern uint32_t frame_count;
 #define shX_MAX 200
 #define shY_MAX 200
 #define PIN_INVERSION_MASK 0x7f
+
+// video buffer
+#define V_BUF_W ((64 - 6) * (FREQUENCY_MAX / 1000000)) // calculate max captured scanline length in pixels // 64 µs is a whole scanline and 6 µs - front porch + horizontal sync pulse durations
+#define V_BUF_H 304
+#define V_BUF_SZ (V_BUF_H * V_BUF_W / 2)
 
 #endif

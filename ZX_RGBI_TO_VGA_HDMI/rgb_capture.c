@@ -16,6 +16,9 @@ uint16_t offset;
 
 uint32_t frame_count = 0;
 
+uint h_sync_pulse_2;
+uint v_sync_pulse;
+
 static uint32_t cap_dma_buf[2][CAP_DMA_BUF_SIZE / 4];
 static uint32_t *cap_dma_buf_addr[2];
 
@@ -119,10 +122,13 @@ void __not_in_flash_func(dma_handler_capture())
 
   uint8_t sync_mask = capture_settings.video_sync_mode ? ((1u << VS_PIN) | (1u << HS_PIN)) : (1u << HS_PIN);
 
+  uint hsync_pulse_2 = h_sync_pulse_2;
+  uint vsync_pulse = v_sync_pulse;
+
   dma_hw->ints1 = 1u << dma_ch1;
   dma_channel_set_read_addr(dma_ch1, &cap_dma_buf_addr[dma_buf_idx & 1], false);
 
-  int shX = shX_MAX - capture_settings.shX;
+  int shX = capture_settings.shX;
   int shY = capture_settings.shY;
 
   uint8_t *buf8 = (uint8_t *)cap_dma_buf[dma_buf_idx & 1];
@@ -146,7 +152,7 @@ void __not_in_flash_func(dma_handler_capture())
 
     if ((val8 & sync_mask) != sync_mask) // detect active sync pulses
     {
-      if (CS_idx == H_SYNC_PULSE / 2) // start in the middle of the H_SYNC pulse // this should help ignore the spikes
+      if (CS_idx == hsync_pulse_2) // start in the middle of the H_SYNC pulse // this should help ignore the spikes
       {
         y++;
         // set the pointer to the beginning of a new line
@@ -159,7 +165,7 @@ void __not_in_flash_func(dma_handler_capture())
 
       if (sync_mask == (1u << HS_PIN)) // composite sync
       {
-        if (CS_idx < V_SYNC_PULSE) // detect V_SYNC pulse
+        if (CS_idx < vsync_pulse) // detect V_SYNC pulse
           continue;
       }
       else if (val8 & (1u << VS_PIN))
@@ -183,10 +189,16 @@ void __not_in_flash_func(dma_handler_capture())
       if (cap_buf == NULL)
         continue;
 
-      if ((x < 0) || (y < 0))
+      if (x < 0)
         continue;
 
-      if ((x >= V_BUF_W) || (y >= V_BUF_H))
+      if (y < 0)
+        continue;
+
+      if (x >= V_BUF_W)
+        continue;
+
+      if (y >= V_BUF_H)
         continue;
 
       *cap_buf8++ = (pix8 & 0xf) | (val8 << 4);
@@ -205,37 +217,15 @@ void __not_in_flash_func(dma_handler_capture())
   CS_idx_s = CS_idx;
 }
 
-void calculate_clkdiv(float freq, uint16_t *div_int, uint8_t *div_frac)
-{
-  uint8_t div_frac_2;
-
-  float clock = clock_get_hz(clk_sys);
-  float div = clock / (freq * 12.0);
-
-  pio_calculate_clkdiv_from_float(div, div_int, div_frac);
-
-  float delta_freq = (clock / ((*div_int + (float)*div_frac / 256) * 12.0)) - freq;
-
-  if (delta_freq > 0)
-    div_frac_2 = *div_frac + 1;
-  else if (delta_freq < 0)
-    div_frac_2 = *div_frac - 1;
-  else
-    return;
-
-  float delta_freq_2 = (clock / ((*div_int + (float)div_frac_2 / 256) * 12.0)) - freq;
-
-  if (abs(delta_freq_2) < abs(delta_freq))
-    *div_frac = div_frac_2;
-
-  return;
-}
-
 void start_capture(settings_t *settings)
 {
   set_capture_settings(settings);
 
   uint8_t inv_mask = capture_settings.pin_inversion_mask;
+
+  // video timing variables measured in pixels
+  h_sync_pulse_2 = 3 * (capture_settings.frequency / 1000000); // 3 µs - 1/2 of the H_SYNC pulse
+  v_sync_pulse = 30 * (capture_settings.frequency / 1000000);  // 30 µs - V_SYNC pulse
 
   // set capture pins
   for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)
@@ -303,7 +293,7 @@ void start_capture(settings_t *settings)
     uint16_t div_int;
     uint8_t div_frac;
 
-    calculate_clkdiv(capture_settings.frequency, &div_int, &div_frac);
+    pio_calculate_clkdiv_from_float((float)clock_get_hz(clk_sys) / (capture_settings.frequency * 12.0), &div_int, &div_frac);
     sm_config_set_clkdiv_int_frac(&c, div_int, div_frac);
   }
 

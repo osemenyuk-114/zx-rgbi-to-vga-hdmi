@@ -321,24 +321,9 @@ void print_dividers()
   Serial.print(clock_get_hz(clk_sys), 1);
   Serial.println(" Hz");
 
-  Serial.println("  Capture divider");
-
-  Serial.print("    calculated (SDK) .......... ");
+  Serial.print("  Capture divider ............. ");
 
   pio_calculate_clkdiv_from_float((float)clock_get_hz(clk_sys) / (settings.frequency * 12.0), &div_int, &div_frac);
-
-  Serial.print((div_int + (float)div_frac / 256), 8);
-
-  Serial.print(" ( ");
-  Serial.print("0x");
-  print_byte_hex((uint8_t)(div_int >> 8));
-  print_byte_hex((uint8_t)(div_int & 0xff));
-  print_byte_hex(div_frac);
-  Serial.println(" )");
-
-  Serial.print("    optimized ................. ");
-
-  calculate_clkdiv(settings.frequency, &div_int, &div_frac);
 
   Serial.print((div_int + (float)div_frac / 256), 8);
 
@@ -892,12 +877,12 @@ void loop()
           break;
 
         case 'j':
-          settings.shX = set_capture_shX(settings.shX - 1);
+          settings.shX = set_capture_shX(settings.shX + 1);
           print_x_offset();
           break;
 
         case 'l':
-          settings.shX = set_capture_shX(settings.shX + 1);
+          settings.shX = set_capture_shX(settings.shX - 1);
           print_x_offset();
           break;
 
