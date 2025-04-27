@@ -212,7 +212,7 @@ void start_vga(video_mode_t v_mode)
 
   h_visible_area = video_mode.h_visible_area / (video_mode.div * 2);
   v_visible_area = V_BUF_H * video_mode.div;
-  v_margin = (int16_t)((video_mode.v_visible_area - v_visible_area) / (video_mode.div * 2)) * video_mode.div;
+  v_margin = (int16_t)((video_mode.v_visible_area - v_visible_area) / 2);
 
   if (v_margin < 0)
     v_margin = 0;
