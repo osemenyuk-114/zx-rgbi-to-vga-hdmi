@@ -9,5 +9,5 @@
 
 void set_vga_scanlines_mode(bool sl_mode);
 void start_vga(video_mode_t v_mode);
-
+void stop_vga();
 #endif

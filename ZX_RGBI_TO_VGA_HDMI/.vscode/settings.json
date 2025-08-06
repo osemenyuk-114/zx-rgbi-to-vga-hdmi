@@ -1,0 +1,10 @@
+{
+    "files.associations": {
+        "systick.h": "c",
+        "pll.h": "c",
+        "dma.h": "c",
+        "irq.h": "c",
+        "clocks.h": "c"
+    },
+    "C_Cpp.errorSquiggles": "disabled"
+}
