@@ -3,14 +3,10 @@
 
 #include <Arduino.h>
 
-#include "pico/platform.h"
-#include "pico/stdlib.h"
+#include "pico.h"
+#include "pico/time.h"
 
-#include "stdio.h"
-#include "inttypes.h"
-#include "stdbool.h"
-
-#define FW_VERSION "v1.3.1"
+#define FW_VERSION "v1.4.0"
 
 enum cap_sync_mode_t
 {
@@ -40,7 +36,7 @@ typedef struct settings_t
   bool video_sync_mode : 1;
   enum cap_sync_mode_t cap_sync_mode;
   uint32_t frequency;
-  uint8_t ext_clk_divider;
+  int8_t ext_clk_divider;
   int8_t delay;
   int16_t shX;
   int16_t shY;

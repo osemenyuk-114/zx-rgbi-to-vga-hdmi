@@ -11,7 +11,7 @@ Param(
 $ARDUINO_CLI = "arduino-cli.exe"
 $CONFIG_DIR = "$($env:USERPROFILE)\.arduinoIDE"
 # Default port to upload to
-$PORT = "COM6"
+$PORT = "COM5"
 $BAUDRATE = "9600"
 $PORT_CONFIG = "--config baudrate=$BAUDRATE" -split "\s+"
 # Optional verbose compile/upload trigger

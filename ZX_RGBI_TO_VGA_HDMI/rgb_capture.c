@@ -1,4 +1,5 @@
 #include "g_config.h"
+
 #include "rgb_capture.h"
 #include "pio_programs.h"
 #include "v_buf.h"
@@ -9,10 +10,13 @@
 #include "hardware/structs/pll.h"
 #include "hardware/structs/systick.h"
 
+static int dma_ch0;
 static int dma_ch1;
+const pio_program_t *program = NULL;
+static uint16_t offset;
+
 uint8_t *cap_buf;
 settings_t capture_settings;
-uint16_t offset;
 
 uint32_t frame_count = 0;
 
@@ -70,6 +74,46 @@ void set_capture_settings(settings_t *settings)
   check_settings(&capture_settings);
 }
 
+void set_capture_frequency(uint32_t frequency)
+{
+  uint16_t div_int;
+  uint8_t div_frac;
+
+  if (capture_settings.cap_sync_mode == SELF)
+  {
+    capture_settings.frequency = frequency;
+
+    pio_calculate_clkdiv_from_float((float)clock_get_hz(clk_sys) / (capture_settings.frequency * 12.0), &div_int, &div_frac);
+
+    static_assert(REG_FIELD_WIDTH(PIO_SM0_CLKDIV_INT) == 16, "");
+    invalid_params_if(HARDWARE_PIO, div_int >> 16);
+    invalid_params_if(HARDWARE_PIO, div_int == 0 && div_frac != 0);
+    static_assert(REG_FIELD_WIDTH(PIO_SM0_CLKDIV_FRAC) == 8, "");
+
+    PIO_CAP->sm[SM_CAP].clkdiv = (((uint)div_frac) << PIO_SM0_CLKDIV_FRAC_LSB) | (((uint)div_int) << PIO_SM0_CLKDIV_INT_LSB);
+
+    pio_sm_clkdiv_restart(PIO_CAP, SM_CAP);
+  }
+}
+
+int8_t set_ext_clk_divider(int8_t divider)
+{
+  if (divider > EXT_CLK_DIVIDER_MAX)
+    capture_settings.ext_clk_divider = EXT_CLK_DIVIDER_MAX;
+  else if (divider < EXT_CLK_DIVIDER_MIN)
+    capture_settings.ext_clk_divider = EXT_CLK_DIVIDER_MIN;
+  else
+    capture_settings.ext_clk_divider = divider;
+
+  if (capture_settings.cap_sync_mode == EXT)
+  {
+    PIO_CAP->instr_mem[offset + 1] = nop_opcode | (capture_settings.ext_clk_divider - 1);
+    PIO_CAP->instr_mem[offset + 8] = nop_opcode | (capture_settings.ext_clk_divider - 1);
+  }
+
+  return capture_settings.ext_clk_divider;
+}
+
 int16_t set_capture_shX(int16_t shX)
 {
   if (shX > shX_MAX)
@@ -106,6 +150,17 @@ int8_t set_capture_delay(int8_t delay)
   PIO_CAP->instr_mem[offset] = nop_opcode | (capture_settings.delay << 8);
 
   return capture_settings.delay;
+}
+
+void set_pin_inversion_mask(uint8_t pin_inversion_mask)
+{
+  capture_settings.pin_inversion_mask = pin_inversion_mask;
+
+  for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)
+  {
+    gpio_set_inover(i, pin_inversion_mask & 1);
+    pin_inversion_mask >>= 1;
+  }
 }
 
 void set_video_sync_mode(bool video_sync_mode)
@@ -221,7 +276,7 @@ void start_capture(settings_t *settings)
 {
   set_capture_settings(settings);
 
-  uint8_t inv_mask = capture_settings.pin_inversion_mask;
+  uint8_t pin_inversion_mask = capture_settings.pin_inversion_mask;
 
   // video timing variables measured in pixels
   h_sync_pulse_2 = 3 * (capture_settings.frequency / 1000000); // 3 µs - 1/2 of the H_SYNC pulse
@@ -234,10 +289,9 @@ void start_capture(settings_t *settings)
     gpio_set_dir(i, GPIO_IN);
     gpio_set_input_hysteresis_enabled(i, true);
 
-    if (inv_mask & 1)
-      gpio_set_inover(i, GPIO_OVERRIDE_INVERT);
+    gpio_set_inover(i, pin_inversion_mask & 1);
 
-    inv_mask >>= 1;
+    pin_inversion_mask >>= 1;
   }
 
   // PIO initialization
@@ -248,9 +302,10 @@ void start_capture(settings_t *settings)
   case SELF:
   {
     // set initial capture delay
-    pio_program_capture_0_instructions[0] = nop_opcode | ((capture_settings.delay & 0b00011111) << 8);
+    pio_program_capture_0_instructions[0] = nop_opcode | (capture_settings.delay << 8);
     // load PIO program
-    offset = pio_add_program(PIO_CAP, &pio_program_capture_0);
+    program = &pio_program_capture_0;
+    offset = pio_add_program(PIO_CAP, program);
     // set capture delay = 0
     pio_program_capture_0_instructions[0] = nop_opcode;
 
@@ -262,12 +317,13 @@ void start_capture(settings_t *settings)
   case EXT:
   {
     // set initial capture delay
-    pio_program_capture_1_instructions[0] = nop_opcode | ((capture_settings.delay & 0b00011111) << 8);
+    pio_program_capture_1_instructions[0] = nop_opcode | (capture_settings.delay << 8);
     // set clock divider
-    pio_program_capture_1_instructions[1] = set_opcode | ((capture_settings.ext_clk_divider - 1) & 0b00011111);
-    pio_program_capture_1_instructions[8] = set_opcode | ((capture_settings.ext_clk_divider - 1) & 0b00011111);
+    pio_program_capture_1_instructions[1] = set_opcode | (capture_settings.ext_clk_divider - 1);
+    pio_program_capture_1_instructions[8] = set_opcode | (capture_settings.ext_clk_divider - 1);
     // load PIO program
-    offset = pio_add_program(PIO_CAP, &pio_program_capture_1);
+    program = &pio_program_capture_1;
+    offset = pio_add_program(PIO_CAP, program);
     // set capture delay = 0
     pio_program_capture_1_instructions[0] = nop_opcode;
 
@@ -301,7 +357,7 @@ void start_capture(settings_t *settings)
   pio_sm_set_enabled(PIO_CAP, SM_CAP, true);
 
   // DMA initialization
-  int dma_ch0 = dma_claim_unused_channel(true);
+  dma_ch0 = dma_claim_unused_channel(true);
   dma_ch1 = dma_claim_unused_channel(true);
 
   // main (data) DMA channel
@@ -349,4 +405,18 @@ void start_capture(settings_t *settings)
   irq_set_enabled(DMA_IRQ_1, true);
 
   dma_start_channel_mask((1u << dma_ch0));
+}
+
+void stop_capture()
+{
+  pio_sm_set_enabled(PIO_CAP, SM_CAP, false);
+  pio_sm_init(PIO_CAP, SM_CAP, offset, NULL);
+  pio_remove_program(PIO_CAP, program, offset);
+  dma_channel_set_irq1_enabled(dma_ch1, false);
+  dma_channel_abort(dma_ch0);
+  dma_channel_abort(dma_ch1);
+  dma_channel_cleanup(dma_ch0);
+  dma_channel_cleanup(dma_ch1);
+  dma_channel_unclaim(dma_ch0);
+  dma_channel_unclaim(dma_ch1);
 }

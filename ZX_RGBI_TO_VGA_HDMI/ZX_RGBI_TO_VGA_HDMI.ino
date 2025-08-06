@@ -1,5 +1,9 @@
 #include <Arduino.h>
-#include <typeinfo>
+
+#include "pico.h"
+#include "pico/time.h"
+
+#include "hardware/flash.h"
 
 extern "C"
 {
@@ -8,31 +12,42 @@ extern "C"
 #include "rgb_capture.h"
 #include "v_buf.h"
 #include "vga.h"
-
-#include "hardware/flash.h"
 }
+
 
 settings_t settings;
 video_mode_t video_mode;
 
 const int *saved_settings = (const int *)(XIP_BASE + (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE));
-bool start_core0 = false;
-bool capture_active = false;
 
-void save_settings(settings_t *settings)
+volatile bool start_core0 = false;
+
+volatile bool stop_core1 = false;
+volatile bool core1_inactive = false;
+
+volatile bool restart_capture = false;
+volatile bool capture_active = false;
+
+static void save_settings(settings_t *settings)
 {
   Serial.println("  Saving settings...");
 
   check_settings(settings);
 
-  rp2040.idleOtherCore();
+  stop_core1 = true;
+
+  while (!core1_inactive)
+    ;
+
   uint32_t ints = save_and_disable_interrupts();
 
   flash_range_erase((PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE), FLASH_SECTOR_SIZE);
   flash_range_program((PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE), (uint8_t *)settings, FLASH_PAGE_SIZE);
 
-  // restore_interrupts(ints);
-  // rp2040.resumeOtherCore();
+  restore_interrupts_from_disabled(ints);
+
+  stop_core1 = false;
+  core1_inactive = false;
 }
 
 void print_byte_hex(uint8_t byte)
@@ -76,7 +91,8 @@ void print_main_menu()
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
   Serial.println("  q   exit configuration mode");
-  Serial.println("  w   save configuration and restart\n");
+  Serial.println("  w   save configuration");
+  Serial.println("  r   restart\n");
 }
 
 void print_video_out_menu()
@@ -458,6 +474,8 @@ void loop()
         if (inbyte != 'h' && Serial.available())
           inbyte = Serial.read();
 
+        uint8_t video_out_mode = settings.video_out_mode;
+
         switch (inbyte)
         {
         case 'p':
@@ -499,6 +517,13 @@ void loop()
 
         default:
           break;
+        }
+
+        if ((video_out_mode != DVI) && (settings.video_out_mode != DVI) && (video_out_mode != settings.video_out_mode))
+        {
+          stop_vga();
+          start_vga(*(vga_modes[settings.video_out_mode]));
+          set_capture_frequency(settings.frequency);
         }
 
         if (inbyte == 'q')
@@ -610,6 +635,8 @@ void loop()
         if (inbyte != 'h' && Serial.available())
           inbyte = Serial.read();
 
+        uint8_t cap_sync_mode = settings.cap_sync_mode;
+
         switch (inbyte)
         {
         case 'p':
@@ -634,6 +661,9 @@ void loop()
           break;
         }
 
+        if (cap_sync_mode != settings.cap_sync_mode)
+          restart_capture = true;
+
         if (inbyte == 'q')
         {
           inbyte = 'h';
@@ -657,6 +687,8 @@ void loop()
         if (inbyte != 'h' && Serial.available())
           inbyte = Serial.read();
 
+        uint32_t frequency = settings.frequency;
+
         switch (inbyte)
         {
         case 'p':
@@ -679,8 +711,8 @@ void loop()
 
         case '3':
         {
-          String str_frequency = "";
-          uint32_t frequency = 0;
+          String frequency_str = "";
+          uint32_t frequency_int = 0;
 
           Serial.print("  Enter frequency: ");
 
@@ -695,23 +727,23 @@ void loop()
             if (inbyte >= '0' && inbyte <= '9')
             {
               Serial.print(inbyte);
-              str_frequency += inbyte;
+              frequency_str += inbyte;
             }
 
             if (inbyte == '\r')
             {
               Serial.println("");
-              frequency = str_frequency.toInt();
+              frequency_int = frequency_str.toInt();
 
-              if (frequency >= FREQUENCY_MIN && frequency <= FREQUENCY_MAX)
+              if (frequency_int >= FREQUENCY_MIN && frequency_int <= FREQUENCY_MAX)
               {
-                settings.frequency = frequency;
+                settings.frequency = frequency_int;
                 print_capture_frequency();
                 break;
               }
               else
               {
-                str_frequency = "";
+                frequency_str = "";
                 Serial.print("  Allowed frequency range ..... ");
                 Serial.print(FREQUENCY_MIN, DEC);
                 Serial.print(" - ");
@@ -728,6 +760,9 @@ void loop()
         default:
           break;
         }
+
+        if (frequency != settings.frequency)
+          set_capture_frequency(settings.frequency);
 
         if (inbyte == 'q')
         {
@@ -764,12 +799,12 @@ void loop()
           break;
 
         case 'a':
-          settings.ext_clk_divider = settings.ext_clk_divider < EXT_CLK_DIVIDER_MAX ? (settings.ext_clk_divider + 1) : EXT_CLK_DIVIDER_MAX;
+          settings.ext_clk_divider = set_ext_clk_divider(settings.ext_clk_divider + 1);
           print_ext_clk_divider();
           break;
 
         case 'z':
-          settings.ext_clk_divider = settings.ext_clk_divider > EXT_CLK_DIVIDER_MIN ? (settings.ext_clk_divider - 1) : EXT_CLK_DIVIDER_MIN;
+          settings.ext_clk_divider = set_ext_clk_divider(settings.ext_clk_divider - 1);
           print_ext_clk_divider();
           break;
 
@@ -913,6 +948,8 @@ void loop()
         if (inbyte != 'h' && Serial.available())
           inbyte = Serial.read();
 
+        uint8_t pin_inversion_mask = settings.pin_inversion_mask;
+
         switch (inbyte)
         {
         case 'p':
@@ -925,7 +962,7 @@ void loop()
 
         case 'm':
         {
-          String str_pin_inversion_mask = "";
+          String pin_inversion_mask_str = "";
 
           Serial.print("  Enter pin inversion mask: ");
 
@@ -940,30 +977,30 @@ void loop()
             if (inbyte >= '0' && inbyte <= '1')
             {
               Serial.print(inbyte);
-              str_pin_inversion_mask += inbyte;
+              pin_inversion_mask_str += inbyte;
             }
 
             if (inbyte == '\r')
             {
               Serial.println("");
 
-              uint8_t pin_inversion_mask = 0;
+              uint8_t pin_inversion_mask_int = 0;
 
-              for (int i = 0; i < str_pin_inversion_mask.length(); i++)
+              for (int i = 0; i < pin_inversion_mask_str.length(); i++)
               {
-                pin_inversion_mask <<= 1;
-                pin_inversion_mask |= str_pin_inversion_mask[i] == '1' ? 1 : 0;
+                pin_inversion_mask_int <<= 1;
+                pin_inversion_mask_int |= pin_inversion_mask_str[i] == '1' ? 1 : 0;
               }
 
-              if (!(pin_inversion_mask & ~PIN_INVERSION_MASK))
+              if (!(pin_inversion_mask_int & ~PIN_INVERSION_MASK))
               {
-                settings.pin_inversion_mask = pin_inversion_mask;
+                settings.pin_inversion_mask = pin_inversion_mask_int;
                 print_pin_inversion_mask();
                 break;
               }
               else
               {
-                str_pin_inversion_mask = "";
+                pin_inversion_mask_str = "";
                 Serial.print("  Allowed inversion mask ...... ");
                 Serial.println(binary_to_string(PIN_INVERSION_MASK, true));
                 Serial.print("  Enter pin inversion mask: ");
@@ -977,6 +1014,9 @@ void loop()
         default:
           break;
         }
+
+        if (pin_inversion_mask != settings.pin_inversion_mask)
+          set_pin_inversion_mask(settings.pin_inversion_mask);
 
         if (inbyte == 'q')
         {
@@ -1062,6 +1102,10 @@ void loop()
 
     case 'w':
       save_settings(&settings);
+      inbyte = 0;
+      break;
+
+    case 'r':
       rp2040.restart();
       break;
 
@@ -1091,7 +1135,7 @@ void setup1()
   start_capture(&settings);
 }
 
-void loop1()
+void __not_in_flash_func(loop1())
 {
   uint32_t frame_count_tmp1 = frame_count;
 
@@ -1103,13 +1147,32 @@ void loop1()
 
     if (frame_count == frame_count_tmp1)
     {
-      if (capture_active == true)
+      if (capture_active)
       {
         capture_active = false;
         draw_no_signal(*(vga_modes[settings.video_out_mode]));
       }
     }
-    else if (capture_active == false)
+    else if (!capture_active)
       capture_active = true;
+  }
+
+  if (restart_capture)
+  {
+    stop_capture();
+    start_capture(&settings);
+    restart_capture = false;
+  }
+
+  if (stop_core1)
+  {
+    core1_inactive = true;
+
+    uint32_t ints = save_and_disable_interrupts();
+
+    while (core1_inactive)
+      ;
+
+    restore_interrupts_from_disabled(ints);
   }
 }
