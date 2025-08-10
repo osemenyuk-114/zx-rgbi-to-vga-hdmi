@@ -232,7 +232,7 @@ void start_dvi(video_mode_t v_mode)
 
   // PIO initialization
   // PIO program load
-  uint offset = pio_add_program(PIO_DVI, &pio_program_dvi);
+  uint offset = pio_add_program(PIO_DVI, &pio_dvi_program);
 
   pio_sm_config c = pio_get_default_sm_config();
 
@@ -240,7 +240,7 @@ void start_dvi(video_mode_t v_mode)
   pio_sm_set_pindirs_with_mask(PIO_DVI, SM_DVI, 3u << DVI_PIN_CLK0, 3u << DVI_PIN_CLK0);
   pio_sm_set_consecutive_pindirs(PIO_DVI, SM_DVI, DVI_PIN_D0, 6, true);
 
-  sm_config_set_wrap(&c, offset, offset + (pio_program_dvi.length - 1));
+  sm_config_set_wrap(&c, offset, offset + (pio_dvi_program.length - 1));
   sm_config_set_out_shift(&c, true, true, 30);
   sm_config_set_out_pins(&c, DVI_PIN_D0, 6);
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);

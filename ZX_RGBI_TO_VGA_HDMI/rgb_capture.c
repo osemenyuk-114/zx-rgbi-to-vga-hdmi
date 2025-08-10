@@ -107,8 +107,8 @@ int8_t set_ext_clk_divider(int8_t divider)
 
   if (capture_settings.cap_sync_mode == EXT)
   {
-    PIO_CAP->instr_mem[offset + 1] = nop_opcode | (capture_settings.ext_clk_divider - 1);
-    PIO_CAP->instr_mem[offset + 8] = nop_opcode | (capture_settings.ext_clk_divider - 1);
+    PIO_CAP->instr_mem[offset + pio_capture_1_offset_divider1] = set_opcode | (capture_settings.ext_clk_divider - 1);
+    PIO_CAP->instr_mem[offset + pio_capture_1_offset_divider2] = set_opcode | (capture_settings.ext_clk_divider - 1);
   }
 
   return capture_settings.ext_clk_divider;
@@ -147,7 +147,8 @@ int8_t set_capture_delay(int8_t delay)
   else
     capture_settings.delay = delay;
 
-  PIO_CAP->instr_mem[offset] = nop_opcode | (capture_settings.delay << 8);
+  uint16_t pio_capture_offset_delay = capture_settings.cap_sync_mode == SELF ? pio_capture_0_offset_delay : pio_capture_1_offset_delay;
+  PIO_CAP->instr_mem[offset + pio_capture_offset_delay] = nop_opcode | (capture_settings.delay << 8);
 
   return capture_settings.delay;
 }
@@ -301,40 +302,29 @@ void start_capture(settings_t *settings)
   {
   case SELF:
   {
-    // set initial capture delay
-    pio_program_capture_0_instructions[0] = nop_opcode | (capture_settings.delay << 8);
-    // load PIO program
-    program = &pio_program_capture_0;
-    offset = pio_add_program(PIO_CAP, program);
-    // set capture delay = 0
-    pio_program_capture_0_instructions[0] = nop_opcode;
-
-    wrap = offset + pio_program_capture_0.length - 1;
-
+    program = &pio_capture_0_program;
     break;
   }
 
   case EXT:
   {
-    // set initial capture delay
-    pio_program_capture_1_instructions[0] = nop_opcode | (capture_settings.delay << 8);
-    // set clock divider
-    pio_program_capture_1_instructions[1] = set_opcode | (capture_settings.ext_clk_divider - 1);
-    pio_program_capture_1_instructions[8] = set_opcode | (capture_settings.ext_clk_divider - 1);
-    // load PIO program
-    program = &pio_program_capture_1;
-    offset = pio_add_program(PIO_CAP, program);
-    // set capture delay = 0
-    pio_program_capture_1_instructions[0] = nop_opcode;
-
-    wrap = offset + pio_program_capture_1.length - 1;
-
+    program = &pio_capture_1_program;
     break;
   }
 
   default:
     break;
   }
+
+  // load PIO program
+  offset = pio_add_program(PIO_CAP, program);
+  wrap = offset + program->length - 1;
+
+  // set initial capture delay
+  set_capture_delay(capture_settings.delay);
+
+  // set external clock divider
+  set_ext_clk_divider(capture_settings.ext_clk_divider);
 
   pio_sm_config c = pio_get_default_sm_config();
   sm_config_set_wrap(&c, offset, wrap);

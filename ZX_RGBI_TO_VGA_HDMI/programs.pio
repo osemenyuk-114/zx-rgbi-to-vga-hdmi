@@ -1,0 +1,71 @@
+
+.program pio_capture_0
+.wrap_target
+l000:
+PUBLIC delay:
+    nop               ; the capture delay will be added to this command
+l001:
+    in     pins, 8
+    push   block
+    nop    [8]
+    jmp    pin, l001
+l005:
+    in     pins, 8    ; sub-synchronization by sync pulse
+    push   block
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    l005
+.wrap
+
+.program pio_capture_1
+.define F_PIN 6
+.wrap_target
+PUBLIC delay:           
+    nop                 ; a capture delay will be added to this command
+PUBLIC divider1:
+    set    x, 0         ; an external clock divider will be added to this command
+l04:
+    wait   0 gpio, F_PIN
+    in     pins, 8
+    wait   1 gpio, F_PIN
+    jmp    x--, l04
+    push   block
+    jmp    pin, divider1
+PUBLIC divider2:
+    set    x, 0          ; an external clock divider will be added to this command
+l02:
+    wait   0 gpio, F_PIN
+    jmp    pin, 0
+    in     pins, 8
+    wait   1 gpio, F_PIN
+    jmp    x--, l02
+    push   block    
+    jmp    divider2
+.wrap
+
+.program pio_vga
+.wrap_target
+    out   pins, 8
+.wrap
+
+.program pio_dvi
+.wrap_target
+.side_set 2
+    out pins, 6   side 2
+    out pins, 6   side 2
+    out pins, 6   side 2
+    out pins, 6   side 2
+    out pins, 6   side 2
+    out pins, 6   side 1
+    out pins, 6   side 1
+    out pins, 6   side 1
+    out pins, 6   side 1
+    out pins, 6   side 1
+.wrap
