@@ -279,13 +279,13 @@ void start_vga(video_mode_t v_mode)
 
   // PIO initialization
   // PIO program load
-  offset = pio_add_program(PIO_VGA, &pio_program_vga);
+  offset = pio_add_program(PIO_VGA, &pio_vga_program);
 
   pio_sm_config c = pio_get_default_sm_config();
 
   pio_sm_set_consecutive_pindirs(PIO_VGA, SM_VGA, VGA_PIN_D0, 8, true);
 
-  sm_config_set_wrap(&c, offset, offset + (pio_program_vga.length - 1));
+  sm_config_set_wrap(&c, offset, offset + (pio_vga_program.length - 1));
   sm_config_set_out_shift(&c, true, true, 32);
   sm_config_set_out_pins(&c, VGA_PIN_D0, 8);
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
@@ -347,7 +347,7 @@ void stop_vga()
 {
   pio_sm_set_enabled(PIO_VGA, SM_VGA, false);
   pio_sm_init(PIO_VGA, SM_VGA, offset, NULL);
-  pio_remove_program(PIO_VGA, &pio_program_vga, offset);
+  pio_remove_program(PIO_VGA, &pio_vga_program, offset);
   dma_channel_set_irq0_enabled(dma_ch1, false);
   dma_channel_abort(dma_ch0);
   dma_channel_abort(dma_ch1);

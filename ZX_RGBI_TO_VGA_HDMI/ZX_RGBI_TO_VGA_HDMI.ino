@@ -14,7 +14,6 @@ extern "C"
 #include "vga.h"
 }
 
-
 settings_t settings;
 video_mode_t video_mode;
 
