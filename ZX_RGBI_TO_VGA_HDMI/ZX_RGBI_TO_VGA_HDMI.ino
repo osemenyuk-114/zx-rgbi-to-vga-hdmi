@@ -4,6 +4,7 @@
 #include "pico/time.h"
 
 #include "hardware/flash.h"
+#include "hardware/watchdog.h"
 
 extern "C"
 {
@@ -69,6 +70,11 @@ String binary_to_string(uint8_t value, bool mask_1)
   }
 
   return str;
+}
+
+uint32_t string_to_int(String value)
+{
+  return value.toInt();
 }
 
 void print_main_menu()
@@ -149,7 +155,7 @@ void print_capture_frequency_menu()
   Serial.println("\n      * Capture frequency *\n");
 
   Serial.println("  1   7000000 Hz (ZX Spectrum  48K)");
-  Serial.println("  2   7093790 Hz (ZX Spectrum 128K)");
+  Serial.println("  2   7093800 Hz (ZX Spectrum 128K)");
   Serial.println("  3   custom\n");
 
   Serial.println("  p   show configuration");
@@ -704,7 +710,7 @@ void loop()
           break;
 
         case '2':
-          settings.frequency = 7093790;
+          settings.frequency = 7093800;
           print_capture_frequency();
           break;
 
@@ -732,7 +738,7 @@ void loop()
             if (inbyte == '\r')
             {
               Serial.println("");
-              frequency_int = frequency_str.toInt();
+              frequency_int = string_to_int(frequency_str);
 
               if (frequency_int >= FREQUENCY_MIN && frequency_int <= FREQUENCY_MAX)
               {
@@ -1105,7 +1111,7 @@ void loop()
       break;
 
     case 'r':
-      rp2040.restart();
+      watchdog_reboot(0, 0, 0);
       break;
 
     default:
