@@ -7,6 +7,7 @@ Param(
     [string[]]$OptParams
 )
 
+$FW_VERSION = "v1.4.0"
 # Arduino CLI executable name and config
 $ARDUINO_CLI = "arduino-cli.exe"
 $CONFIG_DIR = "$($env:USERPROFILE)\.arduinoIDE"
@@ -18,6 +19,7 @@ $PORT_CONFIG = "--config baudrate=$BAUDRATE" -split "\s+"
 $VERBOSE = "--verbose"
 # Exter build flags
 $ExtraBuildFlags = "build.flags.optimize=-O3" -split "\s+"
+$ExtraBuildFlags += "build.extra_flags=""-DFW_VERSION=\""$FW_VERSION\""""" -split "\s+"
 # $ExtraBuildFlags += "compiler.c.extra_flags=-save-temps compiler.cpp.extra_flags=-save-temps" -split "\s+"
 # Common parameters
 $BaseParams = "--config-dir $CONFIG_DIR --port $PORT" -split "\s+"

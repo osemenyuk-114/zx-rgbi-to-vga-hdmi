@@ -1,6 +1,3 @@
-#ifndef DVI_H
-#define DVI_H
+#pragma once
 
-void start_dvi(video_mode_t v_mode);
-
-#endif
+void start_dvi(video_mode_t);

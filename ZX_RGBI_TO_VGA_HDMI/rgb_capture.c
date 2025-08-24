@@ -1,14 +1,13 @@
-#include "g_config.h"
-
-#include "rgb_capture.h"
-#include "pio_programs.h"
-#include "v_buf.h"
-
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
 #include "hardware/structs/pll.h"
 #include "hardware/structs/systick.h"
+
+#include "g_config.h"
+#include "rgb_capture.h"
+#include "pio_programs.h"
+#include "v_buf.h"
 
 static int dma_ch0;
 static int dma_ch1;

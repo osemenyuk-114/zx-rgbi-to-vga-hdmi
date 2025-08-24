@@ -1,9 +1,3 @@
-#include "g_config.h"
-
-#include "vga.h"
-#include "pio_programs.h"
-#include "v_buf.h"
-
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
@@ -11,14 +5,10 @@
 #include "hardware/structs/systick.h"
 #include "hardware/vreg.h"
 
-// enable scanlines on 640x480 and 800x600 resolutions
-// not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler
-// #define LOW_RES_SCANLINE
-
-// select scanline thickness for the 1280x1024 video mode
-// narrow - show scanline once every four lines
-// wide   - show scanline twice in four lines
-#define NARROW_SCANLINE
+#include "g_config.h"
+#include "vga.h"
+#include "pio_programs.h"
+#include "v_buf.h"
 
 static int dma_ch0;
 static int dma_ch1;

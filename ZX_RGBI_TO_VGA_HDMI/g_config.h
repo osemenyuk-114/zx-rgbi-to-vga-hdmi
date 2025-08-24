@@ -1,12 +1,9 @@
-#ifndef G_CONFIG_H
-#define G_CONFIG_H
+#pragma once
 
 #include <Arduino.h>
 
 #include "pico.h"
 #include "pico/time.h"
-
-#define FW_VERSION "v1.4.0"
 
 enum cap_sync_mode_t
 {
@@ -71,6 +68,10 @@ extern video_mode_t *vga_modes[];
 
 extern uint8_t g_v_buf[];
 extern uint32_t frame_count;
+
+#ifndef FW_VERSION
+#define FW_VERSION "v1.4.0"
+#endif
 
 #define BOARD_CODE_36LJU22
 // #define BOARD_CODE_09LJV23
@@ -188,4 +189,11 @@ extern uint32_t frame_count;
 #define V_BUF_H 304
 #define V_BUF_SZ (V_BUF_H * V_BUF_W / 2)
 
-#endif
+// enable scanlines on 640x480 and 800x600 resolutions
+// not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler
+// #define LOW_RES_SCANLINE
+
+// select scanline thickness for the 1280x1024 video mode
+// narrow - show scanline once every four lines
+// wide   - show scanline twice in four lines
+#define NARROW_SCANLINE
