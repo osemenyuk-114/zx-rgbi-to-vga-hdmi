@@ -2,7 +2,6 @@
 
 #include "pico.h"
 #include "pico/time.h"
-
 #include "hardware/flash.h"
 #include "hardware/watchdog.h"
 
