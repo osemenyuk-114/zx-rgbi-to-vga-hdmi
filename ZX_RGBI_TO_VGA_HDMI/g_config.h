@@ -1,16 +1,9 @@
-#ifndef G_CONFIG_H
-#define G_CONFIG_H
+#pragma once
 
 #include <Arduino.h>
 
-#include "pico/platform.h"
-#include "pico/stdlib.h"
-
-#include "stdio.h"
-#include "inttypes.h"
-#include "stdbool.h"
-
-#define FW_VERSION "v1.3.0-6bit"
+#include "pico.h"
+#include "pico/time.h"
 
 enum video_out_mode_t
 {
@@ -59,6 +52,10 @@ extern video_mode_t *vga_modes[];
 
 extern uint8_t g_v_buf[];
 extern uint32_t frame_count;
+
+#ifndef FW_VERSION
+#define FW_VERSION "v1.4.1-6bit-color"
+#endif
 
 #define BOARD_CODE_36LJU22
 // #define BOARD_CODE_09LJV23
@@ -144,11 +141,6 @@ extern uint32_t frame_count;
 
 #define SM_CAP 0
 
-// video buffer
-#define V_BUF_W 640
-#define V_BUF_H 288
-#define V_BUF_SZ (V_BUF_H * V_BUF_W)
-
 // settings MIN values
 #define VIDEO_OUT_MODE_MIN VIDEO_MODE_MIN
 #define FREQUENCY_MIN 6000000
@@ -158,10 +150,30 @@ extern uint32_t frame_count;
 
 // settings MAX values
 #define VIDEO_OUT_MODE_MAX VIDEO_MODE_MAX
-#define FREQUENCY_MAX 18000000
+#define FREQUENCY_MAX 15000000
 #define DELAY_MAX 31
 #define shX_MAX 200
 #define shY_MAX 200
 #define PIN_INVERSION_MASK 0x7f
 
-#endif
+// settings DEFAULT values
+#define VIDEO_OUT_MODE_DEF VGA640x480
+#define FREQUENCY_DEF 7000000
+#define DELAY_DEF 15
+#define shX_DEF 68
+#define shY_DEF 34
+#define PIN_INVERSION_MASK_DEF 0x00
+
+// video buffer
+#define V_BUF_W (50 * (FREQUENCY_MAX / 1000000)) //
+#define V_BUF_H 288
+#define V_BUF_SZ (V_BUF_H * V_BUF_W)
+
+// enable scanlines on 640x480 and 800x600 resolutions
+// not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler
+// #define LOW_RES_SCANLINE
+
+// select scanline thickness for the 1280x1024 video mode
+// narrow - show scanline once every four lines
+// wide   - show scanline twice in four lines
+#define NARROW_SCANLINE

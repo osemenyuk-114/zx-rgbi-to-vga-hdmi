@@ -1,8 +1,3 @@
-#include "g_config.h"
-#include "dvi.h"
-#include "pio_programs.h"
-#include "v_buf.h"
-
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
@@ -10,12 +5,16 @@
 #include "hardware/structs/systick.h"
 #include "hardware/vreg.h"
 
+#include "g_config.h"
+#include "dvi.h"
+#include "pio_programs.h"
+#include "v_buf.h"
+
 static int dma_ch1;
 static uint8_t *screen_buf;
 static video_mode_t video_mode;
 
 static int16_t h_visible_area;
-static bool scanlines_mode = false;
 
 // the number of DMA buffers can be increased if there is image fluttering
 static uint32_t *v_out_dma_buf[2];
@@ -168,11 +167,6 @@ static void __not_in_flash_func(dma_handler_dvi)()
   }
 }
 
-void set_dvi_scanlines_mode(bool sl_mode)
-{
-  scanlines_mode = sl_mode;
-}
-
 void start_dvi(video_mode_t v_mode)
 {
   video_mode = v_mode;
@@ -234,7 +228,7 @@ void start_dvi(video_mode_t v_mode)
 
   // PIO initialization
   // PIO program load
-  uint offset = pio_add_program(PIO_DVI, &pio_program_dvi);
+  uint offset = pio_add_program(PIO_DVI, &pio_dvi_program);
 
   pio_sm_config c = pio_get_default_sm_config();
 
@@ -242,7 +236,7 @@ void start_dvi(video_mode_t v_mode)
   pio_sm_set_pindirs_with_mask(PIO_DVI, SM_DVI, 3u << DVI_PIN_CLK0, 3u << DVI_PIN_CLK0);
   pio_sm_set_consecutive_pindirs(PIO_DVI, SM_DVI, DVI_PIN_D0, 6, true);
 
-  sm_config_set_wrap(&c, offset, offset + (pio_program_dvi.length - 1));
+  sm_config_set_wrap(&c, offset, offset + (pio_dvi_program.length - 1));
   sm_config_set_out_shift(&c, true, true, 30);
   sm_config_set_out_pins(&c, DVI_PIN_D0, 6);
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);

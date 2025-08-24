@@ -1,60 +1,82 @@
-#include "g_config.h"
-#include "rgb_capture.h"
-#include "pio_programs.h"
-#include "v_buf.h"
-
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
 #include "hardware/structs/pll.h"
 #include "hardware/structs/systick.h"
 
+#include "g_config.h"
+#include "rgb_capture.h"
+#include "pio_programs.h"
+#include "v_buf.h"
+
+static int dma_ch0;
 static int dma_ch1;
+const pio_program_t *program = NULL;
+static uint16_t offset;
+
 uint8_t *cap_buf;
 settings_t capture_settings;
-uint16_t offset;
 
 uint32_t frame_count = 0;
+
+uint h_sync_pulse_2;
+uint v_sync_pulse;
 
 static uint32_t cap_dma_buf[2][CAP_DMA_BUF_SIZE / 4];
 static uint32_t *cap_dma_buf_addr[2];
 
 void check_settings(settings_t *settings)
 {
+  if (settings->video_out_mode > VIDEO_OUT_MODE_MAX ||
+      settings->video_out_mode < VIDEO_OUT_MODE_MIN)
+    settings->video_out_mode = VIDEO_OUT_MODE_DEF;
 
-  if (settings->video_out_mode > VIDEO_OUT_MODE_MAX)
-    settings->video_out_mode = VIDEO_OUT_MODE_MAX;
-  else if (settings->video_out_mode < VIDEO_OUT_MODE_MIN)
-    settings->video_out_mode = VIDEO_OUT_MODE_MIN;
+  if (settings->frequency > FREQUENCY_MAX ||
+      settings->frequency < FREQUENCY_MIN)
+    settings->frequency = FREQUENCY_DEF;
 
-  if (settings->frequency > FREQUENCY_MAX)
-    settings->frequency = FREQUENCY_MAX;
-  else if (settings->frequency < FREQUENCY_MIN)
-    settings->frequency = FREQUENCY_MIN;
+  if (settings->delay > DELAY_MAX ||
+      settings->delay < DELAY_MIN)
+    settings->delay = DELAY_DEF;
 
-  if (settings->delay > DELAY_MAX)
-    settings->delay = DELAY_MAX;
-  else if (settings->delay < DELAY_MIN)
-    settings->delay = DELAY_MIN;
+  if (settings->shX > shX_MAX ||
+      settings->shX < shX_MIN)
+    settings->shX = shX_DEF;
 
-  if (settings->shX > shX_MAX)
-    settings->shX = shX_MAX;
-  else if (settings->shX < shX_MIN)
-    settings->shX = shX_MIN;
-
-  if (settings->shY > shY_MAX)
-    settings->shY = shY_MAX;
-  else if (settings->shY < shY_MIN)
-    settings->shY = shY_MIN;
+  if (settings->shY > shY_MAX ||
+      settings->shY < shY_MIN)
+    settings->shY = shY_DEF;
 
   if (settings->pin_inversion_mask & ~PIN_INVERSION_MASK)
-    settings->pin_inversion_mask = PIN_INVERSION_MASK;
+  {
+    settings->pin_inversion_mask = PIN_INVERSION_MASK_DEF;
+    settings->scanlines_mode = false;
+  }
 }
 
 void set_capture_settings(settings_t *settings)
 {
   memcpy(&capture_settings, settings, sizeof(settings_t));
   check_settings(&capture_settings);
+}
+
+void set_capture_frequency(uint32_t frequency)
+{
+  uint16_t div_int;
+  uint8_t div_frac;
+
+  capture_settings.frequency = frequency;
+
+  pio_calculate_clkdiv_from_float((float)clock_get_hz(clk_sys) / (capture_settings.frequency * 12.0), &div_int, &div_frac);
+
+  static_assert(REG_FIELD_WIDTH(PIO_SM0_CLKDIV_INT) == 16, "");
+  invalid_params_if(HARDWARE_PIO, div_int >> 16);
+  invalid_params_if(HARDWARE_PIO, div_int == 0 && div_frac != 0);
+  static_assert(REG_FIELD_WIDTH(PIO_SM0_CLKDIV_FRAC) == 8, "");
+
+  PIO_CAP->sm[SM_CAP].clkdiv = (((uint)div_frac) << PIO_SM0_CLKDIV_FRAC_LSB) | (((uint)div_int) << PIO_SM0_CLKDIV_INT_LSB);
+
+  pio_sm_clkdiv_restart(PIO_CAP, SM_CAP);
 }
 
 int16_t set_capture_shX(int16_t shX)
@@ -90,9 +112,21 @@ int8_t set_capture_delay(int8_t delay)
   else
     capture_settings.delay = delay;
 
-  PIO_CAP->instr_mem[offset] = nop_opcode | (capture_settings.delay << 8);
+  uint16_t pio_capture_offset_delay = pio_capture_0_offset_delay;
+  PIO_CAP->instr_mem[offset + pio_capture_offset_delay] = nop_opcode | (capture_settings.delay << 8);
 
   return capture_settings.delay;
+}
+
+void set_pin_inversion_mask(uint8_t pin_inversion_mask)
+{
+  capture_settings.pin_inversion_mask = pin_inversion_mask;
+
+  for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)
+  {
+    gpio_set_inover(i, pin_inversion_mask & 1);
+    pin_inversion_mask >>= 1;
+  }
 }
 
 void __not_in_flash_func(dma_handler_capture())
@@ -102,15 +136,20 @@ void __not_in_flash_func(dma_handler_capture())
   static int x_s;
   static int y_s;
 
+  uint8_t sync_mask = 1u << HS_PIN;
+
+  uint hsync_pulse_2 = h_sync_pulse_2;
+  uint vsync_pulse = v_sync_pulse;
+
   dma_hw->ints1 = 1u << dma_ch1;
   dma_channel_set_read_addr(dma_ch1, &cap_dma_buf_addr[dma_buf_idx & 1], false);
 
-  int shX = shX_MAX - capture_settings.shX;
+  int shX = capture_settings.shX;
   int shY = capture_settings.shY;
 
   uint8_t *buf8 = (uint8_t *)cap_dma_buf[dma_buf_idx & 1];
   dma_buf_idx++;
- 
+
   register uint8_t pix8 = pix8_s;
   register int x = x_s;
   register int y = y_s;
@@ -127,9 +166,9 @@ void __not_in_flash_func(dma_handler_capture())
 
     x++;
 
-    if (!(val8 & (1u << HS_PIN))) // detect active sync pulses
+    if ((val8 & sync_mask) != sync_mask) // detect active sync pulses
     {
-      if (CS_idx == H_SYNC_PULSE / 2) // start in the middle of the H_SYNC pulse // this should help ignore the spikes
+      if (CS_idx == hsync_pulse_2) // start in the middle of the H_SYNC pulse // this should help ignore the spikes
       {
         y++;
         // set the pointer to the beginning of a new line
@@ -140,7 +179,7 @@ void __not_in_flash_func(dma_handler_capture())
       CS_idx++;
       x = -shX - 1;
 
-      if (CS_idx < V_SYNC_PULSE) // detect V_SYNC pulse
+      if (CS_idx < vsync_pulse) // detect V_SYNC pulse
         continue;
 
       // start capture of a new frame
@@ -161,10 +200,16 @@ void __not_in_flash_func(dma_handler_capture())
       if (cap_buf == NULL)
         continue;
 
-      if ((x < 0) || (y < 0))
+      if (x < 0)
         continue;
 
-      if ((x >= V_BUF_W) || (y >= V_BUF_H))
+      if (y < 0)
+        continue;
+
+      if (x >= V_BUF_W)
+        continue;
+
+      if (y >= V_BUF_H)
         continue;
 
       *cap_buf8++ = pix8 & 0x3f;
@@ -184,37 +229,15 @@ void __not_in_flash_func(dma_handler_capture())
   CS_idx_s = CS_idx;
 }
 
-void calculate_clkdiv(float freq, uint16_t *div_int, uint8_t *div_frac)
-{
-  uint8_t div_frac_2;
-
-  float clock = clock_get_hz(clk_sys);
-  float div = clock / (freq * 12.0);
-
-  pio_calculate_clkdiv_from_float(div, div_int, div_frac);
-
-  float delta_freq = (clock / ((*div_int + (float)*div_frac / 256) * 12.0)) - freq;
-
-  if (delta_freq > 0)
-    div_frac_2 = *div_frac + 1;
-  else if (delta_freq < 0)
-    div_frac_2 = *div_frac - 1;
-  else
-    return;
-
-  float delta_freq_2 = (clock / ((*div_int + (float)div_frac_2 / 256) * 12.0)) - freq;
-
-  if (abs(delta_freq_2) < abs(delta_freq))
-    *div_frac = div_frac_2;
-
-  return;
-}
-
 void start_capture(settings_t *settings)
 {
   set_capture_settings(settings);
 
-  uint8_t inv_mask = capture_settings.pin_inversion_mask;
+  uint8_t pin_inversion_mask = capture_settings.pin_inversion_mask;
+
+  // video timing variables measured in pixels
+  h_sync_pulse_2 = 3 * (capture_settings.frequency / 1000000); // 3 �s - 1/2 of the H_SYNC pulse
+  v_sync_pulse = 30 * (capture_settings.frequency / 1000000);  // 30 �s - V_SYNC pulse
 
   // set capture pins
   for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)
@@ -223,23 +246,22 @@ void start_capture(settings_t *settings)
     gpio_set_dir(i, GPIO_IN);
     gpio_set_input_hysteresis_enabled(i, true);
 
-    if (inv_mask & 1)
-      gpio_set_inover(i, GPIO_OVERRIDE_INVERT);
+    gpio_set_inover(i, pin_inversion_mask & 1);
 
-    inv_mask >>= 1;
+    pin_inversion_mask >>= 1;
   }
 
   // PIO initialization
   uint wrap;
 
-  // set initial capture delay
-  pio_program_capture_0_instructions[0] = nop_opcode | ((capture_settings.delay & 0b00011111) << 8);
-  // load PIO program
-  offset = pio_add_program(PIO_CAP, &pio_program_capture_0);
-  // set capture delay = 0
-  pio_program_capture_0_instructions[0] = nop_opcode;
+  program = &pio_capture_0_program;
 
-  wrap = offset + pio_program_capture_0.length - 1;
+  // load PIO program
+  offset = pio_add_program(PIO_CAP, program);
+  wrap = offset + program->length - 1;
+
+  // set initial capture delay
+  set_capture_delay(capture_settings.delay);
 
   pio_sm_config c = pio_get_default_sm_config();
   sm_config_set_wrap(&c, offset, wrap);
@@ -252,14 +274,14 @@ void start_capture(settings_t *settings)
   uint16_t div_int;
   uint8_t div_frac;
 
-  calculate_clkdiv(capture_settings.frequency, &div_int, &div_frac);
+  pio_calculate_clkdiv_from_float((float)clock_get_hz(clk_sys) / (capture_settings.frequency * 12.0), &div_int, &div_frac);
   sm_config_set_clkdiv_int_frac(&c, div_int, div_frac);
 
   pio_sm_init(PIO_CAP, SM_CAP, offset, &c);
   pio_sm_set_enabled(PIO_CAP, SM_CAP, true);
 
   // DMA initialization
-  int dma_ch0 = dma_claim_unused_channel(true);
+  dma_ch0 = dma_claim_unused_channel(true);
   dma_ch1 = dma_claim_unused_channel(true);
 
   // main (data) DMA channel
@@ -307,4 +329,18 @@ void start_capture(settings_t *settings)
   irq_set_enabled(DMA_IRQ_1, true);
 
   dma_start_channel_mask((1u << dma_ch0));
+}
+
+void stop_capture()
+{
+  pio_sm_set_enabled(PIO_CAP, SM_CAP, false);
+  pio_sm_init(PIO_CAP, SM_CAP, offset, NULL);
+  pio_remove_program(PIO_CAP, program, offset);
+  dma_channel_set_irq1_enabled(dma_ch1, false);
+  dma_channel_abort(dma_ch0);
+  dma_channel_abort(dma_ch1);
+  dma_channel_cleanup(dma_ch0);
+  dma_channel_cleanup(dma_ch1);
+  dma_channel_unclaim(dma_ch0);
+  dma_channel_unclaim(dma_ch1);
 }

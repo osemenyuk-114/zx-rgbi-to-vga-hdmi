@@ -1,0 +1,45 @@
+
+.program pio_capture_0
+.wrap_target
+l000:
+PUBLIC delay:
+    nop               ; the capture delay will be added to this command
+l001:
+    in     pins, 8
+    push   block
+    nop    [8]
+    jmp    pin, l001
+l005:
+    in     pins, 8    ; sub-synchronization by sync pulse
+    push   block
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    pin, l000
+    jmp    l005
+.wrap
+
+.program pio_vga
+.wrap_target
+    out   pins, 8
+.wrap
+
+.program pio_dvi
+.wrap_target
+.side_set 2
+    out pins, 6   side 2
+    out pins, 6   side 2
+    out pins, 6   side 2
+    out pins, 6   side 2
+    out pins, 6   side 2
+    out pins, 6   side 1
+    out pins, 6   side 1
+    out pins, 6   side 1
+    out pins, 6   side 1
+    out pins, 6   side 1
+.wrap

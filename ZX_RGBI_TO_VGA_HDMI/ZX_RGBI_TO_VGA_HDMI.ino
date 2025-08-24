@@ -1,5 +1,9 @@
 #include <Arduino.h>
-#include <typeinfo>
+
+#include "pico.h"
+#include "pico/time.h"
+#include "hardware/flash.h"
+#include "hardware/watchdog.h"
 
 extern "C"
 {
@@ -8,31 +12,41 @@ extern "C"
 #include "rgb_capture.h"
 #include "v_buf.h"
 #include "vga.h"
-
-#include "hardware/flash.h"
 }
 
 settings_t settings;
 video_mode_t video_mode;
 
 const int *saved_settings = (const int *)(XIP_BASE + (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE));
-bool start_core0 = false;
-bool capture_active = false;
 
-void save_settings(settings_t *settings)
+volatile bool start_core0 = false;
+
+volatile bool stop_core1 = false;
+volatile bool core1_inactive = false;
+
+volatile bool restart_capture = false;
+volatile bool capture_active = false;
+
+static void save_settings(settings_t *settings)
 {
   Serial.println("  Saving settings...");
 
   check_settings(settings);
 
-  rp2040.idleOtherCore();
+  stop_core1 = true;
+
+  while (!core1_inactive)
+    ;
+
   uint32_t ints = save_and_disable_interrupts();
 
   flash_range_erase((PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE), FLASH_SECTOR_SIZE);
   flash_range_program((PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE), (uint8_t *)settings, FLASH_PAGE_SIZE);
 
-  // restore_interrupts(ints);
-  // rp2040.resumeOtherCore();
+  restore_interrupts_from_disabled(ints);
+
+  stop_core1 = false;
+  core1_inactive = false;
 }
 
 void print_byte_hex(uint8_t byte)
@@ -57,116 +71,108 @@ String binary_to_string(uint8_t value, bool mask_1)
   return str;
 }
 
+uint32_t string_to_int(String value)
+{
+  return value.toInt();
+}
+
 void print_main_menu()
 {
-  Serial.println("");
-  Serial.print("      * ZX RGB(I) to VGA/HDMI ");
+  Serial.print("\n      * ZX RGB(I) to VGA/HDMI ");
   Serial.print(FW_VERSION);
-  Serial.println(" *");
-  Serial.println("");
+  Serial.println(" *\n");
+
   Serial.println("  v   set video output mode");
   Serial.println("  s   set scanlines mode");
   Serial.println("  f   set capture frequency");
   Serial.println("  t   set capture delay and image position");
-  Serial.println("  m   set pin inversion mask");
-  Serial.println("");
+  Serial.println("  m   set pin inversion mask\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
   Serial.println("  q   exit configuration mode");
-  Serial.println("  w   save configuration and restart");
-  Serial.println("");
+  Serial.println("  w   save configuration");
+  Serial.println("  r   restart\n");
 }
 
 void print_video_out_menu()
 {
-  Serial.println("");
-  Serial.println("      * Video output mode *");
-  Serial.println("");
+  Serial.println("\n      * Video output mode *\n");
+
   Serial.println("  1   HDMI   640x480 (div 2)");
   Serial.println("  2   VGA    640x480 (div 2)");
   Serial.println("  3   VGA    800x600 (div 2)");
-  Serial.println("  4   VGA  1280x1024 (div 4)");
-  Serial.println("");
+  Serial.println("  4   VGA  1280x1024 (div 4)\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_scanlines_mode_menu()
 {
-  Serial.println("");
-  Serial.println("      * Scanlines mode *");
-  Serial.println("");
-  Serial.println("  s   change scanlines mode");
-  Serial.println("");
+  Serial.println("\n      * Scanlines mode *\n");
+
+  Serial.println("  s   change scanlines mode\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_capture_frequency_menu()
 {
-  Serial.println("");
-  Serial.println("      * Capture frequency *");
-  Serial.println("");
+  Serial.println("\n      * Capture frequency *\n");
+
   Serial.println("  1   7000000 Hz (ZX Spectrum  48K)");
-  Serial.println("  2   7093790 Hz (ZX Spectrum 128K)");
-  Serial.println("  3   custom");
-  Serial.println("");
+  Serial.println("  2   7093800 Hz (ZX Spectrum 128K)");
+  Serial.println("  3   custom\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_image_tuning_menu()
 {
-  Serial.println("");
-  Serial.println("      * Capture delay and image position *");
-  Serial.println("");
+  Serial.println("\n      * Capture delay and image position *\n");
+
   Serial.println("  a   increment delay (+1)");
-  Serial.println("  z   decrement delay (-1)");
-  Serial.println("");
+  Serial.println("  z   decrement delay (-1)\n");
+
   Serial.println("  i   shift image UP");
   Serial.println("  k   shift image DOWN");
   Serial.println("  j   shift image LEFT");
-  Serial.println("  l   shift image RIGHT");
-  Serial.println("");
+  Serial.println("  l   shift image RIGHT\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_pin_inversion_mask_menu()
 {
-  Serial.println("");
-  Serial.println("      * Pin inversion mask *");
-  Serial.println("");
-  Serial.println("  m   set pin inversion mask");
-  Serial.println("");
+  Serial.println("\n      * Pin inversion mask *\n");
+
+  Serial.println("  m   set pin inversion mask\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_test_menu()
 {
-  Serial.println("");
-  Serial.println("      * Tests *");
-  Serial.println("");
+  Serial.println("\n      * Tests *\n");
+
   Serial.println("  1   draw welcome image (vertical stripes)");
   Serial.println("  2   draw welcome image (horizontal stripes)");
   Serial.println("  3   draw \"NO SIGNAL\" screen");
-  Serial.println("  i   show captured frame count");
-  Serial.println("");
+  Serial.println("  i   show captured frame count\n");
+
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
-  Serial.println("  q   exit to main menu");
-  Serial.println("");
+  Serial.println("  q   exit to main menu\n");
 }
 
 void print_video_out_mode()
@@ -237,30 +243,13 @@ void print_dividers()
 
   video_mode_t video_mode = *(vga_modes[settings.video_out_mode]);
 
-  Serial.println("");
-
-  Serial.print("  System clock frequency ...... ");
+  Serial.print("\n  System clock frequency ...... ");
   Serial.print(clock_get_hz(clk_sys), 1);
   Serial.println(" Hz");
 
-  Serial.println("  Capture divider");
-
-  Serial.print("    calculated (SDK) .......... ");
+  Serial.print("  Capture divider ............. ");
 
   pio_calculate_clkdiv_from_float((float)clock_get_hz(clk_sys) / (settings.frequency * 12.0), &div_int, &div_frac);
-
-  Serial.print((div_int + (float)div_frac / 256), 8);
-
-  Serial.print(" ( ");
-  Serial.print("0x");
-  print_byte_hex((uint8_t)(div_int >> 8));
-  print_byte_hex((uint8_t)(div_int & 0xff));
-  print_byte_hex(div_frac);
-  Serial.println(" )");
-
-  Serial.print("    optimized ................. ");
-
-  calculate_clkdiv(settings.frequency, &div_int, &div_frac);
 
   Serial.print((div_int + (float)div_frac / 256), 8);
 
@@ -282,9 +271,7 @@ void print_dividers()
   print_byte_hex((uint8_t)(div_int >> 8));
   print_byte_hex((uint8_t)(div_int & 0xff));
   print_byte_hex(div_frac);
-  Serial.println(" )");
-
-  Serial.println("");
+  Serial.println(" )\n");
 }
 
 void print_pin_inversion_mask()
@@ -309,9 +296,7 @@ void print_settings()
 
 void set_scanlines_mode()
 {
-  if (settings.video_out_mode == DVI)
-    set_dvi_scanlines_mode(settings.scanlines_mode);
-  else
+  if (settings.video_out_mode != DVI)
     set_vga_scanlines_mode(settings.scanlines_mode);
 }
 
@@ -339,8 +324,7 @@ void setup()
 
   start_core0 = true;
 
-  Serial.println("  Starting...");
-  Serial.println("");
+  Serial.println("  Starting...\n");
 }
 
 void loop()
@@ -358,8 +342,7 @@ void loop()
     }
   }
 
-  Serial.println(" Entering the configuration mode");
-  Serial.println("");
+  Serial.println(" Entering the configuration mode\n");
 
   while (1)
   {
@@ -385,6 +368,8 @@ void loop()
 
         if (inbyte != 'h' && Serial.available())
           inbyte = Serial.read();
+
+        uint8_t video_out_mode = settings.video_out_mode;
 
         switch (inbyte)
         {
@@ -418,6 +403,13 @@ void loop()
 
         default:
           break;
+        }
+
+        if ((video_out_mode != DVI) && (settings.video_out_mode != DVI) && (video_out_mode != settings.video_out_mode))
+        {
+          stop_vga();
+          start_vga(*(vga_modes[settings.video_out_mode]));
+          set_capture_frequency(settings.frequency);
         }
 
         if (inbyte == 'q')
@@ -486,6 +478,8 @@ void loop()
         if (inbyte != 'h' && Serial.available())
           inbyte = Serial.read();
 
+        uint32_t frequency = settings.frequency;
+
         switch (inbyte)
         {
         case 'p':
@@ -502,14 +496,14 @@ void loop()
           break;
 
         case '2':
-          settings.frequency = 7093790;
+          settings.frequency = 7093800;
           print_capture_frequency();
           break;
 
         case '3':
         {
-          String str_frequency = "";
-          uint32_t frequency = 0;
+          String frequency_str = "";
+          uint32_t frequency_int = 0;
 
           Serial.print("  Enter frequency: ");
 
@@ -524,23 +518,23 @@ void loop()
             if (inbyte >= '0' && inbyte <= '9')
             {
               Serial.print(inbyte);
-              str_frequency += inbyte;
+              frequency_str += inbyte;
             }
 
             if (inbyte == '\r')
             {
               Serial.println("");
-              frequency = str_frequency.toInt();
+              frequency_int = string_to_int(frequency_str);
 
-              if (frequency >= FREQUENCY_MIN && frequency <= FREQUENCY_MAX)
+              if (frequency_int >= FREQUENCY_MIN && frequency_int <= FREQUENCY_MAX)
               {
-                settings.frequency = frequency;
+                settings.frequency = frequency_int;
                 print_capture_frequency();
                 break;
               }
               else
               {
-                str_frequency = "";
+                frequency_str = "";
                 Serial.print("  Allowed frequency range ..... ");
                 Serial.print(FREQUENCY_MIN, DEC);
                 Serial.print(" - ");
@@ -557,6 +551,9 @@ void loop()
         default:
           break;
         }
+
+        if (frequency != settings.frequency)
+          set_capture_frequency(settings.frequency);
 
         if (inbyte == 'q')
         {
@@ -615,12 +612,12 @@ void loop()
           break;
 
         case 'j':
-          settings.shX = set_capture_shX(settings.shX - 1);
+          settings.shX = set_capture_shX(settings.shX + 1);
           print_x_offset();
           break;
 
         case 'l':
-          settings.shX = set_capture_shX(settings.shX + 1);
+          settings.shX = set_capture_shX(settings.shX - 1);
           print_x_offset();
           break;
 
@@ -651,6 +648,8 @@ void loop()
         if (inbyte != 'h' && Serial.available())
           inbyte = Serial.read();
 
+        uint8_t pin_inversion_mask = settings.pin_inversion_mask;
+
         switch (inbyte)
         {
         case 'p':
@@ -663,7 +662,7 @@ void loop()
 
         case 'm':
         {
-          String str_pin_inversion_mask = "";
+          String pin_inversion_mask_str = "";
 
           Serial.print("  Enter pin inversion mask: ");
 
@@ -678,30 +677,30 @@ void loop()
             if (inbyte >= '0' && inbyte <= '1')
             {
               Serial.print(inbyte);
-              str_pin_inversion_mask += inbyte;
+              pin_inversion_mask_str += inbyte;
             }
 
             if (inbyte == '\r')
             {
               Serial.println("");
 
-              uint8_t pin_inversion_mask = 0;
+              uint8_t pin_inversion_mask_int = 0;
 
-              for (int i = 0; i < str_pin_inversion_mask.length(); i++)
+              for (int i = 0; i < pin_inversion_mask_str.length(); i++)
               {
-                pin_inversion_mask <<= 1;
-                pin_inversion_mask |= str_pin_inversion_mask[i] == '1' ? 1 : 0;
+                pin_inversion_mask_int <<= 1;
+                pin_inversion_mask_int |= pin_inversion_mask_str[i] == '1' ? 1 : 0;
               }
 
-              if (!(pin_inversion_mask & ~PIN_INVERSION_MASK))
+              if (!(pin_inversion_mask_int & ~PIN_INVERSION_MASK))
               {
-                settings.pin_inversion_mask = pin_inversion_mask;
+                settings.pin_inversion_mask = pin_inversion_mask_int;
                 print_pin_inversion_mask();
                 break;
               }
               else
               {
-                str_pin_inversion_mask = "";
+                pin_inversion_mask_str = "";
                 Serial.print("  Allowed inversion mask ...... ");
                 Serial.println(binary_to_string(PIN_INVERSION_MASK, true));
                 Serial.print("  Enter pin inversion mask: ");
@@ -715,6 +714,9 @@ void loop()
         default:
           break;
         }
+
+        if (pin_inversion_mask != settings.pin_inversion_mask)
+          set_pin_inversion_mask(settings.pin_inversion_mask);
 
         if (inbyte == 'q')
         {
@@ -758,11 +760,11 @@ void loop()
         case '2':
         case '3':
         {
-          uint32_t frame_count_temp = frame_count;
+          uint32_t frame_count_tmp = frame_count;
 
           sleep_ms(100);
 
-          if (frame_count == frame_count_temp) // draw the screen only if capture is not active
+          if (frame_count == frame_count_tmp) // draw the screen only if capture is not active
           {
             Serial.println("  Drawing the screen...");
 
@@ -800,7 +802,11 @@ void loop()
 
     case 'w':
       save_settings(&settings);
-      rp2040.restart();
+      inbyte = 0;
+      break;
+
+    case 'r':
+      watchdog_reboot(0, 0, 0);
       break;
 
     default:
@@ -811,8 +817,8 @@ void loop()
     {
       inbyte = 0;
 
-      Serial.println(" Leaving the configuration mode");
-      Serial.println("");
+      Serial.println(" Leaving the configuration mode\n");
+
       break;
     }
   }
@@ -829,27 +835,44 @@ void setup1()
   start_capture(&settings);
 }
 
-void loop1()
+void __not_in_flash_func(loop1())
 {
-  uint32_t frame_count_tmp = frame_count;
+  uint32_t frame_count_tmp1 = frame_count;
 
   sleep_ms(100);
+
   if (frame_count > 1)
   {
-    gpio_put(PIN_LED, frame_count & 0x20);
+    digitalWrite(PIN_LED, (frame_count & 0x20) && capture_active);
 
-    if (frame_count == frame_count_tmp)
+    if (frame_count == frame_count_tmp1)
     {
-      if (capture_active == true)
+      if (capture_active)
       {
         capture_active = false;
         draw_no_signal(*(vga_modes[settings.video_out_mode]));
       }
     }
-    else
-    {
-      if (capture_active == false)
-        capture_active = true;
-    }
+    else if (!capture_active)
+      capture_active = true;
+  }
+
+  if (restart_capture)
+  {
+    stop_capture();
+    start_capture(&settings);
+    restart_capture = false;
+  }
+
+  if (stop_core1)
+  {
+    core1_inactive = true;
+
+    uint32_t ints = save_and_disable_interrupts();
+
+    while (core1_inactive)
+      ;
+
+    restore_interrupts_from_disabled(ints);
   }
 }
