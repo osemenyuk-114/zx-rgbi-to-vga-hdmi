@@ -90,7 +90,7 @@ void draw_no_signal(video_mode_t video_mode)
     v_margin = 0;
 
   uint y = (video_mode.v_visible_area - v_margin) / (video_mode.div * 2);
-  uint x = (V_BUF_W - 114) / 4;
+  uint x = (video_mode.h_visible_area / video_mode.div - 114) / 2;
 
   memset(v_buf, 0, V_BUF_H * V_BUF_W);
 

@@ -1,8 +1,3 @@
-#include "g_config.h"
-#include "vga.h"
-#include "pio_programs.h"
-#include "v_buf.h"
-
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
@@ -10,16 +5,15 @@
 #include "hardware/structs/systick.h"
 #include "hardware/vreg.h"
 
-// enable scanlines on 640x480 and 800x600 resolutions
-// not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler
-// #define LOW_RES_SCANLINE
+#include "g_config.h"
+#include "vga.h"
+#include "pio_programs.h"
+#include "v_buf.h"
 
-// select scanline thickness for the 1280x1024 video mode
-// narrow - show scanline once every four lines
-// wide   - show scanline twice in four lines
-#define NARROW_SCANLINE
-
+static int dma_ch0;
 static int dma_ch1;
+static uint16_t offset;
+
 static video_mode_t video_mode;
 
 static int16_t h_visible_area;
@@ -27,6 +21,7 @@ static int16_t v_visible_area;
 static int16_t v_margin;
 static bool scanlines_mode = false;
 
+static uint8_t *base_ptr;
 static uint32_t *line_patterns[4];
 static uint16_t palette[64][64];
 
@@ -212,7 +207,7 @@ void start_vga(video_mode_t v_mode)
 
   h_visible_area = video_mode.h_visible_area / (video_mode.div * 2);
   v_visible_area = V_BUF_H * video_mode.div;
-  v_margin = (int16_t)((video_mode.v_visible_area - v_visible_area) / (video_mode.div * 2)) * video_mode.div;
+  v_margin = (int16_t)((video_mode.v_visible_area - v_visible_area) / 2);
 
   if (v_margin < 0)
     v_margin = 0;
@@ -222,24 +217,25 @@ void start_vga(video_mode_t v_mode)
   set_sys_clock_khz(video_mode.sys_freq, true);
   sleep_ms(10);
 
+  // palette initialization
   for (int i = 0; i < 64; i++)
   {
-    uint8_t R0 = ((i % 4) != 0) ? (((i % 4) == 3) ? 0b00000011 : 0b00000010) : 0b00000000;
-    uint8_t G0 = (((i >> 2) % 4) != 0) ? ((((i >> 2) % 4) == 3) ? 0b00001100 : 0b00001000) : 0b00000000;
-    uint8_t B0 = (((i >> 4) % 4) != 0) ? ((((i >> 4) % 4) == 3) ? 0b00110000 : 0b00100000) : 0b00000000;
+    uint8_t Ri = ((i % 4) != 0) ? (((i % 4) == 3) ? 0b00000011 : 0b00000010) : 0b00000000;
+    uint8_t Gi = (((i >> 2) % 4) != 0) ? ((((i >> 2) % 4) == 3) ? 0b00001100 : 0b00001000) : 0b00000000;
+    uint8_t Bi = (((i >> 4) % 4) != 0) ? ((((i >> 4) % 4) == 3) ? 0b00110000 : 0b00100000) : 0b00000000;
 
     for (int j = 0; j < 64; j++)
     {
-      uint8_t R1 = ((j % 4) != 0) ? (((j % 4) == 3) ? 0b00000011 : 0b00000010) : 0b00000000;
-      uint8_t G1 = (((j >> 2) % 4) != 0) ? ((((j >> 2) % 4) == 3) ? 0b00001100 : 0b00001000) : 0b00000000;
-      uint8_t B1 = (((j >> 4) % 4) != 0) ? ((((j >> 4) % 4) == 3) ? 0b00110000 : 0b00100000) : 0b00000000;
+      uint8_t Rj = ((j % 4) != 0) ? (((j % 4) == 3) ? 0b00000011 : 0b00000010) : 0b00000000;
+      uint8_t Gj = (((j >> 2) % 4) != 0) ? ((((j >> 2) % 4) == 3) ? 0b00001100 : 0b00001000) : 0b00000000;
+      uint8_t Bj = (((j >> 4) % 4) != 0) ? ((((j >> 4) % 4) == 3) ? 0b00110000 : 0b00100000) : 0b00000000;
 
-      palette[i][j] = ((uint16_t)(R1 | G1 | B1 | (NO_SYNC ^ video_mode.sync_polarity)) << 8) | R0 | G0 | B0 | (NO_SYNC ^ video_mode.sync_polarity);
+      palette[i][j] = ((uint16_t)(Rj | Gj | Bj | (NO_SYNC ^ video_mode.sync_polarity)) << 8) | Ri | Gi | Bi | (NO_SYNC ^ video_mode.sync_polarity);
     }
   }
 
   // allocate memory for line template definitions
-  uint8_t *base_ptr = calloc(whole_line * 4, sizeof(uint8_t));
+  base_ptr = calloc(whole_line * 4, sizeof(uint8_t));
   line_patterns[0] = (uint32_t *)base_ptr;
 
   // empty line
@@ -247,20 +243,17 @@ void start_vga(video_mode_t v_mode)
   memset(base_ptr + h_sync_pulse_front, (H_SYNC ^ video_mode.sync_polarity), h_sync_pulse);
 
   // vertical sync pulse
-  base_ptr += whole_line;
-  line_patterns[1] = (uint32_t *)base_ptr;
-  memset(base_ptr, (V_SYNC ^ video_mode.sync_polarity), whole_line);
-  memset(base_ptr + h_sync_pulse_front, (VH_SYNC ^ video_mode.sync_polarity), h_sync_pulse);
+  line_patterns[1] = (uint32_t *)(base_ptr + whole_line);
+  memset(base_ptr + whole_line, (V_SYNC ^ video_mode.sync_polarity), whole_line);
+  memset(base_ptr + whole_line + h_sync_pulse_front, (VH_SYNC ^ video_mode.sync_polarity), h_sync_pulse);
 
   // image line
-  base_ptr += whole_line;
-  line_patterns[2] = (uint32_t *)base_ptr;
-  memcpy(base_ptr, line_patterns[0], whole_line);
+  line_patterns[2] = (uint32_t *)(base_ptr + whole_line * 2);
+  memcpy(base_ptr + whole_line * 2, line_patterns[0], whole_line);
 
   // image line
-  base_ptr += whole_line;
-  line_patterns[3] = (uint32_t *)base_ptr;
-  memcpy(base_ptr, line_patterns[0], whole_line);
+  line_patterns[3] = (uint32_t *)(base_ptr + whole_line * 3);
+  memcpy(base_ptr + whole_line * 3, line_patterns[0], whole_line);
 
   // set VGA pins
   for (int i = VGA_PIN_D0; i < VGA_PIN_D0 + 8; i++)
@@ -274,13 +267,13 @@ void start_vga(video_mode_t v_mode)
 
   // PIO initialization
   // PIO program load
-  uint offset = pio_add_program(PIO_VGA, &pio_program_vga);
+  offset = pio_add_program(PIO_VGA, &pio_vga_program);
 
   pio_sm_config c = pio_get_default_sm_config();
 
   pio_sm_set_consecutive_pindirs(PIO_VGA, SM_VGA, VGA_PIN_D0, 8, true);
 
-  sm_config_set_wrap(&c, offset, offset + (pio_program_vga.length - 1));
+  sm_config_set_wrap(&c, offset, offset + (pio_vga_program.length - 1));
   sm_config_set_out_shift(&c, true, true, 32);
   sm_config_set_out_pins(&c, VGA_PIN_D0, 8);
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
@@ -291,7 +284,7 @@ void start_vga(video_mode_t v_mode)
   pio_sm_set_enabled(PIO_VGA, SM_VGA, true);
 
   // DMA initialization
-  int dma_ch0 = dma_claim_unused_channel(true);
+  dma_ch0 = dma_claim_unused_channel(true);
   dma_ch1 = dma_claim_unused_channel(true);
 
   // main (data) DMA channel
@@ -336,4 +329,19 @@ void start_vga(video_mode_t v_mode)
   irq_set_enabled(DMA_IRQ_0, true);
 
   dma_start_channel_mask((1u << dma_ch0));
+}
+
+void stop_vga()
+{
+  pio_sm_set_enabled(PIO_VGA, SM_VGA, false);
+  pio_sm_init(PIO_VGA, SM_VGA, offset, NULL);
+  pio_remove_program(PIO_VGA, &pio_vga_program, offset);
+  dma_channel_set_irq0_enabled(dma_ch1, false);
+  dma_channel_abort(dma_ch0);
+  dma_channel_abort(dma_ch1);
+  dma_channel_cleanup(dma_ch0);
+  dma_channel_cleanup(dma_ch1);
+  dma_channel_unclaim(dma_ch0);
+  dma_channel_unclaim(dma_ch1);
+  free(base_ptr);
 }
