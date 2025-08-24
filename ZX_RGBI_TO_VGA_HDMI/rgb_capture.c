@@ -27,44 +27,41 @@ static uint32_t *cap_dma_buf_addr[2];
 
 void check_settings(settings_t *settings)
 {
+  if (settings->video_out_mode > VIDEO_OUT_MODE_MAX ||
+      settings->video_out_mode < VIDEO_OUT_MODE_MIN)
+    settings->video_out_mode = VIDEO_OUT_MODE_DEF;
 
-  if (settings->video_out_mode > VIDEO_OUT_MODE_MAX)
-    settings->video_out_mode = VIDEO_OUT_MODE_MAX;
-  else if (settings->video_out_mode < VIDEO_OUT_MODE_MIN)
-    settings->video_out_mode = VIDEO_OUT_MODE_MIN;
+  if (settings->cap_sync_mode > CAP_SYNC_MODE_MAX ||
+      settings->cap_sync_mode < CAP_SYNC_MODE_MIN)
+    settings->cap_sync_mode = CAP_SYNC_MODE_DEF;
 
-  if (settings->cap_sync_mode > CAP_SYNC_MODE_MAX)
-    settings->cap_sync_mode = CAP_SYNC_MODE_MAX;
-  else if (settings->cap_sync_mode < CAP_SYNC_MODE_MIN)
-    settings->cap_sync_mode = CAP_SYNC_MODE_MIN;
+  if (settings->frequency > FREQUENCY_MAX ||
+      settings->frequency < FREQUENCY_MIN)
+    settings->frequency = FREQUENCY_DEF;
 
-  if (settings->frequency > FREQUENCY_MAX)
-    settings->frequency = FREQUENCY_MAX;
-  else if (settings->frequency < FREQUENCY_MIN)
-    settings->frequency = FREQUENCY_MIN;
+  if (settings->ext_clk_divider > EXT_CLK_DIVIDER_MAX ||
+      settings->ext_clk_divider < EXT_CLK_DIVIDER_MIN)
+    settings->ext_clk_divider = EXT_CLK_DIVIDER_DEF;
 
-  if (settings->ext_clk_divider > EXT_CLK_DIVIDER_MAX)
-    settings->ext_clk_divider = EXT_CLK_DIVIDER_MAX;
-  else if (settings->ext_clk_divider < EXT_CLK_DIVIDER_MIN)
-    settings->ext_clk_divider = EXT_CLK_DIVIDER_MIN;
+  if (settings->delay > DELAY_MAX ||
+      settings->delay < DELAY_MIN)
+    settings->delay = DELAY_DEF;
 
-  if (settings->delay > DELAY_MAX)
-    settings->delay = DELAY_MAX;
-  else if (settings->delay < DELAY_MIN)
-    settings->delay = DELAY_MIN;
+  if (settings->shX > shX_MAX ||
+      settings->shX < shX_MIN)
+    settings->shX = shX_DEF;
 
-  if (settings->shX > shX_MAX)
-    settings->shX = shX_MAX;
-  else if (settings->shX < shX_MIN)
-    settings->shX = shX_MIN;
-
-  if (settings->shY > shY_MAX)
-    settings->shY = shY_MAX;
-  else if (settings->shY < shY_MIN)
-    settings->shY = shY_MIN;
+  if (settings->shY > shY_MAX ||
+      settings->shY < shY_MIN)
+    settings->shY = shY_DEF;
 
   if (settings->pin_inversion_mask & ~PIN_INVERSION_MASK)
-    settings->pin_inversion_mask = PIN_INVERSION_MASK;
+  {
+    settings->pin_inversion_mask = PIN_INVERSION_MASK_DEF;
+    settings->scanlines_mode = false;
+    settings->x3_buffering_mode = false;
+    settings->video_sync_mode = false;
+  }
 }
 
 void set_capture_settings(settings_t *settings)
