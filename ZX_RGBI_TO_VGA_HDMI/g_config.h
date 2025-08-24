@@ -70,7 +70,7 @@ extern uint8_t g_v_buf[];
 extern uint32_t frame_count;
 
 #ifndef FW_VERSION
-#define FW_VERSION "v1.4.0"
+#define FW_VERSION "v1.4.1"
 #endif
 
 #define BOARD_CODE_36LJU22
@@ -183,6 +183,16 @@ extern uint32_t frame_count;
 #define shX_MAX 200
 #define shY_MAX 200
 #define PIN_INVERSION_MASK 0x7f
+
+// settings DEFAULT values
+#define VIDEO_OUT_MODE_DEF VGA640x480
+#define CAP_SYNC_MODE_DEF SELF
+#define FREQUENCY_DEF 7000000
+#define EXT_CLK_DIVIDER_DEF 2
+#define DELAY_DEF 15
+#define shX_DEF 68
+#define shY_DEF 34
+#define PIN_INVERSION_MASK_DEF 0x00
 
 // video buffer
 #define V_BUF_W ((64 - 6) * (FREQUENCY_MAX / 1000000)) // calculate max captured scanline length in pixels // 64 µs is a whole scanline and 6 µs - front porch + horizontal sync pulse durations
