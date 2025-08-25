@@ -292,8 +292,6 @@ void start_capture(settings_t *settings)
   }
 
   // PIO initialization
-  uint wrap;
-
   switch (capture_settings.cap_sync_mode)
   {
   case SELF:
@@ -314,7 +312,7 @@ void start_capture(settings_t *settings)
 
   // load PIO program
   offset = pio_add_program(PIO_CAP, program);
-  wrap = offset + program->length - 1;
+  uint wrap = offset + program->length - 1;
 
   // set initial capture delay
   set_capture_delay(capture_settings.delay);
