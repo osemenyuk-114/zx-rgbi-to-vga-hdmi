@@ -236,8 +236,8 @@ void start_capture(settings_t *settings)
   uint8_t pin_inversion_mask = capture_settings.pin_inversion_mask;
 
   // video timing variables measured in pixels
-  h_sync_pulse_2 = 3 * (capture_settings.frequency / 1000000); // 3 �s - 1/2 of the H_SYNC pulse
-  v_sync_pulse = 30 * (capture_settings.frequency / 1000000);  // 30 �s - V_SYNC pulse
+  h_sync_pulse_2 = 3 * (capture_settings.frequency / 1000000); // 3 µs - 1/2 of the H_SYNC pulse
+  v_sync_pulse = 30 * (capture_settings.frequency / 1000000);  // 30 µs - V_SYNC pulse
 
   // set capture pins
   for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)
@@ -252,13 +252,11 @@ void start_capture(settings_t *settings)
   }
 
   // PIO initialization
-  uint wrap;
-
   program = &pio_capture_0_program;
 
   // load PIO program
   offset = pio_add_program(PIO_CAP, program);
-  wrap = offset + program->length - 1;
+  uint wrap = offset + program->length - 1;
 
   // set initial capture delay
   set_capture_delay(capture_settings.delay);
