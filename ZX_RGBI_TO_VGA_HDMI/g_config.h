@@ -5,6 +5,10 @@
 #include "pico.h"
 #include "pico/time.h"
 
+#ifndef FW_VERSION
+#define FW_VERSION "v1.4.2"
+#endif
+
 enum cap_sync_mode_t
 {
   SYNC_MODE_MIN,
@@ -68,10 +72,6 @@ extern video_mode_t *vga_modes[];
 
 extern uint8_t g_v_buf[];
 extern uint32_t frame_count;
-
-#ifndef FW_VERSION
-#define FW_VERSION "v1.4.1"
-#endif
 
 #define BOARD_CODE_36LJU22
 // #define BOARD_CODE_09LJV23
@@ -195,9 +195,12 @@ extern uint32_t frame_count;
 #define PIN_INVERSION_MASK_DEF 0x00
 
 // video buffer
-#define V_BUF_W ((64 - 6) * (FREQUENCY_MAX / 1000000)) // calculate max captured scanline length in pixels // 64 µs is a whole scanline and 6 µs - front porch + horizontal sync pulse durations
+#define V_BUF_W ((64 - 6) * (FREQUENCY_MAX / 1000000)) // width of the video buffer calculate as max captured line length in pixels (64 µs - whole scanline time, 6 µs - front porch + horizontal sync pulse durations)
 #define V_BUF_H 304
 #define V_BUF_SZ (V_BUF_H * V_BUF_W / 2)
+
+// video timing
+#define ACTIVE_VIDEO_TIME (64 - 12) // active video time in µs (64 µs - whole scanline time, 12 µs - front porch + horizontal sync pulse durations + back porch durations)
 
 // enable scanlines on 640x480 and 800x600 resolutions
 // not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler

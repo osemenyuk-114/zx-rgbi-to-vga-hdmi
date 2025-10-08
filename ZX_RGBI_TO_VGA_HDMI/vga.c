@@ -10,13 +10,16 @@
 #include "pio_programs.h"
 #include "v_buf.h"
 
+extern settings_t settings;
+
 static int dma_ch0;
 static int dma_ch1;
-static uint16_t offset;
+static uint offset;
 
 static video_mode_t video_mode;
 
 static int16_t h_visible_area;
+static int16_t h_margin;
 static int16_t v_visible_area;
 static int16_t v_margin;
 static bool scanlines_mode = false;
@@ -186,8 +189,14 @@ void __not_in_flash_func(dma_handler_vga)()
   uint8_t *scr_buf = &screen_buf[(uint16_t)((y - v_margin) / video_mode.div) * V_BUF_W / 2];
   uint16_t *line_buf = (uint16_t *)(*v_out_dma_buf_addr);
 
+  for (int i = h_margin; i--;)
+    *line_buf++ = palette[0];
+
   for (int i = h_visible_area; i--;)
     *line_buf++ = palette[*scr_buf++];
+
+  for (int i = h_margin; i--;)
+    *line_buf++ = palette[0];
 
   dma_channel_set_read_addr(dma_ch1, v_out_dma_buf_addr, false);
 }
@@ -205,9 +214,16 @@ void start_vga(video_mode_t v_mode)
   int h_sync_pulse_front = (video_mode.h_visible_area + video_mode.h_front_porch) / video_mode.div;
   int h_sync_pulse = video_mode.h_sync_pulse / video_mode.div;
 
-  h_visible_area = video_mode.h_visible_area / (video_mode.div * 2);
+  h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 2;
+  h_margin = (h_visible_area - (uint8_t)(settings.frequency / 1000000) * ACTIVE_VIDEO_TIME / 2) / 2;
+
+  if (h_margin < 0)
+    h_margin = 0;
+
+  h_visible_area -= h_margin * 2;
+
   v_visible_area = V_BUF_H * video_mode.div;
-  v_margin = (int16_t)((video_mode.v_visible_area - v_visible_area) / 2);
+  v_margin = ((int16_t)((video_mode.v_visible_area - v_visible_area) / (video_mode.div * 2) + 0.5)) * video_mode.div;
 
   if (v_margin < 0)
     v_margin = 0;

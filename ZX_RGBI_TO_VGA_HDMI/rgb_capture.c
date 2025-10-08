@@ -12,15 +12,15 @@
 static int dma_ch0;
 static int dma_ch1;
 const pio_program_t *program = NULL;
-static uint16_t offset;
+static uint offset;
 
 uint8_t *cap_buf;
 settings_t capture_settings;
 
 uint32_t frame_count = 0;
 
-uint h_sync_pulse_2;
-uint v_sync_pulse;
+static uint16_t h_sync_pulse_2;
+static uint16_t v_sync_pulse;
 
 static uint32_t cap_dma_buf[2][CAP_DMA_BUF_SIZE / 4];
 static uint32_t *cap_dma_buf_addr[2];
@@ -174,9 +174,6 @@ void __not_in_flash_func(dma_handler_capture())
 
   uint8_t sync_mask = capture_settings.video_sync_mode ? ((1u << VS_PIN) | (1u << HS_PIN)) : (1u << HS_PIN);
 
-  uint hsync_pulse_2 = h_sync_pulse_2;
-  uint vsync_pulse = v_sync_pulse;
-
   dma_hw->ints1 = 1u << dma_ch1;
   dma_channel_set_read_addr(dma_ch1, &cap_dma_buf_addr[dma_buf_idx & 1], false);
 
@@ -204,7 +201,7 @@ void __not_in_flash_func(dma_handler_capture())
 
     if ((val8 & sync_mask) != sync_mask) // detect active sync pulses
     {
-      if (CS_idx == hsync_pulse_2) // start in the middle of the H_SYNC pulse // this should help ignore the spikes
+      if (CS_idx == h_sync_pulse_2) // start in the middle of the H_SYNC pulse // this should help ignore the spikes
       {
         y++;
         // set the pointer to the beginning of a new line
@@ -217,7 +214,7 @@ void __not_in_flash_func(dma_handler_capture())
 
       if (sync_mask == (1u << HS_PIN)) // composite sync
       {
-        if (CS_idx < vsync_pulse) // detect V_SYNC pulse
+        if (CS_idx < v_sync_pulse) // detect V_SYNC pulse
           continue;
       }
       else if (val8 & (1u << VS_PIN))
@@ -276,8 +273,8 @@ void start_capture(settings_t *settings)
   uint8_t pin_inversion_mask = capture_settings.pin_inversion_mask;
 
   // video timing variables measured in pixels
-  h_sync_pulse_2 = 3 * (capture_settings.frequency / 1000000); // 3 µs - 1/2 of the H_SYNC pulse
-  v_sync_pulse = 30 * (capture_settings.frequency / 1000000);  // 30 µs - V_SYNC pulse
+  h_sync_pulse_2 = 3 * (uint8_t)(capture_settings.frequency / 1000000); // 3 µs - 1/2 of the H_SYNC pulse
+  v_sync_pulse = 30 * (uint8_t)(capture_settings.frequency / 1000000);  // 30 µs - V_SYNC pulse
 
   // set capture pins
   for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)

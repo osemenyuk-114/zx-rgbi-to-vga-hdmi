@@ -7,7 +7,7 @@ Param(
     [string[]]$OptParams
 )
 
-$FW_VERSION = "v1.4.1"
+$FW_VERSION = "v1.4.2"
 # Arduino CLI executable name and config
 $ARDUINO_CLI = "arduino-cli.exe"
 $CONFIG_DIR = "$($env:USERPROFILE)\.arduinoIDE"
