@@ -777,13 +777,6 @@ void loop()
           }
         }
 
-          if (settings.video_out_mode != DVI)
-          {
-            stop_vga();
-            start_vga(*(vga_modes[settings.video_out_mode]));
-          }
-        }
-
         if (inbyte == 'q')
         {
           inbyte = 'h';
