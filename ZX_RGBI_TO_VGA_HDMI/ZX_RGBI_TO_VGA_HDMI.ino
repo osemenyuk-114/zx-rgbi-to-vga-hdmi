@@ -525,9 +525,9 @@ void loop()
 
         if ((video_out_mode != DVI) && (settings.video_out_mode != DVI) && (video_out_mode != settings.video_out_mode))
         {
+          set_capture_frequency(settings.frequency);
           stop_vga();
           start_vga(*(vga_modes[settings.video_out_mode]));
-          set_capture_frequency(settings.frequency);
         }
 
         if (inbyte == 'q')
@@ -766,7 +766,15 @@ void loop()
         }
 
         if (frequency != settings.frequency)
+        {
           set_capture_frequency(settings.frequency);
+
+          if (settings.video_out_mode != DVI)
+          {
+            stop_vga();
+            start_vga(*(vga_modes[settings.video_out_mode]));
+          }
+        }
 
         if (inbyte == 'q')
         {

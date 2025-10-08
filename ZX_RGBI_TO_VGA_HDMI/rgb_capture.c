@@ -12,7 +12,7 @@
 static int dma_ch0;
 static int dma_ch1;
 const pio_program_t *program = NULL;
-static uint16_t offset;
+static uint offset;
 
 uint8_t *cap_buf;
 settings_t capture_settings;
