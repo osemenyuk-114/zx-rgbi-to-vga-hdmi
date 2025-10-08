@@ -1,6 +1,8 @@
 #include "g_config.h"
 #include "v_buf.h"
 
+extern settings_t settings;
+
 uint8_t *v_bufs[3] = {g_v_buf, g_v_buf + V_BUF_SZ, g_v_buf + 2 * V_BUF_SZ};
 
 bool show_v_buf[] = {false, false, false};
@@ -65,12 +67,20 @@ void set_v_buf_buffering_mode(bool buffering_mode)
 
 void draw_welcome_screen(video_mode_t video_mode)
 {
+  int16_t h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 4;
+  int16_t h_margin = h_visible_area - (uint8_t)(settings.frequency / 1000000) * ACTIVE_VIDEO_TIME;
+
+  if (h_margin < 0)
+    h_margin = 0;
+
+  h_visible_area -= h_margin;
+
   uint8_t *v_buf = (uint8_t *)get_v_buf_out();
 
   for (int y = 0; y < V_BUF_H; y++)
     for (int x = 0; x < V_BUF_W; x++)
     {
-      uint8_t i = 15 - ((16 * x * video_mode.div) / video_mode.h_visible_area);
+      uint8_t i = 0x0f & ~(uint8_t)((16 * x) / h_visible_area);
       uint8_t R = (i & 4) ? ((i & 1) ? 0b0100 : 0b1100) : 0;
       uint8_t G = (i & 8) ? ((i & 1) ? 0b0010 : 0b1010) : 0;
       uint8_t B = (i & 2) ? ((i & 1) ? 0b0001 : 0b1001) : 0;
@@ -85,17 +95,18 @@ void draw_welcome_screen(video_mode_t video_mode)
 
 void draw_welcome_screen_h(video_mode_t video_mode)
 {
-  uint8_t *v_buf = (uint8_t *)get_v_buf_out();
-  int16_t v_margin = (int16_t)((video_mode.v_visible_area - V_BUF_H * video_mode.div) / video_mode.div) * video_mode.div;
+  int16_t v_margin = ((int16_t)((video_mode.v_visible_area - V_BUF_H * video_mode.div) / (video_mode.div * 2) + 0.5)) * video_mode.div * 2;
 
   if (v_margin < 0)
     v_margin = 0;
 
-  uint v_area = video_mode.v_visible_area - v_margin;
+  uint16_t v_visible_area = video_mode.v_visible_area - v_margin;
+
+  uint8_t *v_buf = (uint8_t *)get_v_buf_out();
 
   for (int y = 0; y < V_BUF_H; y++)
   {
-    uint8_t i = (16 * y * video_mode.div) / v_area;
+    uint8_t i = (16 * y * video_mode.div) / v_visible_area;
     uint8_t R = (i & 4) ? ((i & 1) ? 0b0100 : 0b1100) : 0;
     uint8_t G = (i & 8) ? ((i & 1) ? 0b0010 : 0b1010) : 0;
     uint8_t B = (i & 2) ? ((i & 1) ? 0b0001 : 0b1001) : 0;
@@ -130,14 +141,21 @@ void draw_no_signal(video_mode_t video_mode)
   uint8_t c;
   uint8_t c2;
 
-  uint8_t *v_buf = (uint8_t *)get_v_buf_out();
-  int16_t v_margin = (int16_t)((video_mode.v_visible_area - V_BUF_H * video_mode.div) / video_mode.div) * video_mode.div;
+  int16_t h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 4;
+  int16_t h_margin = h_visible_area - (uint8_t)(settings.frequency / 1000000) * ACTIVE_VIDEO_TIME;
+
+  if (h_margin < 0)
+    h_margin = 0;
+
+  int16_t v_margin = ((int16_t)((video_mode.v_visible_area - V_BUF_H * video_mode.div) / (video_mode.div * 2) + 0.5)) * video_mode.div * 2;
 
   if (v_margin < 0)
     v_margin = 0;
 
-  uint y = (video_mode.v_visible_area - v_margin) / (video_mode.div * 2);
-  uint x = (video_mode.h_visible_area / video_mode.div - 114) / 4;
+  uint16_t y = (video_mode.v_visible_area - v_margin) / (video_mode.div * 2);
+  uint16_t x = (h_visible_area - h_margin - 114) / 4;
+
+  uint8_t *v_buf = (uint8_t *)get_v_buf_out();
 
   memset(v_buf, 0, V_BUF_H * V_BUF_W / 2);
 
