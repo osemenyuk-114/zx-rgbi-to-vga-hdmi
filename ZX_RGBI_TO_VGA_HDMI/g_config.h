@@ -5,6 +5,10 @@
 #include "pico.h"
 #include "pico/time.h"
 
+#ifndef FW_VERSION
+#define FW_VERSION "v1.4.2-6bit-color"
+#endif
+
 enum video_out_mode_t
 {
   VIDEO_MODE_MIN,
@@ -52,10 +56,6 @@ extern video_mode_t *vga_modes[];
 
 extern uint8_t g_v_buf[];
 extern uint32_t frame_count;
-
-#ifndef FW_VERSION
-#define FW_VERSION "v1.4.1-6bit-color"
-#endif
 
 #define BOARD_CODE_36LJU22
 // #define BOARD_CODE_09LJV23
@@ -150,7 +150,7 @@ extern uint32_t frame_count;
 
 // settings MAX values
 #define VIDEO_OUT_MODE_MAX VIDEO_MODE_MAX
-#define FREQUENCY_MAX 15000000
+#define FREQUENCY_MAX 14000000
 #define DELAY_MAX 31
 #define shX_MAX 200
 #define shY_MAX 200
@@ -165,9 +165,12 @@ extern uint32_t frame_count;
 #define PIN_INVERSION_MASK_DEF 0x00
 
 // video buffer
-#define V_BUF_W (50 * (FREQUENCY_MAX / 1000000)) //
+#define V_BUF_W ((64 - 12) * (FREQUENCY_MAX / 1000000)) //
 #define V_BUF_H 288
 #define V_BUF_SZ (V_BUF_H * V_BUF_W)
+
+// video timing
+#define ACTIVE_VIDEO_TIME (64 - 12) // active video time in µs (64 µs - whole scanline time, 12 µs - front porch + horizontal sync pulse durations + back porch durations)
 
 // enable scanlines on 640x480 and 800x600 resolutions
 // not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler
