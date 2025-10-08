@@ -525,14 +525,10 @@ void loop()
 
         if ((video_out_mode != DVI) && (settings.video_out_mode != DVI) && (video_out_mode != settings.video_out_mode))
         {
-          set_capture_frequency(settings.frequency);
           stop_vga();
           start_vga(*(vga_modes[settings.video_out_mode]));
-<<<<<<< HEAD
           // capture PIO clock divider needs to be adjusted for new system clock frequency set in start_vga()
           set_capture_frequency(settings.frequency);
-=======
->>>>>>> 8e6206d6da3aa69890f6f52f9bfbc50d46a94730
         }
 
         if (inbyte == 'q')
