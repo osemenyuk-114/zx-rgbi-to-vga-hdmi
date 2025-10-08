@@ -68,7 +68,11 @@ void set_v_buf_buffering_mode(bool buffering_mode)
 void draw_welcome_screen(video_mode_t video_mode)
 {
   int16_t h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 4;
+<<<<<<< HEAD
   int16_t h_margin = h_visible_area - (uint8_t)(settings.frequency / 1000000) * ACTIVE_VIDEO_TIME;
+=======
+  int16_t h_margin = h_visible_area - (uint8_t)(settings.frequency / 1000000) * ACTIVE_VIDEO;
+>>>>>>> 8e6206d6da3aa69890f6f52f9bfbc50d46a94730
 
   if (h_margin < 0)
     h_margin = 0;
@@ -142,7 +146,11 @@ void draw_no_signal(video_mode_t video_mode)
   uint8_t c2;
 
   int16_t h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 4;
+<<<<<<< HEAD
   int16_t h_margin = h_visible_area - (uint8_t)(settings.frequency / 1000000) * ACTIVE_VIDEO_TIME;
+=======
+  int16_t h_margin = h_visible_area - (uint8_t)(settings.frequency / 1000000) * ACTIVE_VIDEO;
+>>>>>>> 8e6206d6da3aa69890f6f52f9bfbc50d46a94730
 
   if (h_margin < 0)
     h_margin = 0;

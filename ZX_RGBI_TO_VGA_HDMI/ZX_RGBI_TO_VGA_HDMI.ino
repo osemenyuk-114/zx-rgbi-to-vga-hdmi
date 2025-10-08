@@ -525,10 +525,14 @@ void loop()
 
         if ((video_out_mode != DVI) && (settings.video_out_mode != DVI) && (video_out_mode != settings.video_out_mode))
         {
+          set_capture_frequency(settings.frequency);
           stop_vga();
           start_vga(*(vga_modes[settings.video_out_mode]));
+<<<<<<< HEAD
           // capture PIO clock divider needs to be adjusted for new system clock frequency set in start_vga()
           set_capture_frequency(settings.frequency);
+=======
+>>>>>>> 8e6206d6da3aa69890f6f52f9bfbc50d46a94730
         }
 
         if (inbyte == 'q')
@@ -770,6 +774,13 @@ void loop()
         {
           set_capture_frequency(settings.frequency);
           // restart VGA with new capture frequency value which is used to calculate horizontal margins for some video output modes
+          if (settings.video_out_mode != DVI)
+          {
+            stop_vga();
+            start_vga(*(vga_modes[settings.video_out_mode]));
+          }
+        }
+
           if (settings.video_out_mode != DVI)
           {
             stop_vga();

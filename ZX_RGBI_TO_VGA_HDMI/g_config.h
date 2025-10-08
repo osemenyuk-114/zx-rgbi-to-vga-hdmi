@@ -195,6 +195,10 @@ extern uint32_t frame_count;
 #define PIN_INVERSION_MASK_DEF 0x00
 
 // video buffer
+<<<<<<< HEAD
+=======
+#define ACTIVE_VIDEO (64 - 12) // active video time in µs (64 µs - whole scanline time, 12 µs - front porch + horizontal sync pulse durations + back porch durations)
+>>>>>>> 8e6206d6da3aa69890f6f52f9bfbc50d46a94730
 #define V_BUF_W ((64 - 6) * (FREQUENCY_MAX / 1000000)) // width of the video buffer calculate as max captured line length in pixels (64 µs - whole scanline time, 6 µs - front porch + horizontal sync pulse durations)
 #define V_BUF_H 304
 #define V_BUF_SZ (V_BUF_H * V_BUF_W / 2)

@@ -215,7 +215,11 @@ void start_vga(video_mode_t v_mode)
   int h_sync_pulse = video_mode.h_sync_pulse / video_mode.div;
 
   h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 2;
+<<<<<<< HEAD
   h_margin = (h_visible_area - (uint8_t)(settings.frequency / 1000000) * ACTIVE_VIDEO_TIME / 2) / 2;
+=======
+  h_margin = (h_visible_area - (uint8_t)(settings.frequency / 1000000) * ACTIVE_VIDEO / 2) / 2;
+>>>>>>> 8e6206d6da3aa69890f6f52f9bfbc50d46a94730
 
   if (h_margin < 0)
     h_margin = 0;
