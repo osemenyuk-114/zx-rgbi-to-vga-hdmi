@@ -65,6 +65,20 @@ void set_v_buf_buffering_mode(bool buffering_mode)
   x3_buffering_mode = buffering_mode;
 }
 
+void clear_video_buffers()
+{
+  // clear all three video buffers
+  memset(g_v_buf, 0, 3 * V_BUF_SZ);
+
+  // reset buffer indices and flags
+  v_buf_in_idx = 0;
+  v_buf_out_idx = 0;
+  show_v_buf[0] = false;
+  show_v_buf[1] = false;
+  show_v_buf[2] = false;
+  first_frame = true;
+}
+
 void draw_welcome_screen(video_mode_t video_mode)
 {
   int16_t h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 4;

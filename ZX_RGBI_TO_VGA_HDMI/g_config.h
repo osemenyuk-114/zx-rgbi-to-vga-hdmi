@@ -6,7 +6,7 @@
 #include "pico/time.h"
 
 #ifndef FW_VERSION
-#define FW_VERSION "v1.4.2"
+#define FW_VERSION "v1.4.3"
 #endif
 
 enum cap_sync_mode_t
