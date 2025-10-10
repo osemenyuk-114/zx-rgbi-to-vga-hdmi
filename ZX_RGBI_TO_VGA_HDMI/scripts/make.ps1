@@ -7,7 +7,7 @@ Param(
     [string[]]$OptParams
 )
 
-$FW_VERSION = "v1.4.2-6bit-color"
+$FW_VERSION = "v1.4.3-6bit-color"
 # Arduino CLI executable name and config
 $ARDUINO_CLI = "arduino-cli.exe"
 $CONFIG_DIR = "$($env:USERPROFILE)\.arduinoIDE"

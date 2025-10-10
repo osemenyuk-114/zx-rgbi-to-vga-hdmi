@@ -6,7 +6,7 @@
 #include "pico/time.h"
 
 #ifndef FW_VERSION
-#define FW_VERSION "v1.4.2-6bit-color"
+#define FW_VERSION "v1.4.3-6bit-color"
 #endif
 
 enum video_out_mode_t

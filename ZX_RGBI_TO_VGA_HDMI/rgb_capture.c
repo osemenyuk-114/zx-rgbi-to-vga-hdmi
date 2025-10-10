@@ -184,6 +184,8 @@ void __not_in_flash_func(dma_handler_capture())
       {
         if (frame_count > 10) // power on delay // noise immunity at the sync input
           cap_buf = get_v_buf_in();
+        else if (frame_count == 5) // clear video buffers
+          clear_video_buffer();
 
         frame_count++;
       }

@@ -15,6 +15,12 @@ void *__not_in_flash_func(get_v_buf_in)()
   return v_bufs;
 }
 
+void clear_video_buffer()
+{
+  // clear video buffer
+  memset(g_v_buf, 0, V_BUF_SZ);
+}
+
 void draw_welcome_screen(video_mode_t video_mode)
 {
   int16_t h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 4;
