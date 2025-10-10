@@ -220,11 +220,12 @@ void __not_in_flash_func(dma_handler_capture())
       else if (val8 & (1u << VS_PIN))
         continue;
 
-      // start capture of a new frame
-      if (y >= 0)
+      if (y >= 0) // start capture of a new frame
       {
         if (frame_count > 10) // power on delay // noise immunity at the sync input
           cap_buf = get_v_buf_in();
+        else if (frame_count == 5) // clear video buffers
+          clear_video_buffers();
 
         frame_count++;
       }
