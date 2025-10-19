@@ -6,36 +6,46 @@
 #include "pico/time.h"
 
 #ifndef FW_VERSION
-#define FW_VERSION "v1.4.3"
+#define FW_VERSION "v1.5.0"
 #endif
 
-enum cap_sync_mode_t
+typedef enum video_out_type_t
+{
+  OUTPUT_TYPE_MIN,
+  DVI = OUTPUT_TYPE_MIN,
+  VGA,
+  OUTPUT_TYPE_MAX = VGA,
+} video_out_type_t;
+
+typedef enum video_out_mode_t
+{
+  VIDEO_MODE_MIN,
+  MODE_640x480_60Hz = VIDEO_MODE_MIN,
+  MODE_720x576_50Hz,
+  VIDEO_MODE_DVI_MAX = MODE_720x576_50Hz,
+  MODE_800x600_60Hz,
+  MODE_1024x768_60Hz,
+  MODE_1280x1024_60Hz_d3,
+  MODE_1280x1024_60Hz_d4,
+  VIDEO_MODE_MAX = MODE_1280x1024_60Hz_d4,
+} video_out_mode_t;
+
+typedef enum cap_sync_mode_t
 {
   SYNC_MODE_MIN,
   SELF = SYNC_MODE_MIN,
   EXT,
   SYNC_MODE_MAX = EXT,
-};
-
-enum video_out_mode_t
-{
-  VIDEO_MODE_MIN,
-  DVI = VIDEO_MODE_MIN,
-  VGA640x480,
-  VGA800x600,
-  VGA1024x768,
-  VGA1280x1024_d3,
-  VGA1280x1024_d4,
-  VIDEO_MODE_MAX = VGA1280x1024_d4,
-};
+} cap_sync_mode_t;
 
 typedef struct settings_t
 {
-  enum video_out_mode_t video_out_mode;
+  video_out_type_t video_out_type;
+  video_out_mode_t video_out_mode;
   bool scanlines_mode : 1;
-  bool x3_buffering_mode : 1;
+  bool buffering_mode : 1;
   bool video_sync_mode : 1;
-  enum cap_sync_mode_t cap_sync_mode;
+  cap_sync_mode_t cap_sync_mode;
   uint32_t frequency;
   int8_t ext_clk_divider;
   int8_t delay;
@@ -62,13 +72,14 @@ typedef struct video_mode_t
   uint8_t div;
 } video_mode_t;
 
-extern video_mode_t vga_640x480;
-extern video_mode_t vga_800x600;
-extern video_mode_t vga_1024x768;
-extern video_mode_t vga_1280x1024_d3;
-extern video_mode_t vga_1280x1024_d4;
+extern video_mode_t mode_640x480_60Hz;
+extern video_mode_t mode_720x576_50Hz;
+extern video_mode_t mode_800x600_60Hz;
+extern video_mode_t mode_1024x768_60Hz;
+extern video_mode_t mode_1280x1024_60Hz_d3;
+extern video_mode_t mode_1280x1024_60Hz_d4;
 
-extern video_mode_t *vga_modes[];
+extern video_mode_t *video_modes[];
 
 extern uint8_t g_v_buf[];
 extern uint32_t frame_count;
@@ -166,6 +177,7 @@ extern uint32_t frame_count;
 #define SM_CAP 0
 
 // settings MIN values
+#define VIDEO_OUT_TYPE_MIN OUTPUT_TYPE_MIN
 #define VIDEO_OUT_MODE_MIN VIDEO_MODE_MIN
 #define CAP_SYNC_MODE_MIN SYNC_MODE_MIN
 #define FREQUENCY_MIN 6000000
@@ -175,6 +187,7 @@ extern uint32_t frame_count;
 #define shY_MIN 0
 
 // settings MAX values
+#define VIDEO_OUT_TYPE_MAX OUTPUT_TYPE_MAX
 #define VIDEO_OUT_MODE_MAX VIDEO_MODE_MAX
 #define CAP_SYNC_MODE_MAX SYNC_MODE_MAX
 #define FREQUENCY_MAX 8000000
@@ -185,7 +198,8 @@ extern uint32_t frame_count;
 #define PIN_INVERSION_MASK 0x7f
 
 // settings DEFAULT values
-#define VIDEO_OUT_MODE_DEF VGA640x480
+#define VIDEO_OUT_TYPE_DEF VGA
+#define VIDEO_OUT_MODE_DEF MODE_640x480_60Hz
 #define CAP_SYNC_MODE_DEF SELF
 #define FREQUENCY_DEF 7000000
 #define EXT_CLK_DIVIDER_DEF 2

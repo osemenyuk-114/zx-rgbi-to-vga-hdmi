@@ -27,7 +27,12 @@ static uint32_t *cap_dma_buf_addr[2];
 
 void check_settings(settings_t *settings)
 {
+  if (settings->video_out_type > VIDEO_OUT_TYPE_MAX ||
+      settings->video_out_type < VIDEO_OUT_TYPE_MIN)
+    settings->video_out_type = VIDEO_OUT_TYPE_DEF;
+
   if (settings->video_out_mode > VIDEO_OUT_MODE_MAX ||
+      (settings->video_out_type == DVI && settings->video_out_mode > VIDEO_MODE_DVI_MAX) || // DVI mode supports resolutions up to VIDEO_MODE_DVI_MAX
       settings->video_out_mode < VIDEO_OUT_MODE_MIN)
     settings->video_out_mode = VIDEO_OUT_MODE_DEF;
 
@@ -59,7 +64,7 @@ void check_settings(settings_t *settings)
   {
     settings->pin_inversion_mask = PIN_INVERSION_MASK_DEF;
     settings->scanlines_mode = false;
-    settings->x3_buffering_mode = false;
+    settings->buffering_mode = false;
     settings->video_sync_mode = false;
   }
 }
@@ -391,14 +396,26 @@ void start_capture(settings_t *settings)
 
 void stop_capture()
 {
+  // disable IRQ first to prevent handlers from running during cleanup
+  irq_set_enabled(DMA_IRQ_1, false);
+
+  // clear the IRQ handler to prevent conflicts with restarting capture
+  irq_remove_handler(DMA_IRQ_1, dma_handler_capture);
+
+  // stop PIO
   pio_sm_set_enabled(PIO_CAP, SM_CAP, false);
   pio_sm_init(PIO_CAP, SM_CAP, offset, NULL);
   pio_remove_program(PIO_CAP, program, offset);
-  dma_channel_set_irq1_enabled(dma_ch1, false);
-  dma_channel_abort(dma_ch0);
-  dma_channel_abort(dma_ch1);
+
+  // cleanup and free DMA channels
   dma_channel_cleanup(dma_ch0);
   dma_channel_cleanup(dma_ch1);
   dma_channel_unclaim(dma_ch0);
   dma_channel_unclaim(dma_ch1);
+
+  // reset buffer pointers and state
+  cap_buf = NULL;
+  cap_dma_buf_addr[0] = NULL;
+  cap_dma_buf_addr[1] = NULL;
+  frame_count = 0;
 }

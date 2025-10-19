@@ -10,12 +10,12 @@ bool show_v_buf[] = {false, false, false};
 uint8_t v_buf_in_idx = 0;
 uint8_t v_buf_out_idx = 0;
 
-bool x3_buffering_mode = false;
+bool buffering_mode = false;
 bool first_frame = true;
 
 void *__not_in_flash_func(get_v_buf_out)()
 {
-  if (!x3_buffering_mode | first_frame)
+  if (!buffering_mode | first_frame)
     return v_bufs[0];
 
   if (!show_v_buf[(v_buf_out_idx + 1) % 3])
@@ -37,7 +37,7 @@ void *__not_in_flash_func(get_v_buf_out)()
 
 void *__not_in_flash_func(get_v_buf_in)()
 {
-  if (!x3_buffering_mode)
+  if (!buffering_mode)
     return v_bufs[0];
 
   if (first_frame)
@@ -60,9 +60,9 @@ void *__not_in_flash_func(get_v_buf_in)()
   return NULL;
 }
 
-void set_v_buf_buffering_mode(bool buffering_mode)
+void set_buffering_mode(bool buf_mode)
 {
-  x3_buffering_mode = buffering_mode;
+  buffering_mode = buf_mode;
 }
 
 void clear_video_buffers()

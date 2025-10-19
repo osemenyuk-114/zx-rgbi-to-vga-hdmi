@@ -10,7 +10,10 @@
 #include "pio_programs.h"
 #include "v_buf.h"
 
+static int dma_ch0;
 static int dma_ch1;
+static uint offset;
+
 static uint8_t *screen_buf;
 static video_mode_t video_mode;
 
@@ -231,7 +234,7 @@ void start_dvi(video_mode_t v_mode)
 
   // PIO initialization
   // PIO program load
-  uint offset = pio_add_program(PIO_DVI, &pio_dvi_program);
+  offset = pio_add_program(PIO_DVI, &pio_dvi_program);
 
   pio_sm_config c = pio_get_default_sm_config();
 
@@ -252,7 +255,7 @@ void start_dvi(video_mode_t v_mode)
   pio_sm_set_enabled(PIO_DVI, SM_DVI, true);
 
   // DMA initialization
-  int dma_ch0 = dma_claim_unused_channel(true);
+  dma_ch0 = dma_claim_unused_channel(true);
   dma_ch1 = dma_claim_unused_channel(true);
 
   // main (data) DMA channel
@@ -300,4 +303,39 @@ void start_dvi(video_mode_t v_mode)
   irq_set_enabled(DMA_IRQ_0, true);
 
   dma_start_channel_mask((1u << dma_ch0));
+}
+
+void stop_dvi()
+{
+  // disable IRQ first to prevent handlers from running during cleanup
+  irq_set_enabled(DMA_IRQ_0, false);
+
+  // clear the IRQ handler to prevent conflicts with VGA
+  irq_remove_handler(DMA_IRQ_0, dma_handler_dvi);
+
+  // stop PIO
+  pio_sm_set_enabled(PIO_DVI, SM_DVI, false);
+  pio_sm_init(PIO_DVI, SM_DVI, offset, NULL);
+  pio_remove_program(PIO_DVI, &pio_dvi_program, offset);
+
+  // cleanup and free DMA channels
+  dma_channel_cleanup(dma_ch0);
+  dma_channel_cleanup(dma_ch1);
+  dma_channel_unclaim(dma_ch0);
+  dma_channel_unclaim(dma_ch1);
+
+  // free buffers with null checks
+  if (v_out_dma_buf[0] != NULL)
+  {
+    free(v_out_dma_buf[0]);
+  }
+  v_out_dma_buf[0] = NULL;
+
+  if (v_out_dma_buf[1] != NULL)
+  {
+    free(v_out_dma_buf[1]);
+  }
+  v_out_dma_buf[1] = NULL;
+
+  screen_buf = NULL;
 }

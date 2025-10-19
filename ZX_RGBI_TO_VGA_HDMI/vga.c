@@ -351,15 +351,31 @@ void start_vga(video_mode_t v_mode)
 
 void stop_vga()
 {
+  // disable IRQ first to prevent handlers from running during cleanup
+  irq_set_enabled(DMA_IRQ_0, false);
+
+  // clear the IRQ handler to prevent conflicts with DVI
+  irq_remove_handler(DMA_IRQ_0, dma_handler_vga);
+
+  // stop PIO
   pio_sm_set_enabled(PIO_VGA, SM_VGA, false);
   pio_sm_init(PIO_VGA, SM_VGA, offset, NULL);
   pio_remove_program(PIO_VGA, &pio_vga_program, offset);
-  dma_channel_set_irq0_enabled(dma_ch1, false);
-  dma_channel_abort(dma_ch0);
-  dma_channel_abort(dma_ch1);
+
+  // cleanup and free DMA channels
   dma_channel_cleanup(dma_ch0);
   dma_channel_cleanup(dma_ch1);
   dma_channel_unclaim(dma_ch0);
   dma_channel_unclaim(dma_ch1);
-  free(base_ptr);
+
+  // free memory with null check
+  if (base_ptr != NULL)
+  {
+    free(base_ptr);
+  }
+  base_ptr = NULL;
+  line_patterns[0] = NULL;
+  line_patterns[1] = NULL;
+  line_patterns[2] = NULL;
+  line_patterns[3] = NULL;
 }

@@ -27,10 +27,11 @@ volatile bool core1_inactive = false;
 volatile bool restart_capture = false;
 volatile bool capture_active = false;
 
+// Video output active state flag
+video_out_type_t active_video_output = VIDEO_OUT_TYPE_DEF;
+
 static void save_settings(settings_t *settings)
 {
-  Serial.println("  Saving settings...");
-
   check_settings(settings);
 
   stop_core1 = true;
@@ -71,7 +72,7 @@ String binary_to_string(uint8_t value, bool mask_1)
   return str;
 }
 
-uint32_t string_to_int(String value)
+uint32_t inline string_to_int(String value)
 {
   return value.toInt();
 }
@@ -82,8 +83,12 @@ void print_main_menu()
   Serial.print(FW_VERSION);
   Serial.println(" *\n");
 
-  Serial.println("  v   set video output mode");
-  Serial.println("  s   set scanlines mode");
+  Serial.println("  o   set video output type (DVI/VGA)");
+  Serial.println("  v   set video resolution");
+
+  if (settings.video_out_type == VGA)
+    Serial.println("  s   set scanlines mode");
+
   Serial.println("  b   set buffering mode");
   Serial.println("  c   set capture synchronization source");
   Serial.println("  f   set capture frequency");
@@ -101,14 +106,39 @@ void print_main_menu()
 
 void print_video_out_menu()
 {
-  Serial.println("\n      * Video output mode *\n");
+  Serial.println("\n      * Video resolution *\n");
 
-  Serial.println("  1   HDMI   640x480 (div 2)");
-  Serial.println("  2   VGA    640x480 (div 2)");
-  Serial.println("  3   VGA    800x600 (div 2)");
-  Serial.println("  4   VGA   1024x768 (div 3)");
-  Serial.println("  5   VGA  1280x1024 (div 3)");
-  Serial.println("  6   VGA  1280x1024 (div 4)\n");
+  Serial.println("  1    640x480 @60Hz (div 2)");
+
+  switch (settings.video_out_type)
+  {
+  case DVI:
+    Serial.println("  2    720x576 @50Hz (div 2)");
+    break;
+
+  case VGA:
+    Serial.println("  2    800x600 @60Hz (div 2)");
+    Serial.println("  3   1024x768 @60Hz (div 3)");
+    Serial.println("  4  1280x1024 @60Hz (div 3)");
+    Serial.println("  5  1280x1024 @60Hz (div 4)");
+    break;
+
+  default:
+    break;
+  }
+
+  Serial.println();
+  Serial.println("  p   show configuration");
+  Serial.println("  h   show help (this menu)");
+  Serial.println("  q   exit to main menu\n");
+}
+
+void print_video_out_type_menu()
+{
+  Serial.println("\n      * Video output type *\n");
+
+  Serial.println("  1   DVI");
+  Serial.println("  2   VGA\n");
 
   Serial.println("  p   show configuration");
   Serial.println("  h   show help (this menu)");
@@ -227,33 +257,51 @@ void print_test_menu()
   Serial.println("  q   exit to main menu\n");
 }
 
-void print_video_out_mode()
+void print_video_out_type()
 {
-  Serial.print("  Video output mode ........... ");
-  switch (settings.video_out_mode)
+  Serial.print("  Video output type ........... ");
+  switch (settings.video_out_type)
   {
   case DVI:
-    Serial.println("HDMI 640x480");
+    Serial.println("DVI");
     break;
 
-  case VGA640x480:
-    Serial.println("VGA 640x480");
+  case VGA:
+    Serial.println("VGA");
     break;
 
-  case VGA800x600:
-    Serial.println("VGA 800x600");
+  default:
+    break;
+  }
+}
+
+void print_video_out_mode()
+{
+  Serial.print("  Video resolution ............ ");
+  switch (settings.video_out_mode)
+  {
+  case MODE_640x480_60Hz:
+    Serial.println("640x480 @60Hz");
     break;
 
-  case VGA1024x768:
-    Serial.println("VGA 1024x768");
+  case MODE_720x576_50Hz:
+    Serial.println("720x576 @50Hz");
     break;
 
-  case VGA1280x1024_d3:
-    Serial.println("VGA 1280x1024 (div 3)");
+  case MODE_800x600_60Hz:
+    Serial.println("800x600 @60Hz");
     break;
 
-  case VGA1280x1024_d4:
-    Serial.println("VGA 1280x1024 (div 4)");
+  case MODE_1024x768_60Hz:
+    Serial.println("1024x768 @60Hz");
+    break;
+
+  case MODE_1280x1024_60Hz_d3:
+    Serial.println("1280x1024 @60Hz (div 3)");
+    break;
+
+  case MODE_1280x1024_60Hz_d4:
+    Serial.println("1280x1024 @60Hz (div 4)");
     break;
 
   default:
@@ -275,7 +323,7 @@ void print_buffering_mode()
 {
   Serial.print("  Buffering mode .............. ");
 
-  if (settings.x3_buffering_mode)
+  if (settings.buffering_mode)
     Serial.println("x3");
   else
     Serial.println("x1");
@@ -335,7 +383,7 @@ void print_dividers()
   uint16_t div_int;
   uint8_t div_frac;
 
-  video_mode_t video_mode = *(vga_modes[settings.video_out_mode]);
+  video_mode_t video_mode = *(video_modes[settings.video_out_mode]);
 
   Serial.print("\n  System clock frequency ...... ");
   Serial.print(clock_get_hz(clk_sys), 1);
@@ -386,8 +434,12 @@ void print_pin_inversion_mask()
 void print_settings()
 {
   Serial.println("");
+  print_video_out_type();
   print_video_out_mode();
-  print_scanlines_mode();
+
+  if (settings.video_out_type == VGA)
+    print_scanlines_mode();
+
   print_buffering_mode();
   print_cap_sync_mode();
   print_capture_frequency();
@@ -401,9 +453,45 @@ void print_settings()
   Serial.println("");
 }
 
+void start_video_output(video_out_type_t output_type)
+{
+  active_video_output = output_type;
+
+  switch (output_type)
+  {
+  case DVI:
+    start_dvi(*(video_modes[settings.video_out_mode]));
+    break;
+
+  case VGA:
+    start_vga(*(video_modes[settings.video_out_mode]));
+    break;
+
+  default:
+    break;
+  }
+}
+
+void stop_video_output()
+{
+  switch (active_video_output)
+  {
+  case DVI:
+    stop_dvi();
+    break;
+
+  case VGA:
+    stop_vga();
+    break;
+
+  default:
+    break;
+  }
+}
+
 void set_scanlines_mode()
 {
-  if (settings.video_out_mode != DVI)
+  if (settings.video_out_type == VGA)
     set_vga_scanlines_mode(settings.scanlines_mode);
 }
 
@@ -416,20 +504,10 @@ void setup()
   // correct if there is garbage in the cells
   check_settings(&settings);
 
-  set_v_buf_buffering_mode(settings.x3_buffering_mode);
-
-  draw_welcome_screen(*(vga_modes[settings.video_out_mode]));
-
+  set_buffering_mode(settings.buffering_mode);
+  draw_welcome_screen(*(video_modes[settings.video_out_mode]));
   set_scanlines_mode();
-
-  if (settings.video_out_mode == DVI)
-  {
-    start_dvi(*(vga_modes[settings.video_out_mode]));
-  }
-  else
-  {
-    start_vga(*(vga_modes[settings.video_out_mode]));
-  }
+  start_video_output(settings.video_out_type);
 
   start_core0 = true;
 
@@ -467,6 +545,64 @@ void loop()
       inbyte = 0;
       break;
 
+    case 'o':
+    {
+      inbyte = 'h';
+
+      while (1)
+      {
+        sleep_ms(10);
+
+        if (inbyte != 'h' && Serial.available())
+          inbyte = Serial.read();
+        uint8_t video_out_type = settings.video_out_type;
+
+        switch (inbyte)
+        {
+        case 'p':
+          print_video_out_type();
+          break;
+
+        case 'h':
+          print_video_out_type_menu();
+          break;
+
+        case '1':
+          settings.video_out_type = DVI;
+          settings.video_out_mode = VIDEO_OUT_MODE_DEF;
+          print_video_out_type();
+          break;
+
+        case '2':
+          settings.video_out_type = VGA;
+          settings.video_out_mode = VIDEO_OUT_MODE_DEF;
+          print_video_out_type();
+          break;
+
+        default:
+          break;
+        }
+
+        if (video_out_type != settings.video_out_type)
+        {
+          stop_video_output();
+          start_video_output(settings.video_out_type);
+          // capture PIO clock divider needs to be adjusted for new system clock frequency set in start_video_output()
+          set_capture_frequency(settings.frequency);
+        }
+
+        if (inbyte == 'q')
+        {
+          inbyte = 'h';
+          break;
+        }
+
+        inbyte = 0;
+      }
+
+      break;
+    }
+
     case 'v':
     {
       inbyte = 'h';
@@ -491,43 +627,52 @@ void loop()
           break;
 
         case '1':
-          settings.video_out_mode = DVI;
+          settings.video_out_mode = MODE_640x480_60Hz;
           print_video_out_mode();
           break;
 
         case '2':
-          settings.video_out_mode = VGA640x480;
+          if (settings.video_out_type == DVI)
+            settings.video_out_mode = MODE_720x576_50Hz;
+          else
+            settings.video_out_mode = MODE_800x600_60Hz;
+
           print_video_out_mode();
           break;
 
         case '3':
-          settings.video_out_mode = VGA800x600;
-          print_video_out_mode();
+          if (settings.video_out_type == VGA)
+          {
+            settings.video_out_mode = MODE_1024x768_60Hz;
+            print_video_out_mode();
+          }
           break;
 
         case '4':
-          settings.video_out_mode = VGA1024x768;
-          print_video_out_mode();
+          if (settings.video_out_type == VGA)
+          {
+            settings.video_out_mode = MODE_1280x1024_60Hz_d3;
+            print_video_out_mode();
+          }
           break;
 
         case '5':
-          settings.video_out_mode = VGA1280x1024_d3;
-          print_video_out_mode();
-          break;
-        case '6':
-          settings.video_out_mode = VGA1280x1024_d4;
-          print_video_out_mode();
+          if (settings.video_out_type == VGA)
+          {
+            settings.video_out_mode = MODE_1280x1024_60Hz_d4;
+            print_video_out_mode();
+          }
           break;
 
         default:
           break;
         }
 
-        if ((video_out_mode != DVI) && (settings.video_out_mode != DVI) && (video_out_mode != settings.video_out_mode))
+        if (video_out_mode != settings.video_out_mode)
         {
-          stop_vga();
-          start_vga(*(vga_modes[settings.video_out_mode]));
-          // capture PIO clock divider needs to be adjusted for new system clock frequency set in start_vga()
+          stop_video_output();
+          start_video_output(active_video_output);
+          // capture PIO clock divider needs to be adjusted for new system clock frequency set in start_video_output()
           set_capture_frequency(settings.frequency);
         }
 
@@ -545,6 +690,12 @@ void loop()
 
     case 's':
     {
+      if (settings.video_out_type != VGA)
+      {
+        inbyte = 0;
+        break;
+      }
+
       inbyte = 'h';
 
       while (1)
@@ -608,9 +759,9 @@ void loop()
           break;
 
         case 'b':
-          settings.x3_buffering_mode = !settings.x3_buffering_mode;
+          settings.buffering_mode = !settings.buffering_mode;
           print_buffering_mode();
-          set_v_buf_buffering_mode(settings.x3_buffering_mode);
+          set_buffering_mode(settings.buffering_mode);
           break;
 
         default:
@@ -769,12 +920,9 @@ void loop()
         if (frequency != settings.frequency)
         {
           set_capture_frequency(settings.frequency);
-          // restart VGA with new capture frequency value which is used to calculate horizontal margins for some video output modes
-          if (settings.video_out_mode != DVI)
-          {
-            stop_vga();
-            start_vga(*(vga_modes[settings.video_out_mode]));
-          }
+          // restart video output with new capture frequency value which is used to calculate horizontal margins for some video output modes
+          stop_video_output();
+          start_video_output(active_video_output);
         }
 
         if (inbyte == 'q')
@@ -1066,7 +1214,7 @@ void loop()
 
         case 'i':
           Serial.print("  Current frame count ......... ");
-          Serial.println(frame_count - 1, DEC);
+          Serial.println(frame_count, DEC);
           break;
 
         case '1':
@@ -1082,11 +1230,11 @@ void loop()
             Serial.println("  Drawing the screen...");
 
             if (inbyte == '1')
-              draw_welcome_screen(*(vga_modes[settings.video_out_mode]));
+              draw_welcome_screen(*(video_modes[settings.video_out_mode]));
             else if (inbyte == '2')
-              draw_welcome_screen_h(*(vga_modes[settings.video_out_mode]));
+              draw_welcome_screen_h(*(video_modes[settings.video_out_mode]));
             else
-              draw_no_signal(*(vga_modes[settings.video_out_mode]));
+              draw_no_signal(*(video_modes[settings.video_out_mode]));
           }
 
           break;
@@ -1114,6 +1262,7 @@ void loop()
       break;
 
     case 'w':
+      Serial.println("  Saving settings...");
       save_settings(&settings);
       inbyte = 0;
       break;
@@ -1163,7 +1312,7 @@ void __not_in_flash_func(loop1())
       if (capture_active)
       {
         capture_active = false;
-        draw_no_signal(*(vga_modes[settings.video_out_mode]));
+        draw_no_signal(*(video_modes[settings.video_out_mode]));
       }
     }
     else if (!capture_active)
