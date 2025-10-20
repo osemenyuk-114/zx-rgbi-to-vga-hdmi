@@ -41,7 +41,7 @@ String binary_to_string(uint8_t value, bool mask_1)
     return str;
 }
 
-uint32_t inline string_to_int(String value)
+uint32_t string_to_int(String value)
 {
     return value.toInt();
 }
