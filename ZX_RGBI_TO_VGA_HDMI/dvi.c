@@ -10,18 +10,18 @@
 #include "pio_programs.h"
 #include "v_buf.h"
 
+extern settings_t settings;
+
 static int dma_ch0;
 static int dma_ch1;
 static uint offset;
 
-static uint8_t *screen_buf;
 static video_mode_t video_mode;
-
 static int16_t h_visible_area;
 
-// the number of DMA buffers can be increased if there is image fluttering
 static uint32_t *v_out_dma_buf[2];
 static uint32_t *v_out_dma_buf_addr[2];
+
 static uint64_t sync_data[4];
 static uint64_t R64, G64, B64, Y64;
 static uint64_t palette[32];
@@ -65,13 +65,9 @@ static uint64_t get_ser_diff_data(uint16_t dataR, uint16_t dataG, uint16_t dataB
     }
 
     if (DVI_PIN_RGB_notBGR)
-    {
       d6 = (bR << 4) | (bG << 2) | (bB << 0);
-    }
     else
-    {
       d6 = (bB << 4) | (bG << 2) | (bR << 0);
-    }
 
     out64 |= d6;
   }
@@ -110,8 +106,10 @@ static uint tmds_encoder(uint8_t d8)
 
 static void __not_in_flash_func(dma_handler_dvi)()
 {
-  static uint16_t dma_buf_idx;
-  static uint16_t y;
+  static uint16_t y = 0;
+
+  static uint8_t *screen_buf = NULL;
+  static uint32_t dma_buf_idx = 0;
 
   dma_hw->ints0 = 1u << dma_ch1;
 
@@ -178,6 +176,8 @@ void start_dvi(video_mode_t v_mode)
 {
   video_mode = v_mode;
 
+  int whole_line = video_mode.whole_line * video_mode.div;
+
   h_visible_area = video_mode.h_visible_area / (2 * video_mode.div);
 
   // initialization of constants
@@ -211,9 +211,6 @@ void start_dvi(video_mode_t v_mode)
     palette[c * 2] = get_ser_diff_data(tmds_encoder(R), tmds_encoder(G), tmds_encoder(B));
     palette[c * 2 + 1] = palette[c * 2] ^ 0x0003ffffffffffffl;
   }
-
-  v_out_dma_buf[0] = calloc(video_mode.whole_line * 2, sizeof(uint32_t));
-  v_out_dma_buf[1] = calloc(video_mode.whole_line * 2, sizeof(uint32_t));
 
   // set DVI data pins
   for (int i = DVI_PIN_D0; i < DVI_PIN_D0 + 6; i++)
@@ -254,6 +251,13 @@ void start_dvi(video_mode_t v_mode)
   pio_sm_init(PIO_DVI, SM_DVI, offset, &c);
   pio_sm_set_enabled(PIO_DVI, SM_DVI, true);
 
+  // buffers initialization
+  v_out_dma_buf[0] = calloc(whole_line, sizeof(uint32_t));
+  v_out_dma_buf[1] = calloc(whole_line, sizeof(uint32_t));
+
+  v_out_dma_buf_addr[0] = &v_out_dma_buf[0][0];
+  v_out_dma_buf_addr[1] = &v_out_dma_buf[1][0];
+
   // DMA initialization
   dma_ch0 = dma_claim_unused_channel(true);
   dma_ch1 = dma_claim_unused_channel(true);
@@ -270,10 +274,10 @@ void start_dvi(video_mode_t v_mode)
   dma_channel_configure(
       dma_ch0,
       &c0,
-      &PIO_DVI->txf[SM_DVI],     // write address
-      &v_out_dma_buf[0][0],      // read address
-      video_mode.whole_line * 2, //
-      false                      // don't start yet
+      &PIO_DVI->txf[SM_DVI], // write address
+      &v_out_dma_buf[0][0],  // read address
+      whole_line,            //
+      false                  // don't start yet
   );
 
   // control DMA channel
@@ -283,9 +287,6 @@ void start_dvi(video_mode_t v_mode)
   channel_config_set_read_increment(&c1, false);
   channel_config_set_write_increment(&c1, false);
   channel_config_set_chain_to(&c1, dma_ch0); // chain to other channel
-
-  v_out_dma_buf_addr[0] = &v_out_dma_buf[0][0];
-  v_out_dma_buf_addr[1] = &v_out_dma_buf[1][0];
 
   dma_channel_configure(
       dma_ch1,
@@ -328,14 +329,16 @@ void stop_dvi()
   if (v_out_dma_buf[0] != NULL)
   {
     free(v_out_dma_buf[0]);
+    v_out_dma_buf[0] = NULL;
   }
-  v_out_dma_buf[0] = NULL;
 
   if (v_out_dma_buf[1] != NULL)
   {
     free(v_out_dma_buf[1]);
+    v_out_dma_buf[1] = NULL;
   }
-  v_out_dma_buf[1] = NULL;
 
-  screen_buf = NULL;
+  // reset buffer pointers
+  v_out_dma_buf_addr[0] = NULL;
+  v_out_dma_buf_addr[1] = NULL;
 }
