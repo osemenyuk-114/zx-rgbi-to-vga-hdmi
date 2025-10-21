@@ -1,6 +1,7 @@
 #include <Arduino.h>
 
 #include "hardware/clocks.h"
+#include "hardware/pio.h"
 #include "hardware/watchdog.h"
 
 #include "serial_menu.h"
@@ -1182,6 +1183,7 @@ void handle_serial_menu()
             break;
 
         case 'r':
+            Serial.println("  Restarting........");
             watchdog_reboot(0, 0, 0);
             break;
 

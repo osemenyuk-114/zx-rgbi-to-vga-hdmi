@@ -84,10 +84,7 @@ void __not_in_flash_func(dma_handler_vga)()
   switch (video_mode.div)
   {
   case 2:
-  {
-
 #ifdef LOW_RES_SCANLINE
-
     if (scanlines_mode)
     {
       if (line > 0)
@@ -96,26 +93,21 @@ void __not_in_flash_func(dma_handler_vga)()
       if (line == 4)
         line++;
     }
-    else
-
+    else if (line > 1)
+      line++;
+#else
+    if (line > 1)
+      line++;
 #endif
 
-        if (line > 1)
-      line++;
-
     break;
-  }
 
   case 3:
-  {
     if (!scanlines_mode && ((line == 2) || (line == 5)))
       line--;
-
     break;
-  }
 
   case 4:
-  {
     if (scanlines_mode)
     {
 #ifdef NARROW_SCANLINE
@@ -145,7 +137,6 @@ void __not_in_flash_func(dma_handler_vga)()
     }
 
     break;
-  }
 
   default:
     break;
