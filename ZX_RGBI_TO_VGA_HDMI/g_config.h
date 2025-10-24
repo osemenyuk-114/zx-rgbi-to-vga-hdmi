@@ -5,9 +5,9 @@
 #include "pico.h"
 #include "pico/time.h"
 
-#ifndef FW_VERSION
 #define FW_VERSION "v1.5.0"
-#endif
+#define BOARD_CODE_36LJU22
+// #define BOARD_CODE_09LJV23
 
 typedef enum video_out_type_t
 {
@@ -84,96 +84,45 @@ extern video_mode_t *video_modes[];
 extern uint8_t g_v_buf[];
 extern uint32_t frame_count;
 
-#define BOARD_CODE_36LJU22
-// #define BOARD_CODE_09LJV23
-
 // board pin configurations
 #ifdef BOARD_CODE_36LJU22
-// 36LJU22
 // first VGA pin
 #define VGA_PIN_D0 8
-// DVI pins and settings
+// DVI pins
 #define DVI_PIN_D0 VGA_PIN_D0
 #define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
-
-#elif defined(BOARD_CODE_09LJV23)
-// 09LJV23
-// first VGA pin
-#define VGA_PIN_D0 7
-// DVI pins and settings
-#define DVI_PIN_D0 VGA_PIN_D0
-#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
-
 #else
-// defaults
+// 09LJV23 and others
 // first VGA pin
 #define VGA_PIN_D0 7
-// DVI pins and settings
+// DVI pins
 #define DVI_PIN_D0 VGA_PIN_D0
 #define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
-
 #endif
+
+// DVI settings
+// #define DVI_PIN_invert_diffpairs
+// #define DVI_PIN_RGB_notBGR
 
 // capture pins
-#ifndef CAP_PIN_D0
 #define CAP_PIN_D0 0
-#endif
-
-#ifndef HS_PIN
 #define HS_PIN (CAP_PIN_D0 + 4)
-#endif
-
-#ifndef VS_PIN
 #define VS_PIN (CAP_PIN_D0 + 5)
-#endif
-
-#ifndef F_PIN
 #define F_PIN (CAP_PIN_D0 + 6)
-#endif
-
-// DVI pins and settings
-#ifndef DVI_PIN_invert_diffpairs
-#define DVI_PIN_invert_diffpairs 0
-#endif
-
-#ifndef DVI_PIN_RGB_notBGR
-#define DVI_PIN_RGB_notBGR 0
-#endif
 
 // PIO and SM for VGA
-#define PIO_VGA_NUM 0
-#if PIO_VGA_NUM == 0
 #define PIO_VGA pio0
 #define DREQ_PIO_VGA DREQ_PIO0_TX0
-#else
-#define PIO_VGA pio1
-#define DREQ_PIO_VGA DREQ_PIO1_TX0
-#endif
-
 #define SM_VGA 0
 
 // PIO and SM for DVI
-#define PIO_DVI_NUM 0
-#if PIO_DVI_NUM == 0
 #define PIO_DVI pio0
 #define DREQ_PIO_DVI DREQ_PIO0_TX0
-#else
-#define PIO_DVI pio1
-#define DREQ_PIO_DVI DREQ_PIO0_TX0
-#endif
-
 #define SM_DVI 0
 
 // capture PIO and SM
-#define PIO_CAP_NUM 1
-#if PIO_CAP_NUM == 0
-#define PIO_CAP pio0
-#define DREQ_PIO_CAP DREQ_PIO0_RX0
-#else
 #define PIO_CAP pio1
 #define DREQ_PIO_CAP DREQ_PIO1_RX0
-#endif
-
 #define SM_CAP 0
 
 // settings MIN values
@@ -209,12 +158,14 @@ extern uint32_t frame_count;
 #define PIN_INVERSION_MASK_DEF 0x00
 
 // video buffer
-#define V_BUF_W ((64 - 6) * (FREQUENCY_MAX / 1000000)) // width of the video buffer calculate as max captured line length in pixels (64 µs - whole scanline time, 6 µs - front porch + horizontal sync pulse durations)
+// width of the video buffer calculate as max captured line length in pixels (64 µs - whole scanline time, 6 µs - front porch + horizontal sync pulse durations)
+#define V_BUF_W ((64 - 6) * (FREQUENCY_MAX / 1000000))
 #define V_BUF_H 304
 #define V_BUF_SZ (V_BUF_H * V_BUF_W / 2)
 
 // video timing
-#define ACTIVE_VIDEO_TIME (64 - 12) // active video time in µs (64 µs - whole scanline time, 12 µs - front porch + horizontal sync pulse durations + back porch durations)
+// active video time in µs (64 µs - whole scanline time, 12 µs - front porch + horizontal sync pulse durations + back porch durations)
+#define ACTIVE_VIDEO_TIME (64 - 12)
 
 // enable scanlines on 640x480 and 800x600 resolutions
 // not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler

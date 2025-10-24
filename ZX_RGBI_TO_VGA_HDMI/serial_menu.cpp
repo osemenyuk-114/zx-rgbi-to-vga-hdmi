@@ -377,7 +377,13 @@ void print_dividers()
 
     Serial.print("  Video output clock divider .. ");
 
-    pio_calculate_clkdiv_from_float(((float)clock_get_hz(clk_sys) * video_mode.div) / video_mode.pixel_freq, &div_int, &div_frac);
+    if (active_video_output == DVI)
+    {
+        div_int = 1;
+        div_frac = 0;
+    }
+    else
+        pio_calculate_clkdiv_from_float(((float)clock_get_hz(clk_sys) * video_mode.div) / video_mode.pixel_freq, &div_int, &div_frac);
 
     Serial.print((div_int + (float)div_frac / 256), 8);
 
@@ -1184,6 +1190,7 @@ void handle_serial_menu()
 
         case 'r':
             Serial.println("  Restarting........");
+            sleep_ms(100);
             watchdog_reboot(0, 0, 0);
             break;
 

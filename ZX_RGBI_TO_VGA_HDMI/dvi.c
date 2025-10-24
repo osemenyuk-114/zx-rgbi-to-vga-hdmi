@@ -57,13 +57,13 @@ static uint64_t get_ser_diff_data(uint16_t dataR, uint16_t dataG, uint16_t dataB
     bG |= (bG ^ 1) << 1;
     bB |= (bB ^ 1) << 1;
 
-#if DVI_PIN_invert_diffpairs != 0
+#ifdef DVI_PIN_invert_diffpairs
     bR ^= 0b11;
     bG ^= 0b11;
     bB ^= 0b11;
 #endif
 
-#if DVI_PIN_RGB_notBGR != 0
+#ifdef DVI_PIN_RGB_notBGR
     d6 = (bR << 4) | (bG << 2) | (bB << 0);
 #else
     d6 = (bB << 4) | (bG << 2) | (bR << 0);
@@ -215,7 +215,6 @@ void start_dvi(video_mode_t v_mode)
   // set DVI data pins
   for (int i = DVI_PIN_D0; i < DVI_PIN_D0 + 6; i++)
   {
-    gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
     pio_gpio_init(PIO_DVI, i);
     gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_12MA);
     gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);

@@ -95,9 +95,11 @@ void __not_in_flash_func(dma_handler_vga)()
     }
     else if (line > 1)
       line++;
+
 #else
     if (line > 1)
       line++;
+
 #endif
 
     break;
@@ -257,11 +259,9 @@ void start_vga(video_mode_t v_mode)
   // set VGA pins
   for (int i = VGA_PIN_D0; i < VGA_PIN_D0 + 8; i++)
   {
-    gpio_init(i);
-    gpio_set_dir(i, GPIO_OUT);
+    pio_gpio_init(PIO_VGA, i);
     gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_4MA);
     gpio_set_slew_rate(i, GPIO_SLEW_RATE_SLOW);
-    pio_gpio_init(PIO_VGA, i);
   }
 
   // PIO initialization
