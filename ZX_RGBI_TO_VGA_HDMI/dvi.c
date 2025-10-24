@@ -3,7 +3,6 @@
 #include "hardware/irq.h"
 #include "hardware/structs/pll.h"
 #include "hardware/structs/systick.h"
-#include "hardware/vreg.h"
 
 #include "g_config.h"
 #include "dvi.h"
@@ -181,10 +180,10 @@ void start_dvi(video_mode_t v_mode)
   h_visible_area = video_mode.h_visible_area / (2 * video_mode.div);
 
   // initialization of constants
-  uint16_t b0 = 0b1101010100;
-  uint16_t b1 = 0b0010101011;
-  uint16_t b2 = 0b0101010100;
-  uint16_t b3 = 0b1010101011;
+  const uint16_t b0 = 0b1101010100;
+  const uint16_t b1 = 0b0010101011;
+  const uint16_t b2 = 0b0101010100;
+  const uint16_t b3 = 0b1010101011;
 
   sync_data[0b00] = get_ser_diff_data(b0, b0, b3);
   sync_data[0b01] = get_ser_diff_data(b0, b0, b2);
@@ -196,8 +195,6 @@ void start_dvi(video_mode_t v_mode)
   B64 = get_ser_diff_data(tmds_encoder(0), tmds_encoder(0), tmds_encoder(255));
   Y64 = get_ser_diff_data(tmds_encoder(255), tmds_encoder(255), tmds_encoder(0));
 
-  vreg_set_voltage(VREG_VOLTAGE_1_25);
-  sleep_ms(100);
   set_sys_clock_khz(video_mode.sys_freq, true);
   sleep_ms(10);
 
@@ -212,43 +209,13 @@ void start_dvi(video_mode_t v_mode)
     palette[c * 2 + 1] = palette[c * 2] ^ 0x0003ffffffffffffl;
   }
 
-  // set DVI data pins
-  for (int i = DVI_PIN_D0; i < DVI_PIN_D0 + 6; i++)
+  // set DVI pins
+  for (int i = DVI_PIN_D0; i < DVI_PIN_D0 + 8; i++)
   {
     pio_gpio_init(PIO_DVI, i);
     gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_12MA);
     gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
   }
-
-  // set DVI clock pins
-  for (int i = DVI_PIN_CLK0; i < DVI_PIN_CLK0 + 2; i++)
-  {
-    pio_gpio_init(PIO_DVI, i);
-    gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_12MA);
-    gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
-  }
-
-  // PIO initialization
-  // PIO program load
-  offset = pio_add_program(PIO_DVI, &pio_dvi_program);
-
-  pio_sm_config c = pio_get_default_sm_config();
-
-  pio_sm_set_pins_with_mask(PIO_DVI, SM_DVI, 3u << DVI_PIN_CLK0, 3u << DVI_PIN_CLK0);
-  pio_sm_set_pindirs_with_mask(PIO_DVI, SM_DVI, 3u << DVI_PIN_CLK0, 3u << DVI_PIN_CLK0);
-  pio_sm_set_consecutive_pindirs(PIO_DVI, SM_DVI, DVI_PIN_D0, 6, true);
-
-  sm_config_set_wrap(&c, offset, offset + (pio_dvi_program.length - 1));
-  sm_config_set_out_shift(&c, true, true, 30);
-  sm_config_set_out_pins(&c, DVI_PIN_D0, 6);
-  sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
-
-  // PIO side set pins
-  sm_config_set_sideset_pins(&c, DVI_PIN_CLK0);
-  sm_config_set_sideset(&c, 2, false, false);
-
-  pio_sm_init(PIO_DVI, SM_DVI, offset, &c);
-  pio_sm_set_enabled(PIO_DVI, SM_DVI, true);
 
   // buffers initialization
   v_out_dma_buf[0] = calloc(whole_line, sizeof(uint32_t));
@@ -256,6 +223,28 @@ void start_dvi(video_mode_t v_mode)
 
   v_out_dma_buf_addr[0] = &v_out_dma_buf[0][0];
   v_out_dma_buf_addr[1] = &v_out_dma_buf[1][0];
+
+  // PIO initialization
+  pio_sm_config c = pio_get_default_sm_config();
+
+  // PIO program load
+  offset = pio_add_program(PIO_DVI, &pio_dvi_program);
+  sm_config_set_wrap(&c, offset, offset + pio_dvi_program.length - 1);
+
+  sm_config_set_out_pins(&c, DVI_PIN_D0, 6);
+  pio_sm_set_consecutive_pindirs(PIO_DVI, SM_DVI, DVI_PIN_D0, 6, true);
+
+  pio_sm_set_pins_with_mask(PIO_DVI, SM_DVI, 3u << DVI_PIN_CLK0, 3u << DVI_PIN_CLK0);
+  pio_sm_set_pindirs_with_mask(PIO_DVI, SM_DVI, 3u << DVI_PIN_CLK0, 3u << DVI_PIN_CLK0);
+
+  sm_config_set_sideset_pins(&c, DVI_PIN_CLK0);
+  sm_config_set_sideset(&c, 2, false, false);
+
+  sm_config_set_out_shift(&c, true, true, 30);
+  sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
+
+  pio_sm_init(PIO_DVI, SM_DVI, offset, &c);
+  pio_sm_set_enabled(PIO_DVI, SM_DVI, true);
 
   // DMA initialization
   dma_ch0 = dma_claim_unused_channel(true);
@@ -324,7 +313,7 @@ void stop_dvi()
   dma_channel_unclaim(dma_ch0);
   dma_channel_unclaim(dma_ch1);
 
-  // free buffers with null checks
+  // free individual buffer allocations
   if (v_out_dma_buf[0] != NULL)
   {
     free(v_out_dma_buf[0]);

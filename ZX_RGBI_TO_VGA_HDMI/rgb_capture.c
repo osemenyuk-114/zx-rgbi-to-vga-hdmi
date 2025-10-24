@@ -236,16 +236,20 @@ void start_capture()
   // set capture pins
   for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)
   {
-    gpio_init(i);
-    gpio_set_dir(i, GPIO_IN);
+    pio_gpio_init(PIO_CAP, i);
     gpio_set_input_hysteresis_enabled(i, true);
-
     gpio_set_inover(i, pin_inversion_mask & 1);
 
     pin_inversion_mask >>= 1;
   }
 
+  // buffers initialization
+  cap_dma_buf_addr[0] = &cap_dma_buf[0][0];
+  cap_dma_buf_addr[1] = &cap_dma_buf[1][0];
+
   // PIO initialization
+  pio_sm_config c = pio_get_default_sm_config();
+
   switch (settings.cap_sync_mode)
   {
   case SELF:
@@ -262,20 +266,16 @@ void start_capture()
 
   // load PIO program
   offset = pio_add_program(PIO_CAP, program);
-  uint wrap = offset + program->length - 1;
+  sm_config_set_wrap(&c, offset, offset + program->length - 1);
 
-  // set initial capture delay
+  // set capture parameters
   set_capture_delay(settings.delay);
-
-  // set external clock divider
   set_ext_clk_divider(settings.ext_clk_divider);
 
-  pio_sm_config c = pio_get_default_sm_config();
-  sm_config_set_wrap(&c, offset, wrap);
-
-  sm_config_set_in_shift(&c, false, false, 8); // autopush not needed
   sm_config_set_in_pins(&c, CAP_PIN_D0);
   sm_config_set_jmp_pin(&c, HS_PIN);
+
+  sm_config_set_in_shift(&c, false, false, 8); // autopush not needed
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
 
   if (settings.cap_sync_mode == SELF)
@@ -289,10 +289,6 @@ void start_capture()
 
   pio_sm_init(PIO_CAP, SM_CAP, offset, &c);
   pio_sm_set_enabled(PIO_CAP, SM_CAP, true);
-
-  // buffers initialization
-  cap_dma_buf_addr[0] = &cap_dma_buf[0][0];
-  cap_dma_buf_addr[1] = &cap_dma_buf[1][0];
 
   // DMA initialization
   dma_ch0 = dma_claim_unused_channel(true);

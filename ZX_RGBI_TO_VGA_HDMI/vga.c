@@ -3,7 +3,6 @@
 #include "hardware/irq.h"
 #include "hardware/structs/pll.h"
 #include "hardware/structs/systick.h"
-#include "hardware/vreg.h"
 
 #include "g_config.h"
 #include "vga.h"
@@ -101,7 +100,6 @@ void __not_in_flash_func(dma_handler_vga)()
       line++;
 
 #endif
-
     break;
 
   case 3:
@@ -216,8 +214,6 @@ void start_vga(video_mode_t v_mode)
   if (v_margin < 0)
     v_margin = 0;
 
-  vreg_set_voltage(VREG_VOLTAGE_1_25);
-  sleep_ms(100);
   set_sys_clock_khz(video_mode.sys_freq, true);
   sleep_ms(10);
 
@@ -240,6 +236,14 @@ void start_vga(video_mode_t v_mode)
     }
   }
 
+  // set VGA pins
+  for (int i = VGA_PIN_D0; i < VGA_PIN_D0 + 8; i++)
+  {
+    pio_gpio_init(PIO_VGA, i);
+    gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_4MA);
+    gpio_set_slew_rate(i, GPIO_SLEW_RATE_SLOW);
+  }
+
   // allocate memory for line template definitions - individual allocations
   // empty line
   v_out_dma_buf[0] = calloc(whole_line / 4, sizeof(uint32_t));
@@ -256,25 +260,17 @@ void start_vga(video_mode_t v_mode)
   v_out_dma_buf[3] = calloc(whole_line / 4, sizeof(uint32_t));
   memcpy((uint8_t *)v_out_dma_buf[3], (uint8_t *)v_out_dma_buf[0], whole_line);
 
-  // set VGA pins
-  for (int i = VGA_PIN_D0; i < VGA_PIN_D0 + 8; i++)
-  {
-    pio_gpio_init(PIO_VGA, i);
-    gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_4MA);
-    gpio_set_slew_rate(i, GPIO_SLEW_RATE_SLOW);
-  }
-
   // PIO initialization
-  // PIO program load
-  offset = pio_add_program(PIO_VGA, &pio_vga_program);
-
   pio_sm_config c = pio_get_default_sm_config();
 
+  // PIO program load
+  offset = pio_add_program(PIO_VGA, &pio_vga_program);
+  sm_config_set_wrap(&c, offset, offset + (pio_vga_program.length - 1));
+
+  sm_config_set_out_pins(&c, VGA_PIN_D0, 8);
   pio_sm_set_consecutive_pindirs(PIO_VGA, SM_VGA, VGA_PIN_D0, 8, true);
 
-  sm_config_set_wrap(&c, offset, offset + (pio_vga_program.length - 1));
   sm_config_set_out_shift(&c, true, true, 32);
-  sm_config_set_out_pins(&c, VGA_PIN_D0, 8);
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
 
   sm_config_set_clkdiv(&c, ((float)clock_get_hz(clk_sys) * video_mode.div) / video_mode.pixel_freq);

@@ -362,37 +362,39 @@ void print_dividers()
     Serial.print(clock_get_hz(clk_sys), 1);
     Serial.println(" Hz");
 
-    Serial.print("  Capture divider ............. ");
-
-    pio_calculate_clkdiv_from_float((float)clock_get_hz(clk_sys) / (settings.frequency * 12.0), &div_int, &div_frac);
-
-    Serial.print((div_int + (float)div_frac / 256), 8);
-
-    Serial.print(" ( ");
-    Serial.print("0x");
-    print_byte_hex((uint8_t)(div_int >> 8));
-    print_byte_hex((uint8_t)(div_int & 0xff));
-    print_byte_hex(div_frac);
-    Serial.println(" )");
-
-    Serial.print("  Video output clock divider .. ");
-
-    if (active_video_output == DVI)
+    if (settings.cap_sync_mode == SELF)
     {
-        div_int = 1;
-        div_frac = 0;
+        Serial.print("  Capture divider ............. ");
+
+        pio_calculate_clkdiv_from_float((float)clock_get_hz(clk_sys) / (settings.frequency * 12.0), &div_int, &div_frac);
+
+        Serial.print((div_int + (float)div_frac / 256), 8);
+
+        Serial.print(" ( ");
+        Serial.print("0x");
+        print_byte_hex((uint8_t)(div_int >> 8));
+        print_byte_hex((uint8_t)(div_int & 0xff));
+        print_byte_hex(div_frac);
+        Serial.println(" )");
     }
-    else
+
+    if (settings.video_out_type == VGA)
+    {
+        Serial.print("  Video output clock divider .. ");
+
         pio_calculate_clkdiv_from_float(((float)clock_get_hz(clk_sys) * video_mode.div) / video_mode.pixel_freq, &div_int, &div_frac);
 
-    Serial.print((div_int + (float)div_frac / 256), 8);
+        Serial.print((div_int + (float)div_frac / 256), 8);
 
-    Serial.print(" ( ");
-    Serial.print("0x");
-    print_byte_hex((uint8_t)(div_int >> 8));
-    print_byte_hex((uint8_t)(div_int & 0xff));
-    print_byte_hex(div_frac);
-    Serial.println(" )\n");
+        Serial.print(" ( ");
+        Serial.print("0x");
+        print_byte_hex((uint8_t)(div_int >> 8));
+        print_byte_hex((uint8_t)(div_int & 0xff));
+        print_byte_hex(div_frac);
+        Serial.println(" )");
+    }
+
+    Serial.println();
 }
 
 void print_video_sync_mode()
@@ -502,12 +504,7 @@ void handle_serial_menu()
                 }
 
                 if (video_out_type != settings.video_out_type)
-                {
-                    stop_video_output();
-                    start_video_output(settings.video_out_type);
-                    // capture PIO clock divider needs to be adjusted for new system clock frequency set in start_video_output()
-                    set_capture_frequency(settings.frequency);
-                }
+                    Serial.println("  Note: Save config and restart for changes to take effect.");
 
                 if (inbyte == 'q')
                 {
