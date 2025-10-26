@@ -278,14 +278,13 @@ void start_capture()
   sm_config_set_in_shift(&c, false, false, 8); // autopush not needed
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
 
-  if (settings.cap_sync_mode == SELF)
-  {
-    uint16_t div_int;
-    uint8_t div_frac;
+  uint16_t div_int = 1;
+  uint8_t div_frac = 0;
 
+  if (settings.cap_sync_mode == SELF)
     pio_calculate_clkdiv_from_float((float)clock_get_hz(clk_sys) / (settings.frequency * 12.0), &div_int, &div_frac);
-    sm_config_set_clkdiv_int_frac(&c, div_int, div_frac);
-  }
+
+  sm_config_set_clkdiv_int_frac(&c, div_int, div_frac);
 
   pio_sm_init(PIO_CAP, SM_CAP, offset, &c);
   pio_sm_set_enabled(PIO_CAP, SM_CAP, true);

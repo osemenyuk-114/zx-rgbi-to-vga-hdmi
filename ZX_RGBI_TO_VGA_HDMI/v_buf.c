@@ -15,7 +15,7 @@ bool first_frame = true;
 
 void *__not_in_flash_func(get_v_buf_out)()
 {
-  if (!buffering_mode | first_frame)
+  if (!buffering_mode || first_frame)
     return v_bufs[0];
 
   if (!show_v_buf[(v_buf_out_idx + 1) % 3])
@@ -40,9 +40,7 @@ void *__not_in_flash_func(get_v_buf_in)()
   if (!buffering_mode)
     return v_bufs[0];
 
-  if (first_frame)
-    first_frame = false;
-
+  first_frame = false;
   show_v_buf[v_buf_in_idx] = false;
 
   if (show_v_buf[(v_buf_in_idx + 1) % 3])
