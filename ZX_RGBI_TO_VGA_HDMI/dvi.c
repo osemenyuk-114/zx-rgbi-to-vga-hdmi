@@ -17,7 +17,6 @@ static uint offset;
 
 static video_mode_t video_mode;
 static int16_t h_visible_area;
-static int16_t h_margin;
 
 static uint32_t *v_out_dma_buf[2];
 static uint32_t *v_out_dma_buf_addr[2];
