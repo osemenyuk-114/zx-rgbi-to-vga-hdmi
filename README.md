@@ -47,3 +47,24 @@ This version of the firmware:
 ## Removed Features
 
 - Z80 CLK external clock source. Self-sync capture mode is now preferred.
+
+---
+
+## Recent Improvements
+
+### Performance Improvements
+
+- **Video Output Optimization**: Streamlined DMA handling for both VGA and DVI/HDMI output modes, resulting in more efficient memory usage and cleaner code structure.
+- **Buffer Management**: Simplified buffer switching mechanisms for improved video processing performance.
+
+### Development Experience
+
+- **PlatformIO Integration**: Full PlatformIO support with Arduino framework for easier development and dependency management. The project can also be built using the Arduino IDE for those who prefer a simpler setup (requires: Optimization -O2 or -O3, USB Stack - Pico SDK).
+- **Enhanced Build System**: Improved VS Code integration with custom build scripts for streamlined development workflow.
+- **Better Task Management**: Added comprehensive build, upload, and monitoring tasks with proper error handling.
+
+### Code Quality
+
+- **Memory Optimization**: Reduced unnecessary memory allocations and pointer complexity in video output modules.
+- **Architecture Refinements**: Better separation of concerns between video input capture and output generation systems.
+- **Maintainability**: Cleaner code structure while preserving critical hardware-specific requirements for reliable video processing.
