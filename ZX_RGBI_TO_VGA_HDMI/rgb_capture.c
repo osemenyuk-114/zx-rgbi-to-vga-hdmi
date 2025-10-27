@@ -141,15 +141,15 @@ void __not_in_flash_func(dma_handler_capture())
   uint8_t *cap_buf8 = cap_buf8_s;
 
   static uint8_t *cap_buf = NULL;
-  static uint32_t dma_buf_idx = 0;
+  static uint32_t active_buf_idx = 0;
 
   dma_hw->ints1 = 1u << dma_ch1;
 
-  dma_channel_set_read_addr(dma_ch1, &cap_dma_buf_addr[dma_buf_idx & 1], false);
+  dma_channel_set_read_addr(dma_ch1, &cap_dma_buf_addr[active_buf_idx & 1], false);
 
-  uint8_t *buf8 = (uint8_t *)cap_dma_buf[dma_buf_idx & 1];
+  uint8_t *buf8 = (uint8_t *)cap_dma_buf[active_buf_idx & 1];
 
-  dma_buf_idx++;
+  active_buf_idx++;
 
   for (int k = CAP_DMA_BUF_SIZE; k--;)
   {
@@ -243,9 +243,9 @@ void start_capture()
     pin_inversion_mask >>= 1;
   }
 
-  // buffers initialization
-  cap_dma_buf_addr[0] = &cap_dma_buf[0][0];
-  cap_dma_buf_addr[1] = &cap_dma_buf[1][0];
+  // Initialize buffer address array
+  cap_dma_buf_addr[0] = cap_dma_buf[0];
+  cap_dma_buf_addr[1] = cap_dma_buf[1];
 
   // PIO initialization
   pio_sm_config c = pio_get_default_sm_config();

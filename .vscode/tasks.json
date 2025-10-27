@@ -10,6 +10,9 @@
             "args": [
                 "build"
             ],
+            "options": {
+                "cwd": "${workspaceFolder}\\ZX_RGBI_TO_VGA_HDMI"
+            },
             "group": {
                 "kind": "build",
                 "isDefault": true
@@ -35,6 +38,9 @@
                 "build",
                 "--upload"
             ],
+            "options": {
+                "cwd": "${workspaceFolder}\\ZX_RGBI_TO_VGA_HDMI"
+            },
             "group": {
                 "kind": "build",
                 "isDefault": false
@@ -60,6 +66,9 @@
                 "build",
                 "--clean"
             ],
+            "options": {
+                "cwd": "${workspaceFolder}\\ZX_RGBI_TO_VGA_HDMI"
+            },
             "group": {
                 "kind": "build",
                 "isDefault": false
@@ -85,6 +94,9 @@
                 "build",
                 "-AllWarnings"
             ],
+            "options": {
+                "cwd": "${workspaceFolder}\\ZX_RGBI_TO_VGA_HDMI"
+            },
             "group": {
                 "kind": "build",
                 "isDefault": false
@@ -109,6 +121,9 @@
             "args": [
                 "upload"
             ],
+            "options": {
+                "cwd": "${workspaceFolder}\\ZX_RGBI_TO_VGA_HDMI"
+            },
             "group": "none",
             "isBackground": false,
             "presentation": {
@@ -127,6 +142,9 @@
             "args": [
                 "monitor"
             ],
+            "options": {
+                "cwd": "${workspaceFolder}\\ZX_RGBI_TO_VGA_HDMI"
+            },
             "group": "none",
             "isBackground": false,
             "presentation": {

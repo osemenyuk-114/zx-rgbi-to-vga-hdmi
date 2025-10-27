@@ -19,7 +19,6 @@ static video_mode_t video_mode;
 static int16_t h_visible_area;
 
 static uint32_t *v_out_dma_buf[2];
-static uint32_t *v_out_dma_buf_addr[2];
 
 static uint64_t sync_data[4];
 static uint64_t R64, G64, B64, Y64;
@@ -108,11 +107,11 @@ static void __not_in_flash_func(dma_handler_dvi)()
   static uint16_t y = 0;
 
   static uint8_t *screen_buf = NULL;
-  static uint32_t dma_buf_idx = 0;
+  static uint32_t active_buf_idx = 0;
 
   dma_hw->ints0 = 1u << dma_ch1;
 
-  dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf_addr[dma_buf_idx & 1], false);
+  dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[active_buf_idx & 1], false);
 
   y++;
 
@@ -125,9 +124,9 @@ static void __not_in_flash_func(dma_handler_dvi)()
   if (y & 1)
     return;
 
-  dma_buf_idx++;
+  active_buf_idx++;
 
-  uint64_t *active_buf = (uint64_t *)(v_out_dma_buf[dma_buf_idx & 1]);
+  uint64_t *active_buf = (uint64_t *)(v_out_dma_buf[active_buf_idx & 1]);
 
   if (screen_buf == NULL)
     return;
@@ -221,9 +220,6 @@ void start_dvi(video_mode_t v_mode)
   v_out_dma_buf[0] = calloc(whole_line, sizeof(uint32_t));
   v_out_dma_buf[1] = calloc(whole_line, sizeof(uint32_t));
 
-  v_out_dma_buf_addr[0] = &v_out_dma_buf[0][0];
-  v_out_dma_buf_addr[1] = &v_out_dma_buf[1][0];
-
   // PIO initialization
   pio_sm_config c = pio_get_default_sm_config();
 
@@ -280,7 +276,7 @@ void start_dvi(video_mode_t v_mode)
       dma_ch1,
       &c1,
       &dma_hw->ch[dma_ch0].read_addr, // write address
-      &v_out_dma_buf_addr[0],         // read address
+      &v_out_dma_buf[0],              // read address
       1,                              //
       false                           // don't start yet
   );
@@ -325,8 +321,4 @@ void stop_dvi()
     free(v_out_dma_buf[1]);
     v_out_dma_buf[1] = NULL;
   }
-
-  // reset buffer pointers
-  v_out_dma_buf_addr[0] = NULL;
-  v_out_dma_buf_addr[1] = NULL;
 }

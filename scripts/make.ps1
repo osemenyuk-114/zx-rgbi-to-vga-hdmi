@@ -13,6 +13,7 @@ Param(
 # Arduino CLI executable name and config
 $ARDUINO_CLI = "arduino-cli.exe"
 $CONFIG_DIR = "$($env:USERPROFILE)\.arduinoIDE"
+
 # Default port to upload to
 $PORT = "COM6"
 $BAUDRATE = "9600"

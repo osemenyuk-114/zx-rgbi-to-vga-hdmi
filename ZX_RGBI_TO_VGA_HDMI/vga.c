@@ -29,8 +29,6 @@ void __not_in_flash_func(memset32)(uint32_t *dst, const uint32_t data, uint32_t 
 
 void __not_in_flash_func(dma_handler_vga)()
 {
-  uint32_t **v_out_dma_buf_addr;
-
   static uint16_t y = 0;
 
   static uint8_t *screen_buf = NULL;
@@ -142,10 +140,12 @@ void __not_in_flash_func(dma_handler_vga)()
     break;
   }
 
+  int active_buf_idx;
+
   switch (line)
   {
   case 0:
-    v_out_dma_buf_addr = &v_out_dma_buf[2];
+    active_buf_idx = 2;
     break;
 
   case 1:
@@ -157,7 +157,7 @@ void __not_in_flash_func(dma_handler_vga)()
     return;
 
   case 3:
-    v_out_dma_buf_addr = &v_out_dma_buf[3];
+    active_buf_idx = 3;
     break;
 
   case 4:
@@ -169,11 +169,11 @@ void __not_in_flash_func(dma_handler_vga)()
     return;
 
   default:
-    break;
+    return;
   }
 
   uint8_t *scr_buf = &screen_buf[(uint16_t)((y - v_margin) / video_mode.div) * V_BUF_W / 2];
-  uint16_t *line_buf = (uint16_t *)(*v_out_dma_buf_addr);
+  uint16_t *line_buf = (uint16_t *)v_out_dma_buf[active_buf_idx];
 
   for (int i = h_margin; i--;)
     *line_buf++ = palette[0];
@@ -184,7 +184,7 @@ void __not_in_flash_func(dma_handler_vga)()
   for (int i = h_margin; i--;)
     *line_buf++ = palette[0];
 
-  dma_channel_set_read_addr(dma_ch1, v_out_dma_buf_addr, false);
+  dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[active_buf_idx], false);
 }
 
 void set_vga_scanlines_mode(bool sl_mode)
