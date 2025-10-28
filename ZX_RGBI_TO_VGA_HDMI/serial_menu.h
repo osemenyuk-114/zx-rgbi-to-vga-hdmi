@@ -37,5 +37,6 @@ void handle_serial_menu();
 
 // Utility functions
 void print_byte_hex(uint8_t);
-String binary_to_string(uint8_t, bool);
-uint32_t string_to_int(String);
+void binary_to_string(uint8_t, bool, char *);
+uint32_t string_to_int(const char *);
+char get_menu_input(int);
