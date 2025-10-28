@@ -782,7 +782,7 @@ void handle_serial_menu()
 
                 case '3':
                 {
-                    char frequency_str[16] = "";
+                    char frequency_str[8] = "";
                     int str_len = 0;
                     uint32_t frequency_int = 0;
 
@@ -792,7 +792,7 @@ void handle_serial_menu()
                     {
                         inchar = get_menu_input(10);
 
-                        if (inchar >= '0' && inchar <= '9' && str_len < 15)
+                        if (inchar >= '0' && inchar <= '9' && str_len < 7)
                         {
                             Serial.print(inchar);
                             frequency_str[str_len++] = inchar;
