@@ -1,27 +1,49 @@
+# rgb-to-vga-hdmi
 
-# zx-rgbi-to-vga-hdmi
+A converter for RGB video signals to modern VGA and HDMI displays.
 
-For detailed hardware and original software information, please refer to the source: [ZX_RGBI2VGA-HDMI](https://github.com/AlexEkb4ever/ZX_RGBI2VGA-HDMI/).
+For detailed hardware and original software information, see the upstream project:  
+🔗 [ZX_RGBI2VGA-HDMI](https://github.com/AlexEkb4ever/ZX_RGBI2VGA-HDMI/)
 
-## Changes and New Features
+## Features
 
 ### Software
 
 - **Video Output:**
-  - Added new resolutions on VGA output (800x600, 1024x768, 1280x1024).
-  - Introduced scanline effect at higher resolutions.
+  - VGA output with selectable resolutions: 640×480 @60Hz, 800×600 @60Hz, 1280×1024 @60Hz.
+  - HDMI (DVI) resolutions: 640×480 @60Hz and 720×576 @50Hz.
+  - Optional scanline effect on the VGA output at higher resolutions for a retro look.
+  - "NO SIGNAL" message when no input is detected.
 - **Configuration via Serial Terminal:**
-  - Text-based menus.
-  - Frequency presets for self-synchronizing capture mode (supports ZX Spectrum 48K/128K timings).
-  - Real-time settings adjustments for capture delay, image position, scanline effects, and buffering modes.
-- **PIO Clock Divider Optimization:** Enhanced precision in self-synchronizing capture mode.
-- **Test/Welcome Screen:** Styled like the ZX Spectrum 128K.
+  - Text-based menu system.
+  - Frequency presets for self-synchronizing capture mode (supports ZX Spectrum 48K/128K pixel clocks).
+  - Real-time adjustment of all parameters (changes applied immediately).
+  - Settings can be saved to flash memory without restart.
+- Test/Welcome Screen
 
 ### Hardware
 
 - **Analog to Digital Conversion:** Converts Analog RGB to digital RGBI.
-  - Based on the [RGBtoHDMI](https://github.com/hoglet67/RGBtoHDMI) project.
+  - Based on the project:  
+🔗 [RGBtoHDMI](https://github.com/hoglet67/RGBtoHDMI)
 
-### Removed Features
+---
 
-- Z80 CLK external clock source.
+## Recent Improvements
+
+### Performance Improvements
+
+- **Video Output Optimization**: Streamlined DMA handling for both VGA and DVI/HDMI output modes, resulting in more efficient memory usage and cleaner code structure.
+- **Buffer Management**: Simplified buffer switching mechanisms for improved video processing performance.
+
+### Development Experience
+
+- **PlatformIO Integration**: Full PlatformIO support with Arduino framework for easier development and dependency management. The project can also be built using the Arduino IDE for those who prefer a simpler setup (requires: Optimization -O2 or -O3, USB Stack - Pico SDK).
+- **Enhanced Build System**: Improved VS Code integration with custom build scripts for streamlined development workflow.
+- **Better Task Management**: Added comprehensive build, upload, and monitoring tasks with proper error handling.
+
+### Code Quality
+
+- **Memory Optimization**: Reduced unnecessary memory allocations and pointer complexity in video output modules.
+- **Architecture Refinements**: Better separation of concerns between video input capture and output generation systems.
+- **Maintainability**: Cleaner code structure while preserving critical hardware-specific requirements for reliable video processing.

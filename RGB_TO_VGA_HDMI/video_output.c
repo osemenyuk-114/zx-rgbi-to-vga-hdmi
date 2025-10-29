@@ -1,24 +1,52 @@
 #include "g_config.h"
+#include "video_output.h"
 #include "v_buf.h"
+#include "dvi.h"
+#include "vga.h"
 
 extern settings_t settings;
+extern video_out_type_t active_video_output;
 
-uint8_t *v_bufs = g_v_buf;
-
-void *__not_in_flash_func(get_v_buf_out)()
+void start_video_output(video_out_type_t output_type)
 {
-  return v_bufs;
+  active_video_output = output_type;
+
+  switch (output_type)
+  {
+  case DVI:
+    start_dvi(*(video_modes[settings.video_out_mode]));
+    break;
+
+  case VGA:
+    start_vga(*(video_modes[settings.video_out_mode]));
+    break;
+
+  default:
+    break;
+  }
 }
 
-void *__not_in_flash_func(get_v_buf_in)()
+void stop_video_output()
 {
-  return v_bufs;
+  switch (active_video_output)
+  {
+  case DVI:
+    stop_dvi();
+    break;
+
+  case VGA:
+    stop_vga();
+    break;
+
+  default:
+    break;
+  }
 }
 
-void clear_video_buffer()
+void set_scanlines_mode()
 {
-  // clear video buffer
-  memset(g_v_buf, 0, V_BUF_SZ);
+  if (settings.video_out_type == VGA)
+    set_vga_scanlines_mode(settings.scanlines_mode);
 }
 
 void draw_welcome_screen(video_mode_t video_mode)

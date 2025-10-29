@@ -3,22 +3,23 @@
 #include "hardware/irq.h"
 #include "hardware/structs/pll.h"
 #include "hardware/structs/systick.h"
-#include "hardware/vreg.h"
 
 #include "g_config.h"
 #include "dvi.h"
 #include "pio_programs.h"
 #include "v_buf.h"
 
-static int dma_ch1;
-static uint8_t *screen_buf;
-static video_mode_t video_mode;
+extern settings_t settings;
 
+static int dma_ch0;
+static int dma_ch1;
+static uint offset;
+
+static video_mode_t video_mode;
 static int16_t h_visible_area;
 
-// the number of DMA buffers can be increased if there is image fluttering
 static uint32_t *v_out_dma_buf[2];
-static uint32_t *v_out_dma_buf_addr[2];
+
 static uint64_t sync_data[4];
 static uint64_t R64, G64, B64, Y64;
 static uint64_t palette[128];
@@ -54,21 +55,17 @@ static uint64_t get_ser_diff_data(uint16_t dataR, uint16_t dataG, uint16_t dataB
     bG |= (bG ^ 1) << 1;
     bB |= (bB ^ 1) << 1;
 
-    if (DVI_PIN_invert_diffpairs)
-    {
-      bR ^= 0b11;
-      bG ^= 0b11;
-      bB ^= 0b11;
-    }
+#ifdef DVI_PIN_invert_diffpairs
+    bR ^= 0b11;
+    bG ^= 0b11;
+    bB ^= 0b11;
+#endif
 
-    if (DVI_PIN_RGB_notBGR)
-    {
-      d6 = (bR << 4) | (bG << 2) | (bB << 0);
-    }
-    else
-    {
-      d6 = (bB << 4) | (bG << 2) | (bR << 0);
-    }
+#ifdef DVI_PIN_RGB_notBGR
+    d6 = (bR << 4) | (bG << 2) | (bB << 0);
+#else
+    d6 = (bB << 4) | (bG << 2) | (bR << 0);
+#endif
 
     out64 |= d6;
   }
@@ -107,12 +104,14 @@ static uint tmds_encoder(uint8_t d8)
 
 static void __not_in_flash_func(dma_handler_dvi)()
 {
-  static uint16_t dma_buf_idx;
-  static uint16_t y;
+  static uint16_t y = 0;
+
+  static uint8_t *screen_buf = NULL;
+  static uint32_t active_buf_idx = 0;
 
   dma_hw->ints0 = 1u << dma_ch1;
 
-  dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf_addr[dma_buf_idx & 1], false);
+  dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[active_buf_idx & 1], false);
 
   y++;
 
@@ -125,9 +124,9 @@ static void __not_in_flash_func(dma_handler_dvi)()
   if (y & 1)
     return;
 
-  dma_buf_idx++;
+  active_buf_idx++;
 
-  uint64_t *active_buf = (uint64_t *)(v_out_dma_buf[dma_buf_idx & 1]);
+  uint64_t *active_buf = (uint64_t *)(v_out_dma_buf[active_buf_idx & 1]);
 
   if (screen_buf == NULL)
     return;
@@ -171,13 +170,15 @@ void start_dvi(video_mode_t v_mode)
 {
   video_mode = v_mode;
 
+  int whole_line = video_mode.whole_line * video_mode.div;
+
   h_visible_area = video_mode.h_visible_area / video_mode.div;
 
   // initialization of constants
-  uint16_t b0 = 0b1101010100;
-  uint16_t b1 = 0b0010101011;
-  uint16_t b2 = 0b0101010100;
-  uint16_t b3 = 0b1010101011;
+  const uint16_t b0 = 0b1101010100;
+  const uint16_t b1 = 0b0010101011;
+  const uint16_t b2 = 0b0101010100;
+  const uint16_t b3 = 0b1010101011;
 
   sync_data[0b00] = get_ser_diff_data(b0, b0, b3);
   sync_data[0b01] = get_ser_diff_data(b0, b0, b2);
@@ -189,8 +190,6 @@ void start_dvi(video_mode_t v_mode)
   B64 = get_ser_diff_data(tmds_encoder(0), tmds_encoder(0), tmds_encoder(255));
   Y64 = get_ser_diff_data(tmds_encoder(255), tmds_encoder(255), tmds_encoder(0));
 
-  vreg_set_voltage(VREG_VOLTAGE_1_25);
-  sleep_ms(100);
   set_sys_clock_khz(video_mode.sys_freq, true);
   sleep_ms(10);
 
@@ -206,50 +205,42 @@ void start_dvi(video_mode_t v_mode)
     palette[c2 + 1] = palette[c2] ^ 0x0003ffffffffffffl;
   }
 
-  v_out_dma_buf[0] = calloc(video_mode.whole_line * 2, sizeof(uint32_t));
-  v_out_dma_buf[1] = calloc(video_mode.whole_line * 2, sizeof(uint32_t));
-
-  // set DVI data pins
-  for (int i = DVI_PIN_D0; i < DVI_PIN_D0 + 6; i++)
-  {
-    gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
-    pio_gpio_init(PIO_DVI, i);
-    gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_12MA);
-    gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
-  }
-
-  // set DVI clock pins
-  for (int i = DVI_PIN_CLK0; i < DVI_PIN_CLK0 + 2; i++)
+  // set DVI pins
+  for (int i = DVI_PIN_D0; i < DVI_PIN_D0 + 8; i++)
   {
     pio_gpio_init(PIO_DVI, i);
     gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_12MA);
     gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
   }
+
+  // buffers initialization
+  v_out_dma_buf[0] = calloc(whole_line, sizeof(uint32_t));
+  v_out_dma_buf[1] = calloc(whole_line, sizeof(uint32_t));
 
   // PIO initialization
-  // PIO program load
-  uint offset = pio_add_program(PIO_DVI, &pio_dvi_program);
-
   pio_sm_config c = pio_get_default_sm_config();
+
+  // PIO program load
+  offset = pio_add_program(PIO_DVI, &pio_dvi_program);
+  sm_config_set_wrap(&c, offset, offset + pio_dvi_program.length - 1);
+
+  sm_config_set_out_pins(&c, DVI_PIN_D0, 6);
+  pio_sm_set_consecutive_pindirs(PIO_DVI, SM_DVI, DVI_PIN_D0, 6, true);
 
   pio_sm_set_pins_with_mask(PIO_DVI, SM_DVI, 3u << DVI_PIN_CLK0, 3u << DVI_PIN_CLK0);
   pio_sm_set_pindirs_with_mask(PIO_DVI, SM_DVI, 3u << DVI_PIN_CLK0, 3u << DVI_PIN_CLK0);
-  pio_sm_set_consecutive_pindirs(PIO_DVI, SM_DVI, DVI_PIN_D0, 6, true);
 
-  sm_config_set_wrap(&c, offset, offset + (pio_dvi_program.length - 1));
-  sm_config_set_out_shift(&c, true, true, 30);
-  sm_config_set_out_pins(&c, DVI_PIN_D0, 6);
-  sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
-
-  // PIO side set pins
   sm_config_set_sideset_pins(&c, DVI_PIN_CLK0);
   sm_config_set_sideset(&c, 2, false, false);
+
+  sm_config_set_out_shift(&c, true, true, 30);
+  sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
 
   pio_sm_init(PIO_DVI, SM_DVI, offset, &c);
   pio_sm_set_enabled(PIO_DVI, SM_DVI, true);
 
   // DMA initialization
-  int dma_ch0 = dma_claim_unused_channel(true);
+  dma_ch0 = dma_claim_unused_channel(true);
   dma_ch1 = dma_claim_unused_channel(true);
 
   // main (data) DMA channel
@@ -264,10 +255,10 @@ void start_dvi(video_mode_t v_mode)
   dma_channel_configure(
       dma_ch0,
       &c0,
-      &PIO_DVI->txf[SM_DVI],     // write address
-      &v_out_dma_buf[0][0],      // read address
-      video_mode.whole_line * 2, //
-      false                      // don't start yet
+      &PIO_DVI->txf[SM_DVI], // write address
+      &v_out_dma_buf[0][0],  // read address
+      whole_line,            //
+      false                  // don't start yet
   );
 
   // control DMA channel
@@ -278,14 +269,11 @@ void start_dvi(video_mode_t v_mode)
   channel_config_set_write_increment(&c1, false);
   channel_config_set_chain_to(&c1, dma_ch0); // chain to other channel
 
-  v_out_dma_buf_addr[0] = &v_out_dma_buf[0][0];
-  v_out_dma_buf_addr[1] = &v_out_dma_buf[1][0];
-
   dma_channel_configure(
       dma_ch1,
       &c1,
       &dma_hw->ch[dma_ch0].read_addr, // write address
-      &v_out_dma_buf_addr[0],         // read address
+      &v_out_dma_buf[0],              // read address
       1,                              //
       false                           // don't start yet
   );
@@ -297,4 +285,37 @@ void start_dvi(video_mode_t v_mode)
   irq_set_enabled(DMA_IRQ_0, true);
 
   dma_start_channel_mask((1u << dma_ch0));
+}
+
+void stop_dvi()
+{
+  // disable IRQ first to prevent handlers from running during cleanup
+  irq_set_enabled(DMA_IRQ_0, false);
+
+  // clear the IRQ handler to prevent conflicts with VGA
+  irq_remove_handler(DMA_IRQ_0, dma_handler_dvi);
+
+  // stop PIO
+  pio_sm_set_enabled(PIO_DVI, SM_DVI, false);
+  pio_sm_init(PIO_DVI, SM_DVI, offset, NULL);
+  pio_remove_program(PIO_DVI, &pio_dvi_program, offset);
+
+  // cleanup and free DMA channels
+  dma_channel_cleanup(dma_ch0);
+  dma_channel_cleanup(dma_ch1);
+  dma_channel_unclaim(dma_ch0);
+  dma_channel_unclaim(dma_ch1);
+
+  // free individual buffer allocations
+  if (v_out_dma_buf[0] != NULL)
+  {
+    free(v_out_dma_buf[0]);
+    v_out_dma_buf[0] = NULL;
+  }
+
+  if (v_out_dma_buf[1] != NULL)
+  {
+    free(v_out_dma_buf[1]);
+    v_out_dma_buf[1] = NULL;
+  }
 }
