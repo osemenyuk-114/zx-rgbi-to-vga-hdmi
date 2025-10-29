@@ -25,9 +25,9 @@ This version of the firmware:
 ### Software
 
 - **Video Output:**
-  - VGA output with selectable resolutions: 640x480, 800x600, 1024x768, 1280x1024.
-  - HDMI (DVI) output support (fixed resolution 640x480).
-  - Optional scanline effect at higher resolutions for a retro look.
+  - VGA output with selectable resolutions: 640×480 @60Hz, 800×600 @60Hz, 1024×768 @60Hz, 1280×1024 @60Hz.
+  - HDMI (DVI) resolutions: 640×480 @60Hz and 720×576 @50Hz.
+  - Optional scanline effect on the VGA output at higher resolutions for a retro look.
   - "NO SIGNAL" message when no input is detected.
 - **Configuration via Serial Terminal:**
   - Text-based menu system.
@@ -39,7 +39,7 @@ This version of the firmware:
 ### Hardware
 
 - **Analog to Digital Conversion:** Converts analog RGB to digital RGBI.
-  - Based on the project  
+  - Based on the project:  
 🔗 [RGBtoHDMI](https://github.com/hoglet67/RGBtoHDMI)
 
 ---
@@ -47,3 +47,24 @@ This version of the firmware:
 ## Removed Features
 
 - Z80 CLK external clock source. Self-sync capture mode is now preferred.
+
+---
+
+## Recent Improvements
+
+### Performance Improvements
+
+- **Video Output Optimization**: Streamlined DMA handling for both VGA and DVI/HDMI output modes, resulting in more efficient memory usage and cleaner code structure.
+- **Buffer Management**: Simplified buffer switching mechanisms for improved video processing performance.
+
+### Development Experience
+
+- **PlatformIO Integration**: Full PlatformIO support with Arduino framework for easier development and dependency management. The project can also be built using the Arduino IDE for those who prefer a simpler setup (requires: Optimization -O2 or -O3, USB Stack - Pico SDK).
+- **Enhanced Build System**: Improved VS Code integration with custom build scripts for streamlined development workflow.
+- **Better Task Management**: Added comprehensive build, upload, and monitoring tasks with proper error handling.
+
+### Code Quality
+
+- **Memory Optimization**: Reduced unnecessary memory allocations and pointer complexity in video output modules.
+- **Architecture Refinements**: Better separation of concerns between video input capture and output generation systems.
+- **Maintainability**: Cleaner code structure while preserving critical hardware-specific requirements for reliable video processing.

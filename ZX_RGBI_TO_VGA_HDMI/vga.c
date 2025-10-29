@@ -3,7 +3,6 @@
 #include "hardware/irq.h"
 #include "hardware/structs/pll.h"
 #include "hardware/structs/systick.h"
-#include "hardware/vreg.h"
 
 #include "g_config.h"
 #include "vga.h"
@@ -17,26 +16,24 @@ static int dma_ch1;
 static uint offset;
 
 static video_mode_t video_mode;
-
 static int16_t h_visible_area;
 static int16_t h_margin;
 static int16_t v_visible_area;
 static int16_t v_margin;
 static bool scanlines_mode = false;
 
-static uint8_t *base_ptr;
-static uint32_t *line_patterns[4];
+static uint32_t *v_out_dma_buf[4];
 static uint16_t palette[256];
 
 void __not_in_flash_func(memset32)(uint32_t *dst, const uint32_t data, uint32_t size);
 
 void __not_in_flash_func(dma_handler_vga)()
 {
-  uint32_t **v_out_dma_buf_addr;
+  static uint16_t y = 0;
+
+  static uint8_t *screen_buf = NULL;
 
   dma_hw->ints0 = 1u << dma_ch1;
-  static uint16_t y = 0;
-  static uint8_t *screen_buf = NULL;
 
   y++;
 
@@ -49,32 +46,32 @@ void __not_in_flash_func(dma_handler_vga)()
   if (y >= video_mode.v_visible_area && y < (video_mode.v_visible_area + video_mode.v_front_porch))
   {
     // vertical sync front porch
-    dma_channel_set_read_addr(dma_ch1, &line_patterns[0], false);
+    dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[0], false);
     return;
   }
   else if (y >= (video_mode.v_visible_area + video_mode.v_front_porch) && y < (video_mode.v_visible_area + video_mode.v_front_porch + video_mode.v_sync_pulse))
   {
     // vertical sync pulse
-    dma_channel_set_read_addr(dma_ch1, &line_patterns[1], false);
+    dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[1], false);
     return;
   }
   else if (y >= (video_mode.v_visible_area + video_mode.v_front_porch + video_mode.v_sync_pulse) && y < video_mode.whole_frame)
   {
     // vertical sync back porch
-    dma_channel_set_read_addr(dma_ch1, &line_patterns[0], false);
+    dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[0], false);
     return;
   }
 
   if (!(screen_buf))
   {
-    dma_channel_set_read_addr(dma_ch1, &line_patterns[2], false);
+    dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[2], false);
     return;
   }
 
   // top and bottom black bars when the vertical size of the image is smaller than the vertical resolution of the screen
   if (y < v_margin || y >= (v_visible_area + v_margin))
   {
-    dma_channel_set_read_addr(dma_ch1, &line_patterns[0], false);
+    dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[0], false);
     return;
   }
 
@@ -84,10 +81,7 @@ void __not_in_flash_func(dma_handler_vga)()
   switch (video_mode.div)
   {
   case 2:
-  {
-
 #ifdef LOW_RES_SCANLINE
-
     if (scanlines_mode)
     {
       if (line > 0)
@@ -96,45 +90,36 @@ void __not_in_flash_func(dma_handler_vga)()
       if (line == 4)
         line++;
     }
-    else
-
-#endif
-
-        if (line > 1)
+    else if (line > 1)
       line++;
 
+#else
+    if (line > 1)
+      line++;
+
+#endif
     break;
-  }
 
   case 3:
-  {
     if (!scanlines_mode && ((line == 2) || (line == 5)))
       line--;
-
     break;
-  }
 
   case 4:
-  {
     if (scanlines_mode)
     {
-
 #ifdef NARROW_SCANLINE
-
       if (line > 1)
         line--;
 
       if (line >= 5)
         line--;
-
 #else
-
       if (line > 2)
         line--;
 
       if (line == 6)
         line--;
-
 #endif
     }
     else
@@ -150,44 +135,45 @@ void __not_in_flash_func(dma_handler_vga)()
     }
 
     break;
-  }
 
   default:
     break;
   }
+
+  int active_buf_idx;
 
   switch (line)
   {
   case 0:
-    v_out_dma_buf_addr = &line_patterns[2];
+    active_buf_idx = 2;
     break;
 
   case 1:
-    dma_channel_set_read_addr(dma_ch1, &line_patterns[2], false);
+    dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[2], false);
     return;
 
   case 2:
-    dma_channel_set_read_addr(dma_ch1, &line_patterns[0], false);
+    dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[0], false);
     return;
 
   case 3:
-    v_out_dma_buf_addr = &line_patterns[3];
+    active_buf_idx = 3;
     break;
 
   case 4:
-    dma_channel_set_read_addr(dma_ch1, &line_patterns[3], false);
+    dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[3], false);
     return;
 
   case 5:
-    dma_channel_set_read_addr(dma_ch1, &line_patterns[0], false);
+    dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[0], false);
     return;
 
   default:
-    break;
+    return;
   }
 
   uint8_t *scr_buf = &screen_buf[(uint16_t)((y - v_margin) / video_mode.div) * V_BUF_W / 2];
-  uint16_t *line_buf = (uint16_t *)(*v_out_dma_buf_addr);
+  uint16_t *line_buf = (uint16_t *)v_out_dma_buf[active_buf_idx];
 
   for (int i = h_margin; i--;)
     *line_buf++ = palette[0];
@@ -198,7 +184,7 @@ void __not_in_flash_func(dma_handler_vga)()
   for (int i = h_margin; i--;)
     *line_buf++ = palette[0];
 
-  dma_channel_set_read_addr(dma_ch1, v_out_dma_buf_addr, false);
+  dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[active_buf_idx], false);
 }
 
 void set_vga_scanlines_mode(bool sl_mode)
@@ -228,8 +214,6 @@ void start_vga(video_mode_t v_mode)
   if (v_margin < 0)
     v_margin = 0;
 
-  vreg_set_voltage(VREG_VOLTAGE_1_25);
-  sleep_ms(100);
   set_sys_clock_khz(video_mode.sys_freq, true);
   sleep_ms(10);
 
@@ -252,48 +236,41 @@ void start_vga(video_mode_t v_mode)
     }
   }
 
-  // allocate memory for line template definitions
-  base_ptr = calloc(whole_line * 4, sizeof(uint8_t));
-  line_patterns[0] = (uint32_t *)base_ptr;
-
-  // empty line
-  memset(base_ptr, (NO_SYNC ^ video_mode.sync_polarity), whole_line);
-  memset(base_ptr + h_sync_pulse_front, (H_SYNC ^ video_mode.sync_polarity), h_sync_pulse);
-
-  // vertical sync pulse
-  line_patterns[1] = (uint32_t *)(base_ptr + whole_line);
-  memset(base_ptr + whole_line, (V_SYNC ^ video_mode.sync_polarity), whole_line);
-  memset(base_ptr + whole_line + h_sync_pulse_front, (VH_SYNC ^ video_mode.sync_polarity), h_sync_pulse);
-
-  // image line
-  line_patterns[2] = (uint32_t *)(base_ptr + whole_line * 2);
-  memcpy(base_ptr + whole_line * 2, line_patterns[0], whole_line);
-
-  // image line
-  line_patterns[3] = (uint32_t *)(base_ptr + whole_line * 3);
-  memcpy(base_ptr + whole_line * 3, line_patterns[0], whole_line);
-
   // set VGA pins
   for (int i = VGA_PIN_D0; i < VGA_PIN_D0 + 8; i++)
   {
-    gpio_init(i);
-    gpio_set_dir(i, GPIO_OUT);
+    pio_gpio_init(PIO_VGA, i);
     gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_4MA);
     gpio_set_slew_rate(i, GPIO_SLEW_RATE_SLOW);
-    pio_gpio_init(PIO_VGA, i);
   }
 
-  // PIO initialization
-  // PIO program load
-  offset = pio_add_program(PIO_VGA, &pio_vga_program);
+  // allocate memory for line template definitions - individual allocations
+  // empty line
+  v_out_dma_buf[0] = calloc(whole_line / 4, sizeof(uint32_t));
+  memset((uint8_t *)v_out_dma_buf[0], (NO_SYNC ^ video_mode.sync_polarity), whole_line);
+  memset((uint8_t *)v_out_dma_buf[0] + h_sync_pulse_front, (H_SYNC ^ video_mode.sync_polarity), h_sync_pulse);
+  // vertical sync pulse
+  v_out_dma_buf[1] = calloc(whole_line / 4, sizeof(uint32_t));
+  memset((uint8_t *)v_out_dma_buf[1], (V_SYNC ^ video_mode.sync_polarity), whole_line);
+  memset((uint8_t *)v_out_dma_buf[1] + h_sync_pulse_front, (VH_SYNC ^ video_mode.sync_polarity), h_sync_pulse);
+  // image line
+  v_out_dma_buf[2] = calloc(whole_line / 4, sizeof(uint32_t));
+  memcpy((uint8_t *)v_out_dma_buf[2], (uint8_t *)v_out_dma_buf[0], whole_line);
+  // image line
+  v_out_dma_buf[3] = calloc(whole_line / 4, sizeof(uint32_t));
+  memcpy((uint8_t *)v_out_dma_buf[3], (uint8_t *)v_out_dma_buf[0], whole_line);
 
+  // PIO initialization
   pio_sm_config c = pio_get_default_sm_config();
 
+  // PIO program load
+  offset = pio_add_program(PIO_VGA, &pio_vga_program);
+  sm_config_set_wrap(&c, offset, offset + (pio_vga_program.length - 1));
+
+  sm_config_set_out_pins(&c, VGA_PIN_D0, 8);
   pio_sm_set_consecutive_pindirs(PIO_VGA, SM_VGA, VGA_PIN_D0, 8, true);
 
-  sm_config_set_wrap(&c, offset, offset + (pio_vga_program.length - 1));
   sm_config_set_out_shift(&c, true, true, 32);
-  sm_config_set_out_pins(&c, VGA_PIN_D0, 8);
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_TX);
 
   sm_config_set_clkdiv(&c, ((float)clock_get_hz(clk_sys) * video_mode.div) / video_mode.pixel_freq);
@@ -318,7 +295,7 @@ void start_vga(video_mode_t v_mode)
       dma_ch0,
       &c0,
       &PIO_VGA->txf[SM_VGA], // write address
-      line_patterns[0],      // read address
+      v_out_dma_buf[0],      // read address
       whole_line / 4,        //
       false                  // don't start yet
   );
@@ -335,7 +312,7 @@ void start_vga(video_mode_t v_mode)
       dma_ch1,
       &c1,
       &dma_hw->ch[dma_ch0].read_addr, // write address
-      &line_patterns[0],              // read address
+      &v_out_dma_buf[0],              // read address
       1,                              //
       false                           // don't start yet
   );
@@ -351,15 +328,45 @@ void start_vga(video_mode_t v_mode)
 
 void stop_vga()
 {
+  // disable IRQ first to prevent handlers from running during cleanup
+  irq_set_enabled(DMA_IRQ_0, false);
+
+  // clear the IRQ handler to prevent conflicts with DVI
+  irq_remove_handler(DMA_IRQ_0, dma_handler_vga);
+
+  // stop PIO
   pio_sm_set_enabled(PIO_VGA, SM_VGA, false);
   pio_sm_init(PIO_VGA, SM_VGA, offset, NULL);
   pio_remove_program(PIO_VGA, &pio_vga_program, offset);
-  dma_channel_set_irq0_enabled(dma_ch1, false);
-  dma_channel_abort(dma_ch0);
-  dma_channel_abort(dma_ch1);
+
+  // cleanup and free DMA channels
   dma_channel_cleanup(dma_ch0);
   dma_channel_cleanup(dma_ch1);
   dma_channel_unclaim(dma_ch0);
   dma_channel_unclaim(dma_ch1);
-  free(base_ptr);
+
+  // free individual buffer allocations
+  if (v_out_dma_buf[0] != NULL)
+  {
+    free(v_out_dma_buf[0]);
+    v_out_dma_buf[0] = NULL;
+  }
+
+  if (v_out_dma_buf[1] != NULL)
+  {
+    free(v_out_dma_buf[1]);
+    v_out_dma_buf[1] = NULL;
+  }
+
+  if (v_out_dma_buf[2] != NULL)
+  {
+    free(v_out_dma_buf[2]);
+    v_out_dma_buf[2] = NULL;
+  }
+
+  if (v_out_dma_buf[3] != NULL)
+  {
+    free(v_out_dma_buf[3]);
+    v_out_dma_buf[3] = NULL;
+  }
 }
