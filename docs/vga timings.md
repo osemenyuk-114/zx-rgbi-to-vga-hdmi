@@ -1,27 +1,53 @@
-# VGA timings
+# Video timings
 
-The table contains the timing parameters for all VGA modes supported in this project.
+## The following table contains the timing parameters for the standard VGA modes supported in this project
 
-| Mode                                  | 640 x 480    |                   | 800 x 600           |               | 1024 x 768          |                   | 1280 x 1024         |                   |
-|---------------------------------------|-------------:|------------------:|--------------------:|--------------:|--------------------:|------------------:|--------------------:|------------------:|
-| **Screen refresh rate**               | 60 Hz        |                   | 60 Hz               |               | 60 Hz               |                   | 60 Hz               |                   |
-| **Vertical refresh**                  | 31.46875 kHz |                   | 37.878787878788 kHz |               | 48.363095238095 kHz |                   | 63.981042654028 kHz |                   |
-| **Pixel frequency**                   | 25.175 MHz   |                   | 40.0 MHz            |               | 65.0 MHz            |                   | 108.0 MHz           |                   |
-|                                       |              |                   |                     |               |                     |                   |                     |                   |
-| **Horizontal timing (line)**          |              |                   |                     |               |                     |                   |                     |                   |
-| **Polarity of horizontal sync pulse** | negative     |                   | positive            |               | negative            |                   | positive            |                   |
-| **Scanline part**                     | **Pixels**   | **Time [µs]**     | **Pixels**          | **Time [µs]** | **Pixels**          | **Time [µs]**     | **Pixels**          | **Time [µs]**     |
-| **Visible area**                      | 640          | 25.422045680238   | 800                 | 20            | 1024                | 15.753846153846   | 1280                | 11.851851851852   |
-| **Front porch**                       | 16           | 0.63555114200596  | 40                  | 1             | 24                  | 0.36923076923077  | 48                  | 0.44444444444444  |
-| **Sync pulse**                        | 96           | 3.8133068520357   | 128                 | 3.2           | 136                 | 2.0923076923077   | 112                 | 1.037037037037    |
-| **Back porch**                        | 48           | 1.9066534260179   | 88                  | 2.2           | 160                 | 2.4615384615385   | 248                 | 2.2962962962963   |
-| **Whole line**                        | 800          | 31.777557100298   | 1056                | 26.4          | 1344                | 20.676923076923   | 1688                | 15.62962962963    |
-|                                       |              |                   |                     |               |                     |                   |                     |                   |
-| **Vertical timing (frame)**           |              |                   |                     |               |                     |                   |                     |                   |
-| **Polarity of vertical sync pulse**   | negative     |                   | positive            |               | negative            |                   | positive            |                   |
-| **Frame part**                        | **Lines**    | **Time [µs]**     | **Lines**           | **Time [µs]** | **Lines**           | **Time [µs]**     | **Lines**           | **Time [µs]**     |
-| **Visible area**                      | 480          | 15.253227408143   | 600                 | 15.84         | 768                 | 15.879876923077   | 1024                | 16.004740740741   |
-| **Front porch**                       | 10           | 0.31777557100298  | 1                   | 0.0264        | 3                   | 0.062030769230769 | 1                   | 0.01562962962963  |
-| **Sync pulse**                        | 2            | 0.063555114200596 | 4                   | 0.1056        | 6                   | 0.12406153846154  | 3                   | 0.046888888888889 |
-| **Back porch**                        | 33           | 1.0486593843098   | 23                  | 0.6072        | 29                  | 0.59963076923077  | 38                  | 0.59392592592593  |
-| **Whole frame**                       | 525          | 16.683217477656   | 628                 | 16.5792       | 806                 | 16.6656           | 1066                | 16.661185185185   |
+| Mode                                  | 640 x 480     | 800 x 600     | 1024 x 768    | 1280 x 1024   |
+|---------------------------------------|--------------:|--------------:|--------------:|--------------:|
+| **Screen refresh rate**               | 60 Hz         | 60 Hz         | 60 Hz         | 60 Hz         |
+| **Vertical refresh**                  | 31.469 kHz    | 37.879 kHz    | 48.363 kHz    | 63.981 kHz    |
+| **Pixel frequency**                   | 25.175 MHz    | 40.0 MHz      | 65.0 MHz      | 108.0 MHz     |
+|                                       |               |               |               |               |
+| **Horizontal timing (line)**          |               |               |               |               |
+| **Polarity of horizontal sync pulse** | negative      | positive      | negative      | positive      |
+| **Scanline part**                     | **Pixels**    | **Pixels**    | **Pixels**    | **Pixels**    |
+| **Visible area**                      | 640           | 800           | 1024          | 1280          |
+| **Front porch**                       | 16            | 40            | 24            | 48            |
+| **Sync pulse**                        | 96            | 128           | 136           | 112           |
+| **Back porch**                        | 48            | 88            | 160           | 248           |
+| **Whole line**                        | 800           | 1056          | 1344          | 1688          |
+|                                       |               |               |               |               |
+| **Vertical timing (frame)**           |               |               |               |               |
+| **Polarity of vertical sync pulse**   | negative      | positive      | negative      | positive      |
+| **Frame part**                        | **Lines**     | **Lines**     | **Lines**     | **Lines**     |
+| **Visible area**                      | 480           | 600           | 768           | 1024          |
+| **Front porch**                       | 10            | 1             | 3             | 1             |
+| **Sync pulse**                        | 2             | 4             | 6             | 3             |
+| **Back porch**                        | 33            | 23            | 29            | 38            |
+| **Whole frame**                       | 525           | 628           | 806           | 1066          |
+
+## Extended timing parameters for DVI video modes supported by the system
+
+| Mode                                  | 640 x 480     | 720 x 576     |
+|---------------------------------------|--------------:|--------------:|
+| **Screen refresh rate**               | 60 Hz         | 50 Hz         |
+| **Vertical refresh**                  | 31.469 kHz    | 31.25 kHz     |
+| **Pixel frequency**                   | 25.175 MHz    | 27.0 MHz      |
+|                                       |               |               |
+| **Horizontal timing (line)**          |               |               |
+| **Polarity of horizontal sync pulse** | negative      | negative      |
+| **Scanline part**                     | **Pixels**    | **Pixels**    |
+| **Visible area**                      | 640           | 720           |
+| **Front porch**                       | 16            | 12            |
+| **Sync pulse**                        | 96            | 64            |
+| **Back porch**                        | 48            | 68            |
+| **Whole line**                        | 800           | 864           |
+|                                       |               |               |
+| **Vertical timing (frame)**           |               |               |
+| **Polarity of vertical sync pulse**   | negative      | negative      |
+| **Frame part**                        | **Lines**     | **Lines**     |
+| **Visible area**                      | 480           | 576           |
+| **Front porch**                       | 10            | 5             |
+| **Sync pulse**                        | 2             | 5             |
+| **Back porch**                        | 33            | 39            |
+| **Whole frame**                       | 525           | 625           |
