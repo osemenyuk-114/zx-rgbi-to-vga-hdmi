@@ -43,7 +43,6 @@ typedef struct settings_t
   video_out_type_t video_out_type;
   video_out_mode_t video_out_mode;
   bool scanlines_mode : 1;
-  bool buffering_mode : 1;
   bool video_sync_mode : 1;
   cap_sync_mode_t cap_sync_mode;
   uint32_t frequency;
