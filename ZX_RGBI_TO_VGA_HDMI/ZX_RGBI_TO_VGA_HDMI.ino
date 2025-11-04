@@ -4,8 +4,6 @@
 #include "pico/time.h"
 #include "hardware/vreg.h"
 
-#include "serial_menu.h"
-
 extern "C"
 {
 #include "g_config.h"
@@ -13,7 +11,13 @@ extern "C"
 #include "settings.h"
 #include "v_buf.h"
 #include "video_output.h"
+#ifdef OSD_MENU_ENABLED
+#include "osd.h"
+#endif
 }
+
+// Always include serial menu for debugging and configuration
+#include "serial_menu.h"
 
 settings_t settings;
 video_mode_t video_mode;
@@ -41,6 +45,10 @@ void setup()
   set_scanlines_mode();
   start_video_output(settings.video_out_type);
 
+#ifdef OSD_MENU_ENABLED
+  osd_init();
+#endif
+
   start_core0 = true;
 
   Serial.println("  Starting...\n");
@@ -48,7 +56,10 @@ void setup()
 
 void loop()
 {
-  handle_serial_menu();
+#ifdef OSD_MENU_ENABLED
+  // Update OSD menu
+  osd_update();
+#endif
 }
 
 void setup1()

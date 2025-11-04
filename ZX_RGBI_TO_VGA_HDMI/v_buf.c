@@ -15,6 +15,6 @@ void *__not_in_flash_func(get_v_buf_in)()
 
 void clear_video_buffers()
 {
-  // clear all three video buffers
+  // Clear video buffer
   memset(g_v_buf, 0, V_BUF_SZ);
 }

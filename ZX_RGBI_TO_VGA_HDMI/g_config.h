@@ -9,6 +9,10 @@
 #define BOARD_CODE_36LJU22
 // #define BOARD_CODE_09LJV23
 
+// OSD Menu configuration
+// Uncomment to enable on-screen display menu (serial menu remains available for debugging)
+#define OSD_MENU_ENABLED
+
 typedef enum video_out_type_t
 {
   OUTPUT_TYPE_MIN,
