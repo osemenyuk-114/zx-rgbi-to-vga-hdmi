@@ -19,7 +19,7 @@ const pio_program_t *program = NULL;
 static uint16_t h_sync_pulse_2;
 static uint16_t v_sync_pulse;
 
-uint32_t frame_count = 0;
+volatile uint32_t frame_count = 0;
 
 static uint32_t cap_dma_buf[2][CAP_DMA_BUF_SIZE / 4];
 static uint32_t *cap_dma_buf_addr[2];

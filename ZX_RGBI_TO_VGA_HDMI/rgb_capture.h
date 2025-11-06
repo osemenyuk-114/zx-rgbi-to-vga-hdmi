@@ -5,7 +5,7 @@
 #define CAP_DMA_BUF_CNT 8
 #define CAP_DMA_BUF_SIZE (CAP_LINE_LENGTH * CAP_DMA_BUF_CNT)
 
-extern uint32_t frame_count;
+extern volatile uint32_t frame_count;
 
 void set_capture_frequency(uint32_t);
 int8_t set_ext_clk_divider(int8_t);
