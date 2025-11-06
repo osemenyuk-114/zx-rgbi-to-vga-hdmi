@@ -15,7 +15,7 @@ extern video_out_type_t active_video_output;
 osd_state_t osd_state = {
     .enabled = false,
     .visible = false,
-    .x_pos = 40,   // Moved to the left side
+    .x_pos = 20,   // Moved to the left side
     .y_pos = 80,   // Centered vertically
     .needs_redraw = true,
     .selected_item = 0  // Start with first menu item selected

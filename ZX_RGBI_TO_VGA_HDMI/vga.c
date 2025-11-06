@@ -30,7 +30,7 @@ static uint16_t palette[256];
 
 void __not_in_flash_func(memset32)(uint32_t *dst, const uint32_t data, uint32_t size);
 
-__attribute__((hot)) void __not_in_flash_func(dma_handler_vga)()
+void __not_in_flash_func(dma_handler_vga)()
 {
   static uint16_t y = 0;
 
@@ -178,7 +178,6 @@ __attribute__((hot)) void __not_in_flash_func(dma_handler_vga)()
   uint8_t *scr_buf = &screen_buf[(uint16_t)((y - v_margin) / video_mode.div) * V_BUF_W / 2];
   uint16_t *line_buf = (uint16_t *)v_out_dma_buf[active_buf_idx];
 
-  // Left margin
   for (int x = h_margin; x--;)
     *line_buf++ = palette[0];
 
@@ -335,7 +334,6 @@ __attribute__((hot)) void __not_in_flash_func(dma_handler_vga)()
   }
 #endif
 
-  // Right margin
   for (int x = h_margin; x--;)
     *line_buf++ = palette[0];
 

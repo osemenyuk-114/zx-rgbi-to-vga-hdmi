@@ -4,6 +4,8 @@
 #include "pico/time.h"
 #include "hardware/vreg.h"
 
+#include "serial_menu.h"
+
 extern "C"
 {
 #include "g_config.h"
@@ -15,9 +17,6 @@ extern "C"
 #include "osd.h"
 #endif
 }
-
-// Always include serial menu for debugging and configuration
-#include "serial_menu.h"
 
 settings_t settings;
 video_mode_t video_mode;
@@ -56,6 +55,7 @@ void setup()
 
 void loop()
 {
+// handle_serial_menu();
 #ifdef OSD_MENU_ENABLED
   // Update OSD menu
   osd_update();
