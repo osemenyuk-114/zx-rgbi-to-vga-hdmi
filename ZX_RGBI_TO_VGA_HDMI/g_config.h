@@ -82,7 +82,6 @@ extern video_mode_t mode_1280x1024_60Hz_d4;
 extern video_mode_t *video_modes[];
 
 extern uint8_t g_v_buf[];
-extern uint32_t frame_count;
 
 // board pin configurations
 #ifdef BOARD_CODE_36LJU22
