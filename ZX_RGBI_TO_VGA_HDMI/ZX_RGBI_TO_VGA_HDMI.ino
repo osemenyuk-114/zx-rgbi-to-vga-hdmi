@@ -49,7 +49,10 @@ void setup()
 
 void loop()
 {
-  handle_serial_menu();
+  if (Serial.available())
+    handle_serial_menu();
+
+  sleep_ms(500);
 }
 
 void setup1()

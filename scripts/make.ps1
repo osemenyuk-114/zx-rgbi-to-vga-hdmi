@@ -4,7 +4,7 @@ Param(
     [string]$Action,
     
     [Parameter(Mandatory = $false, Position = 1, ValueFromRemainingArguments = $true)]
-    [string[]]$OptParams,
+    [System.Collections.Generic.List[string]]$OptParams,
 
     [Parameter(Mandatory = $false)]
     [switch]$AllWarnings
@@ -13,9 +13,17 @@ Param(
 # Arduino CLI executable name and config
 $ARDUINO_CLI = "arduino-cli.exe"
 $CONFIG_DIR = "$($env:USERPROFILE)\.arduinoIDE"
+$SKETCH_YAML = ".\sketch.yaml"
 
-# Default port to upload to
-$PORT = "COM6"
+# Get the FQBN from sketch.yaml
+if (Test-Path -Path $SKETCH_YAML -PathType Leaf) {
+    $FQBN = $(Get-Content -Path $SKETCH_YAML | Where-Object { $_ -match "default_fqbn" }).Split(" ")[1]
+}
+# If FQBN is found, get the port for the detected board
+if ($FQBN -ne "") {
+    $PORT = $(& $ARDUINO_CLI ("board list --json" -split "\s+") | ConvertFrom-Json).detected_ports | ForEach-Object { if ($_.matching_boards.fqbn -contains $FQBN) { $_.port.address } }
+}
+
 $BAUDRATE = "9600"
 $PORT_CONFIG = "--config baudrate=$BAUDRATE" -split "\s+"
 # Optional verbose compile/upload trigger
@@ -33,8 +41,9 @@ if ($AllWarnings) {
 }
 
 # $ExtraBuildFlags += "compiler.c.extra_flags=-save-temps compiler.cpp.extra_flags=-save-temps" -split "\s+"
+
 # Common parameters
-$BaseParams = "--config-dir $CONFIG_DIR --port $PORT" -split "\s+"
+$BaseParams = "--config-dir $CONFIG_DIR" -split "\s+"
 
 $BuildFlags = @()
 
@@ -46,15 +55,25 @@ foreach ($buildFlag in $ExtraBuildFlags) {
 $Params = @()
 
 if ($Action -eq "build") {
-    $Params = ("compile $VERBOSE" -split "\s+") + $BuildFlags
+    if ($OptParams -contains "--upload") {
+        if ($null -ne $PORT) {
+            $UPLOAD_PORT = "--upload --port $PORT" -split "\s+"
+        }
+        else {
+            $UPLOAD_PORT = ""
+            $OptParams.Remove("--upload")
+        }
+    }
+
+    $Params = ("compile $UPLOAD_PORT $VERBOSE" -split "\s+") + $BuildFlags
 }
 
-if ($Action -eq "upload") {
-    $Params = "upload $VERBOSE" -split "\s+"
+if (($Action -eq "upload") -and ($null -ne $PORT)) {
+    $Params = "upload --port $PORT $VERBOSE" -split "\s+"
 }
 
-if ($Action -eq "monitor") {
-    $Params = "monitor $PORT_CONFIG" -split "\s+"
+if (($Action -eq "monitor") -and ($null -ne $PORT)) {
+    $Params = "monitor --port $PORT $PORT_CONFIG" -split "\s+"
 }
 
 iF ($Params.Count -gt 0) {

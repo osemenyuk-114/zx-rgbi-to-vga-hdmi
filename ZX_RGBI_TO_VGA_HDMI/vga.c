@@ -175,13 +175,27 @@ void __not_in_flash_func(dma_handler_vga)()
   uint8_t *scr_buf = &screen_buf[(uint16_t)((y - v_margin) / video_mode.div) * V_BUF_W / 2];
   uint16_t *line_buf = (uint16_t *)v_out_dma_buf[active_buf_idx];
 
-  for (int i = h_margin; i--;)
+  for (int x = h_margin; x--;)
     *line_buf++ = palette[0];
 
-  for (int i = h_visible_area; i--;)
-    *line_buf++ = palette[*scr_buf++];
+  int x = 0;
 
-  for (int i = h_margin; i--;)
+  while ((x + 4) <= h_visible_area)
+  {
+    *line_buf++ = palette[*scr_buf++];
+    *line_buf++ = palette[*scr_buf++];
+    *line_buf++ = palette[*scr_buf++];
+    *line_buf++ = palette[*scr_buf++];
+    x += 4;
+  }
+
+  while (x < h_visible_area)
+  {
+    *line_buf++ = palette[*scr_buf++];
+    x++;
+  }
+
+  for (int x = h_margin; x--;)
     *line_buf++ = palette[0];
 
   dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[active_buf_idx], false);
