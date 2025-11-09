@@ -38,7 +38,7 @@ For detailed hardware and original software information, see the upstream projec
 
 ### Development Experience
 
-- **PlatformIO Integration**: Full PlatformIO support with Arduino framework for easier development and dependency management. The project can also be built using the Arduino IDE for those who prefer a simpler setup (requires: Optimization -O2 or -O3, USB Stack - Pico SDK).
+- **PlatformIO Integration**: Full PlatformIO support with Arduino framework for easier development and dependency management. The project can also be built using the Arduino IDE for those who prefer a simpler setup (requires: Optimization **-O3**, USB Stack - **Pico SDK**).
 - **Enhanced Build System**: Improved VS Code integration with custom build scripts for streamlined development workflow.
 - **Better Task Management**: Added comprehensive build, upload, and monitoring tasks with proper error handling.
 

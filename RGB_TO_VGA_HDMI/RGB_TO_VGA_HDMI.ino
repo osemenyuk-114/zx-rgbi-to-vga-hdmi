@@ -48,7 +48,10 @@ void setup()
 
 void loop()
 {
-  handle_serial_menu();
+  char c = get_menu_input(500);
+
+  if (c != 0)
+    handle_serial_menu();
 }
 
 void setup1()

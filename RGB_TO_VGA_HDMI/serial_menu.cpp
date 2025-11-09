@@ -335,18 +335,7 @@ void print_settings()
 
 void handle_serial_menu()
 {
-    char inchar = 0;
-
-    while (1)
-    {
-        sleep_ms(500);
-
-        if (Serial.available())
-        {
-            inchar = 'h';
-            break;
-        }
-    }
+    char inchar = 'h';
 
     Serial.println(" Entering the configuration mode\n");
 
