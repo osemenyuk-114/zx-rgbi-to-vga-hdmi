@@ -132,14 +132,15 @@ extern uint8_t g_v_buf[];
 #define shY_DEF 34
 #define PIN_INVERSION_MASK_DEF 0x00
 
+// video timing
+// 64 us - duration of a single scanline, 12 us - combined duration of the front porch, horizontal sync pulse, and back porch
+#define ACTIVE_VIDEO_TIME (64 - 12)
+
 // video buffer
-#define V_BUF_W ((64 - 12) * (FREQUENCY_MAX / 1000000))
+// width of the video buffer is calculated as max captured line length in pixels
+#define V_BUF_W (ACTIVE_VIDEO_TIME * (FREQUENCY_MAX / 1000000))
 #define V_BUF_H 288
 #define V_BUF_SZ (V_BUF_H * V_BUF_W)
-
-// video timing
-// active video time in µs (64 µs - whole scanline time, 12 µs - front porch + horizontal sync pulse durations + back porch durations)
-#define ACTIVE_VIDEO_TIME (64 - 12)
 
 // enable scanlines on 640x480 and 800x600 resolutions
 // not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler
