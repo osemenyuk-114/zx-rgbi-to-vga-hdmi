@@ -9,10 +9,6 @@
 #define BOARD_CODE_36LJU22
 // #define BOARD_CODE_09LJV23
 
-// OSD Menu configuration
-// Uncomment to enable on-screen display menu (serial menu remains available for debugging)
-#define OSD_MENU_ENABLED
-
 typedef enum video_out_type_t
 {
   OUTPUT_TYPE_MIN,
@@ -47,6 +43,7 @@ typedef struct settings_t
   video_out_type_t video_out_type;
   video_out_mode_t video_out_mode;
   bool scanlines_mode : 1;
+  bool buffering_mode : 1;
   bool video_sync_mode : 1;
   cap_sync_mode_t cap_sync_mode;
   uint32_t frequency;
@@ -159,15 +156,15 @@ extern uint8_t g_v_buf[];
 #define shY_DEF 34
 #define PIN_INVERSION_MASK_DEF 0x00
 
+// video timing
+// 64 us - duration of a single scanline, 12 us - combined duration of the front porch, horizontal sync pulse, and back porch
+#define ACTIVE_VIDEO_TIME (64 - 12)
+
 // video buffer
-// width of the video buffer calculate as max captured line length in pixels (64 µs - whole scanline time, 6 µs - front porch + horizontal sync pulse durations)
-#define V_BUF_W ((64 - 6) * (FREQUENCY_MAX / 1000000))
+// width of the video buffer is calculated as max captured line length in pixels
+#define V_BUF_W (ACTIVE_VIDEO_TIME * (FREQUENCY_MAX / 1000000))
 #define V_BUF_H 304
 #define V_BUF_SZ (V_BUF_H * V_BUF_W / 2)
-
-// video timing
-// active video time in µs (64 µs - whole scanline time, 12 µs - front porch + horizontal sync pulse durations + back porch durations)
-#define ACTIVE_VIDEO_TIME (64 - 12)
 
 // enable scanlines on 640x480 and 800x600 resolutions
 // not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler

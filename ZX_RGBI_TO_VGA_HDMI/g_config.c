@@ -104,4 +104,4 @@ video_mode_t mode_1280x1024_60Hz_d4 = {
 
 video_mode_t *video_modes[] = {&mode_640x480_60Hz, &mode_720x576_50Hz, &mode_800x600_60Hz, &mode_1024x768_60Hz, &mode_1280x1024_60Hz_d3, &mode_1280x1024_60Hz_d4};
 
-uint8_t g_v_buf[V_BUF_SZ];
+uint8_t g_v_buf[V_BUF_SZ * 3];

@@ -67,6 +67,7 @@ void print_main_menu()
     if (settings.video_out_type == VGA)
         Serial.println("  s   set scanlines mode");
 
+    Serial.println("  b   set buffering mode");
     Serial.println("  c   set capture synchronization source");
     Serial.println("  f   set capture frequency");
     Serial.println("  d   set external clock divider");
@@ -127,6 +128,17 @@ void print_scanlines_mode_menu()
     Serial.println("\n      * Scanlines mode *\n");
 
     Serial.println("  s   change scanlines mode\n");
+
+    Serial.println("  p   show configuration");
+    Serial.println("  h   show help (this menu)");
+    Serial.println("  q   exit to main menu\n");
+}
+
+void print_buffering_mode_menu()
+{
+    Serial.println("\n      * Buffering mode *\n");
+
+    Serial.println("  b   change buffering mode\n");
 
     Serial.println("  p   show configuration");
     Serial.println("  h   show help (this menu)");
@@ -287,6 +299,16 @@ void print_scanlines_mode()
         Serial.println("disabled");
 }
 
+void print_buffering_mode()
+{
+    Serial.print("  Buffering mode .............. ");
+
+    if (settings.buffering_mode)
+        Serial.println("x3");
+    else
+        Serial.println("x1");
+}
+
 void print_cap_sync_mode()
 {
     Serial.print("  Capture sync source ......... ");
@@ -409,6 +431,7 @@ void print_settings()
     if (settings.video_out_type == VGA)
         print_scanlines_mode();
 
+    print_buffering_mode();
     print_cap_sync_mode();
     print_capture_frequency();
     print_ext_clk_divider();
@@ -423,18 +446,7 @@ void print_settings()
 
 void handle_serial_menu()
 {
-    char inchar = 0;
-
-    while (1)
-    {
-        sleep_ms(500);
-
-        if (Serial.available())
-        {
-            inchar = 'h';
-            break;
-        }
-    }
+    char inchar = 'h';
 
     Serial.println(" Entering the configuration mode\n");
 
@@ -617,6 +629,47 @@ void handle_serial_menu()
                     settings.scanlines_mode = !settings.scanlines_mode;
                     print_scanlines_mode();
                     set_scanlines_mode();
+                    break;
+
+                default:
+                    break;
+                }
+
+                if (inchar == 'q')
+                {
+                    inchar = 'h';
+                    break;
+                }
+
+                inchar = 0;
+            }
+
+            break;
+        }
+
+        case 'b':
+        {
+            inchar = 'h';
+
+            while (1)
+            {
+                if (inchar != 'h')
+                    inchar = get_menu_input(10);
+
+                switch (inchar)
+                {
+                case 'p':
+                    print_buffering_mode();
+                    break;
+
+                case 'h':
+                    print_buffering_mode_menu();
+                    break;
+
+                case 'b':
+                    settings.buffering_mode = !settings.buffering_mode;
+                    print_buffering_mode();
+                    set_buffering_mode(settings.buffering_mode);
                     break;
 
                 default:

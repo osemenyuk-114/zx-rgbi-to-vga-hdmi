@@ -6,11 +6,9 @@
 
 #include "g_config.h"
 #include "vga.h"
+#include "osd.h"
 #include "pio_programs.h"
 #include "v_buf.h"
-#ifdef OSD_MENU_ENABLED
-#include "osd.h"
-#endif
 
 extern settings_t settings;
 
@@ -182,116 +180,98 @@ void __not_in_flash_func(dma_handler_vga)()
     *line_buf++ = palette[0];
 
   // Main image area with OSD compositing
-#ifdef OSD_MENU_ENABLED
   // Work in original image coordinate space (before line repetition)
   // scaled_y represents the line in the original 304-line captured image
   uint16_t scaled_y = (y - v_margin) / video_mode.div;
-  
+
   // OSD coordinates are in the original image space
-  bool osd_active = osd_state.visible && 
-                   (scaled_y >= osd_state.y_pos && scaled_y < osd_state.y_pos + OSD_HEIGHT);
+  bool osd_active = osd_state.visible && (scaled_y >= osd_state.y_pos && scaled_y < osd_state.y_pos + OSD_HEIGHT);
   uint8_t *osd_line = NULL;
   uint16_t osd_start_x = 0;
   uint16_t osd_end_x = 0;
 
   if (osd_active)
-    {
-      // Calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
-      uint16_t osd_y_offset = scaled_y - osd_state.y_pos;
-      osd_line = &osd_buffer[osd_y_offset * (OSD_WIDTH / 2)];
-      osd_start_x = osd_state.x_pos;
-      osd_end_x = osd_state.x_pos + OSD_WIDTH;
-    }
-#endif
+  { // Calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
+    uint16_t osd_y_offset = scaled_y - osd_state.y_pos;
+    osd_line = &osd_buffer[osd_y_offset * (OSD_WIDTH / 2)];
+    osd_start_x = osd_state.x_pos;
+    osd_end_x = osd_state.x_pos + OSD_WIDTH;
 
-#ifdef OSD_MENU_ENABLED
-  if (osd_active)
-  {
     // Ultra-optimized: pre-calculate everything outside the loop
-    int osd_start_buf = osd_start_x >> 1;  // Bit shift instead of division
+    int osd_start_buf = osd_start_x >> 1;
     int osd_end_buf = (osd_end_x + 1) >> 1;
-    
+
     // Clamp to visible area
     osd_start_buf = (osd_start_buf < 0) ? 0 : osd_start_buf;
     osd_end_buf = (osd_end_buf > h_visible_area) ? h_visible_area : osd_end_buf;
-    
+
     int x = 0;
-    
-    // Ultra-fast direct byte processing for pre-OSD area with loop unrolling
+
     while ((x + 4) <= osd_start_buf)
-    {
+    { // Ultra-fast direct byte processing for pre-OSD area with loop unrolling
       *line_buf++ = palette[*scr_buf++];
       *line_buf++ = palette[*scr_buf++];
       *line_buf++ = palette[*scr_buf++];
       *line_buf++ = palette[*scr_buf++];
       x += 4;
     }
+
     while (x < osd_start_buf)
     {
-      *line_buf++ = palette[*scr_buf++];  // Direct whole-byte palette lookup
+      *line_buf++ = palette[*scr_buf++];
       x++;
     }
-    
+
     // Ultra-simplified OSD compositing with optimized unrolling
-    int osd_x_offset = 0;  // Track OSD buffer offset
-    
+    int osd_x_offset = 0; // Track OSD buffer offset
+
     // Process 4 bytes at a time for better performance
     while ((x + 4) <= osd_end_buf)
-    {
-      // Check if this entire 4-byte block is fully within OSD boundaries
-      int screen_x_start = x << 1;           // First pixel of block
-      int screen_x_end = (x + 3) << 1;       // Last pixel of block  
-      
+    {                                  // Check if this entire 4-byte block is fully within OSD boundaries
+      int screen_x_start = x << 1;     // First pixel of block
+      int screen_x_end = (x + 3) << 1; // Last pixel of block
+
       if (screen_x_start >= osd_start_x && (screen_x_end + 1) < osd_end_x)
-      {
-        // Entire 4-byte block is OSD - direct OSD buffer processing
+      { // Entire 4-byte block is OSD - direct OSD buffer processing
         *line_buf++ = palette[osd_line[osd_x_offset++]];
         *line_buf++ = palette[osd_line[osd_x_offset++]];
         *line_buf++ = palette[osd_line[osd_x_offset++]];
         *line_buf++ = palette[osd_line[osd_x_offset++]];
-        scr_buf += 4;  // Skip screen buffer
+        scr_buf += 4; // Skip screen buffer
       }
       else
-      {
-        // Block spans boundary - process individually
+      { // Block spans boundary - process individually
         for (int i = 0; i < 4; i++)
         {
           uint8_t screen_pixel = *scr_buf++;
           int pixel_x = (x + i) << 1;
-          
+
           if (pixel_x >= osd_start_x && (pixel_x + 1) < osd_end_x)
-          {
             *line_buf++ = palette[osd_line[osd_x_offset]];
-          }
           else
-          {
             *line_buf++ = palette[screen_pixel];
-          }
+
           osd_x_offset++;
         }
       }
       x += 4;
     }
-    
+
     // Handle remaining bytes (0-3 bytes)
     while (x < osd_end_buf)
     {
       uint8_t screen_pixel = *scr_buf++;
       int screen_x_base = x << 1;
-      
+
       if (screen_x_base >= osd_start_x && (screen_x_base + 1) < osd_end_x)
-      {
         *line_buf++ = palette[osd_line[osd_x_offset]];
-      }
       else
-      {
         *line_buf++ = palette[screen_pixel];
-      }
+
       osd_x_offset++;
       x++;
     }
-    
-    // Ultra-fast direct byte processing for post-OSD area with loop unrolling
+
     while ((x + 4) <= h_visible_area)
     {
       *line_buf++ = palette[*scr_buf++];
@@ -300,39 +280,20 @@ void __not_in_flash_func(dma_handler_vga)()
       *line_buf++ = palette[*scr_buf++];
       x += 4;
     }
+
     while (x < h_visible_area)
     {
-      *line_buf++ = palette[*scr_buf++];  // Direct whole-byte palette lookup
+      *line_buf++ = palette[*scr_buf++];
       x++;
     }
   }
   else
-  {
-    // Maximum speed path - direct whole-byte palette lookups (no pixel extraction)
+  { // Maximum speed path - direct whole-byte palette lookups (no pixel extraction)
     int x = h_visible_area;
+
     while (x--)
-    {
-      *line_buf++ = palette[*scr_buf++];  // 2 pixels per byte, direct lookup
-    }
+      *line_buf++ = palette[*scr_buf++];
   }
-#else
-  // Compile-time optimized path when OSD disabled - unrolled whole-byte processing
-  int x = h_visible_area;
-  
-  // Process 4 bytes at a time for maximum performance
-  while (x >= 4) {
-    *line_buf++ = palette[*scr_buf++];
-    *line_buf++ = palette[*scr_buf++];
-    *line_buf++ = palette[*scr_buf++];
-    *line_buf++ = palette[*scr_buf++];
-    x -= 4;
-  }
-  
-  // Handle remaining bytes
-  while (x--) {
-    *line_buf++ = palette[*scr_buf++];  // 2 pixels per byte, direct lookup
-  }
-#endif
 
   for (int x = h_margin; x--;)
     *line_buf++ = palette[0];

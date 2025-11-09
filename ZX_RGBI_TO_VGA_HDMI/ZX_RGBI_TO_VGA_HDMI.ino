@@ -13,9 +13,7 @@ extern "C"
 #include "settings.h"
 #include "v_buf.h"
 #include "video_output.h"
-#ifdef OSD_MENU_ENABLED
 #include "osd.h"
-#endif
 }
 
 settings_t settings;
@@ -40,13 +38,12 @@ void setup()
   Serial.begin(9600);
 
   load_settings(&settings);
+  set_buffering_mode(settings.buffering_mode);
   draw_welcome_screen(*(video_modes[settings.video_out_mode]));
   set_scanlines_mode();
   start_video_output(settings.video_out_type);
 
-#ifdef OSD_MENU_ENABLED
   osd_init();
-#endif
 
   start_core0 = true;
 
@@ -55,11 +52,10 @@ void setup()
 
 void loop()
 {
-// handle_serial_menu();
-#ifdef OSD_MENU_ENABLED
-  // Update OSD menu
+  if (Serial.available())
+    handle_serial_menu();
+
   osd_update();
-#endif
 }
 
 void setup1()

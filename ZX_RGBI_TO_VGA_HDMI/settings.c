@@ -49,6 +49,7 @@ void check_settings(settings_t *settings)
   {
     settings->pin_inversion_mask = PIN_INVERSION_MASK_DEF;
     settings->scanlines_mode = false;
+    settings->buffering_mode = false;
     settings->video_sync_mode = false;
   }
 }
