@@ -58,8 +58,6 @@ typedef struct
 {
     bool enabled;
     bool visible;
-    uint16_t x_pos;
-    uint16_t y_pos;
     bool needs_redraw;
     bool text_updated;                  // True when text buffer needs to be rendered to OSD buffer
     uint8_t selected_item;              // Currently selected menu item
@@ -117,7 +115,6 @@ void osd_clear_text_buffer();
 void osd_update_text_buffer();    // Update text buffer based on current menu state
 void osd_render_text_to_buffer(); // Render text buffer to OSD pixel buffer
 void osd_draw_border();           // Draw border using special characters
-void osd_set_position(uint16_t x, uint16_t y);
 
 void osd_draw_char(uint8_t *buffer, uint16_t buf_width, uint16_t x, uint16_t y,
                    char c, uint8_t fg_color, uint8_t bg_color);

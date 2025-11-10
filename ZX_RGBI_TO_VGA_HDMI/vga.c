@@ -184,24 +184,27 @@ void __not_in_flash_func(dma_handler_vga)()
   uint8_t *scr_buf = &screen_buf[scaled_y * (V_BUF_W / 2)];
   uint16_t *line_buf = (uint16_t *)v_out_dma_buf[active_buf_idx];
 
+  // left margin
   for (int x = h_margin; x--;)
     *line_buf++ = palette[0];
 
-  // Main image area with OSD compositing
+  // main image area with OSD compositing
   bool osd_active = osd_state.visible && (scaled_y >= osd_start_y && scaled_y < osd_end_y);
 
   if (osd_active)
-  { // Calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
+  { // calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
     uint8_t *osd_line = &osd_buffer[(scaled_y - osd_start_y) * (OSD_WIDTH / 2)];
 
     int x = 0;
 
+    // ultra-fast direct byte processing for pre-OSD area with loop unrolling
     while ((x + 4) <= osd_start_buf)
-    { // Ultra-fast direct byte processing for pre-OSD area with loop unrolling
+    {
       *line_buf++ = palette[*scr_buf++];
       *line_buf++ = palette[*scr_buf++];
       *line_buf++ = palette[*scr_buf++];
       *line_buf++ = palette[*scr_buf++];
+
       x += 4;
     }
 
@@ -211,25 +214,26 @@ void __not_in_flash_func(dma_handler_vga)()
       x++;
     }
 
-    // Ultra-simplified OSD compositing with optimized unrolling
+    // ultra-simplified OSD compositing with optimized unrolling
     int osd_x_offset = 0;
 
-    // Process 4 bytes at a time for better performance
+    // process 4 bytes at a time for better performance
     while ((x + 4) <= osd_end_buf)
-    {                                  // Check if this entire 4-byte block is fully within OSD boundaries
-      int screen_x_start = x << 1;     // First pixel of block
-      int screen_x_end = (x + 3) << 1; // Last pixel of block
+    {                                  // check if this entire 4-byte block is fully within OSD boundaries
+      int screen_x_start = x << 1;     // first pixel of block
+      int screen_x_end = (x + 3) << 1; // last pixel of block
 
       if (screen_x_start >= osd_start_x && (screen_x_end + 1) < osd_end_x)
-      { // Entire 4-byte block is OSD - direct OSD buffer processing
+      { // entire 4-byte block is OSD - direct OSD buffer processing
         *line_buf++ = palette[osd_line[osd_x_offset++]];
         *line_buf++ = palette[osd_line[osd_x_offset++]];
         *line_buf++ = palette[osd_line[osd_x_offset++]];
         *line_buf++ = palette[osd_line[osd_x_offset++]];
-        scr_buf += 4; // Skip screen buffer
+
+        scr_buf += 4;
       }
       else
-      { // Block spans boundary - process individually
+      { // block spans boundary - process individually
         for (int i = 0; i < 4; i++)
         {
           uint8_t screen_pixel = *scr_buf++;
@@ -243,12 +247,12 @@ void __not_in_flash_func(dma_handler_vga)()
           osd_x_offset++;
         }
       }
+
       x += 4;
     }
 
-    // Handle remaining bytes (0-3 bytes)
     while (x < osd_end_buf)
-    {
+    { // handle remaining bytes (0-3 bytes)
       uint8_t screen_pixel = *scr_buf++;
       int screen_x_base = x << 1;
 
@@ -267,6 +271,7 @@ void __not_in_flash_func(dma_handler_vga)()
       *line_buf++ = palette[*scr_buf++];
       *line_buf++ = palette[*scr_buf++];
       *line_buf++ = palette[*scr_buf++];
+
       x += 4;
     }
 
@@ -277,13 +282,27 @@ void __not_in_flash_func(dma_handler_vga)()
     }
   }
   else
-  { // Maximum speed path - direct whole-byte palette lookups (no pixel extraction)
-    int x = h_visible_area;
+  { // ultra-fast direct byte processing for non-OSD area with loop unrolling
+    int x = 0;
 
-    while (x--)
+    while ((x + 4) <= h_visible_area)
+    {
       *line_buf++ = palette[*scr_buf++];
+      *line_buf++ = palette[*scr_buf++];
+      *line_buf++ = palette[*scr_buf++];
+      *line_buf++ = palette[*scr_buf++];
+
+      x += 4;
+    }
+
+    while (x < h_visible_area)
+    {
+      *line_buf++ = palette[*scr_buf++];
+      x++;
+    }
   }
 
+  // right margin
   for (int x = h_margin; x--;)
     *line_buf++ = palette[0];
 
@@ -326,7 +345,7 @@ void start_vga(video_mode_t v_mode)
   osd_start_buf = osd_start_x >> 1;
   osd_end_buf = (osd_end_x + 1) >> 1;
 
-  // Clamp to visible area
+  // clamp to visible area
   if (osd_start_buf < 0)
     osd_start_buf = 0;
 
