@@ -6,7 +6,7 @@
 
 #include "g_config.h"
 #include "dvi.h"
-#include "osd.h"
+#include "osd_menu.h"
 #include "pio_programs.h"
 #include "v_buf.h"
 
@@ -18,6 +18,13 @@ static uint offset;
 
 static video_mode_t video_mode;
 static int16_t h_visible_area;
+
+static uint16_t osd_start_x;
+static uint16_t osd_end_x;
+static uint16_t osd_start_y;
+static uint16_t osd_end_y;
+static int osd_start_buf;
+static int osd_end_buf;
 
 static uint32_t *v_out_dma_buf[2];
 
@@ -133,32 +140,16 @@ static void __not_in_flash_func(dma_handler_dvi)()
 
   if (y < video_mode.v_visible_area)
   { // image area
-    uint8_t *scr_buf = &screen_buf[(uint16_t)(y / video_mode.div) * V_BUF_W / 2];
+    uint16_t scaled_y = y / video_mode.div;
+    uint8_t *scr_buf = &screen_buf[scaled_y * (V_BUF_W / 2)];
     uint64_t *line_buf = active_buf;
 
-    uint16_t scaled_y = y / video_mode.div;
-    uint16_t osd_y_scaled = osd_state.y_pos;
-    uint16_t osd_height_scaled = OSD_HEIGHT;
-
     // Check if OSD is visible and overlaps with current scaled scanline
-    bool osd_active = osd_state.visible && (scaled_y >= osd_y_scaled && scaled_y < osd_y_scaled + osd_height_scaled);
-    uint8_t *osd_line = NULL;
-    uint16_t osd_start_x = 0;
-    uint16_t osd_end_x = 0;
+    bool osd_active = osd_state.visible && (scaled_y >= osd_start_y && scaled_y < osd_end_y);
 
     if (osd_active)
     { // Calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
-      uint16_t osd_y_offset = scaled_y - osd_y_scaled;
-      osd_line = &osd_buffer[osd_y_offset * (OSD_WIDTH / 2)];
-      osd_start_x = osd_state.x_pos;
-      osd_end_x = osd_state.x_pos + OSD_WIDTH;
-
-      int osd_start_buf = osd_start_x >> 1;
-      int osd_end_buf = (osd_end_x + 1) >> 1;
-
-      // Clamp to visible area
-      osd_start_buf = (osd_start_buf < 0) ? 0 : osd_start_buf;
-      osd_end_buf = (osd_end_buf > h_visible_area) ? h_visible_area : osd_end_buf;
+      uint8_t *osd_line = &osd_buffer[(scaled_y - osd_start_y) * (OSD_WIDTH / 2)];
 
       int i = 0;
 
@@ -279,6 +270,22 @@ void start_dvi(video_mode_t v_mode)
   int whole_line = video_mode.whole_line * video_mode.div;
 
   h_visible_area = video_mode.h_visible_area / (2 * video_mode.div);
+
+  osd_start_x = h_visible_area - OSD_WIDTH / 2;
+  osd_end_x = osd_start_x + OSD_WIDTH;
+
+  osd_start_y = (video_mode.v_visible_area / video_mode.div - OSD_HEIGHT) / 2;
+  osd_end_y = osd_start_y + OSD_HEIGHT;
+
+  osd_start_buf = osd_start_x >> 1;
+  osd_end_buf = (osd_end_x + 1) >> 1;
+
+  // Clamp to visible area
+  if (osd_start_buf < 0)
+    osd_start_buf = 0;
+
+  if (osd_end_buf > h_visible_area)
+    osd_end_buf = h_visible_area;
 
   // initialization of constants
   const uint16_t b0 = 0b1101010100;

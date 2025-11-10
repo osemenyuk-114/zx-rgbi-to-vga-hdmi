@@ -1,13 +1,15 @@
-#include "osd.h"
-#include "g_config.h"
-#include "settings.h"
-#include "video_output.h"
-#include "rgb_capture.h"
-#include "hardware/gpio.h"
-#include "hardware/timer.h"
 #include <stdio.h>
 #include <string.h>
 #include <stdarg.h>
+
+#include "hardware/gpio.h"
+#include "hardware/timer.h"
+
+#include "g_config.h"
+#include "osd_menu.h"
+#include "rgb_capture.h"
+#include "settings.h"
+#include "video_output.h"
 
 // Debounce timing - increased for slower navigation
 #define DEBOUNCE_TIME_US 250000 // 250ms debounce (slower cursor movement)
@@ -35,7 +37,7 @@ osd_buttons_t osd_buttons = {0};
 osd_menu_nav_t osd_menu = {0};
 uint8_t osd_buffer[OSD_BUFFER_SIZE];
 char osd_text_buffer[OSD_TEXT_BUFFER_SIZE];
-uint8_t osd_text_colors[OSD_TEXT_BUFFER_SIZE];  // High nibble: fg_color, Low nibble: bg_color
+uint8_t osd_text_colors[OSD_TEXT_BUFFER_SIZE]; // High nibble: fg_color, Low nibble: bg_color
 
 const uint8_t osd_font_8x8[256][8] = {
     //
@@ -139,6 +141,15 @@ const uint8_t osd_font_8x8[256][8] = {
     ['|'] = {0x00, 0x08, 0x08, 0x08, 0x08, 0x08, 0x08, 0x00},
     ['}'] = {0x00, 0x42, 0x42, 0x76, 0x08, 0x08, 0x00, 0x00},
     ['~'] = {0x00, 0x14, 0x28, 0x00, 0x00, 0x00, 0x00, 0x00},
+    // Border characters (128-135)
+    [OSD_CHAR_BORDER_TL] = {0xFF, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80}, // Top-left corner
+    [OSD_CHAR_BORDER_TR] = {0xFF, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01}, // Top-right corner
+    [OSD_CHAR_BORDER_BL] = {0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0xFF}, // Bottom-left corner
+    [OSD_CHAR_BORDER_BR] = {0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0xFF}, // Bottom-right corner
+    [OSD_CHAR_BORDER_T] = {0xFF, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},  // Horizontal line - top
+    [OSD_CHAR_BORDER_L] = {0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80, 0x80},  // Vertical line - left
+    [OSD_CHAR_BORDER_B] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0xFF},  // Horizontal line - bottom
+    [OSD_CHAR_BORDER_R] = {0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01, 0x01},  // Vertical line - right
 };
 
 void osd_init()
@@ -192,12 +203,14 @@ void osd_update()
         }
     }
 
-    // Handle menu toggle (only when menu is not visible)
-    if (osd_button_pressed(2) && !osd_state.visible)
-    { // SEL button
-        osd_toggle();
-        // Reset button state to prevent multiple toggles
-        osd_buttons.sel_pressed = false;
+    // Show menu on UP/DOWN button press when not visible
+    if (!osd_state.visible && (osd_button_pressed(0) || osd_button_pressed(1)))
+    {
+        osd_show();
+        // Don't process the button press that opened the menu
+        osd_buttons.up_pressed = false;
+        osd_buttons.down_pressed = false;
+        return;
     }
 
     // Handle menu navigation if visible
@@ -206,7 +219,7 @@ void osd_update()
         // Get menu item count based on current menu
         uint8_t max_items;
         if (osd_menu.current_menu == MENU_TYPE_MAIN)
-            max_items = 4; // Main menu: 0-4 (5 items: OUTPUT, CAPTURE, IMAGE ADJUST, SAVE, EXIT)
+            max_items = 5; // Main menu: 0-5 (6 items: OUTPUT, CAPTURE, IMAGE ADJUST, ABOUT, SAVE, EXIT)
         else if (osd_menu.current_menu == MENU_TYPE_OUTPUT)
             max_items = 3; // Output menu: 0-3 (4 items: mode, scanlines, buffering, back)
         else if (osd_menu.current_menu == MENU_TYPE_CAPTURE)
@@ -215,6 +228,8 @@ void osd_update()
             max_items = 4; // Image adjust menu: 0-4 (5 items: H-POS, V-POS, DELAY, RESET, BACK)
         else if (osd_menu.current_menu == MENU_TYPE_MASK)
             max_items = 7; // Mask menu: 0-7 (8 items: F, SSI, KSI, I, B, G, R, BACK)
+        else if (osd_menu.current_menu == MENU_TYPE_ABOUT)
+            max_items = 0; // About menu: 0 (1 item: BACK)
         else
             max_items = 0;
 
@@ -222,7 +237,13 @@ void osd_update()
         if (osd_button_pressed(0))
         {                          // UP button
             osd_update_activity(); // Reset timeout on user interaction
-            if (osd_menu.current_menu == MENU_TYPE_IMAGE_ADJUST && osd_state.tuning_mode && osd_state.selected_item < 3)
+            if (osd_menu.current_menu == MENU_TYPE_OUTPUT && osd_state.tuning_mode && osd_state.selected_item == 0)
+            {
+                // Video mode adjustment
+                osd_adjust_video_mode(1);
+                osd_state.needs_redraw = true;
+            }
+            else if (osd_menu.current_menu == MENU_TYPE_IMAGE_ADJUST && osd_state.tuning_mode && osd_state.selected_item < 3)
             {
                 // Parameter adjustment mode - increase parameter value
                 osd_adjust_image_parameter(osd_state.selected_item, 1);
@@ -249,7 +270,13 @@ void osd_update()
         if (osd_button_pressed(1))
         {                          // DOWN button
             osd_update_activity(); // Reset timeout on user interaction
-            if (osd_menu.current_menu == MENU_TYPE_IMAGE_ADJUST && osd_state.tuning_mode && osd_state.selected_item < 3)
+            if (osd_menu.current_menu == MENU_TYPE_OUTPUT && osd_state.tuning_mode && osd_state.selected_item == 0)
+            {
+                // Video mode adjustment
+                osd_adjust_video_mode(-1);
+                osd_state.needs_redraw = true;
+            }
+            else if (osd_menu.current_menu == MENU_TYPE_IMAGE_ADJUST && osd_state.tuning_mode && osd_state.selected_item < 3)
             {
                 // Parameter adjustment mode - decrease parameter value
                 osd_adjust_image_parameter(osd_state.selected_item, -1);
@@ -315,11 +342,22 @@ void osd_update()
                     osd_state.needs_redraw = true;
                 }
                 else if (osd_state.selected_item == 3)
+                { // About
+                    // Enter about submenu
+                    osd_menu.menu_stack[osd_menu.menu_depth] = osd_menu.current_menu;
+                    osd_menu.item_stack[osd_menu.menu_depth] = osd_state.selected_item;
+                    osd_menu.menu_depth++;
+                    osd_menu.current_menu = MENU_TYPE_ABOUT;
+                    osd_state.selected_item = 0;
+                    osd_state.tuning_mode = false;
+                    osd_state.needs_redraw = true;
+                }
+                else if (osd_state.selected_item == 4)
                 { // Save
                     save_settings(&settings);
                     osd_hide();
                 }
-                else if (osd_state.selected_item == 4)
+                else if (osd_state.selected_item == 5)
                 { // Exit without saving
                     osd_hide();
                 }
@@ -342,45 +380,26 @@ void osd_update()
                     }
                 }
                 else if (osd_state.selected_item == 0)
-                { // Video mode selection - toggle between available modes
-                    if (settings.video_out_type == DVI)
+                { // Video mode selection - enter/exit tuning mode
+                    if (osd_state.tuning_mode)
                     {
-                        // DVI: Toggle between 640x480 and 720x576
-                        if (settings.video_out_mode == MODE_640x480_60Hz)
-                            settings.video_out_mode = MODE_720x576_50Hz;
-                        else
-                            settings.video_out_mode = MODE_640x480_60Hz;
+                        // Exit tuning mode and apply video mode change
+                        // Only restart if mode has changed
+                        if (active_video_output == settings.video_out_type &&
+                            osd_state.original_video_mode != settings.video_out_mode)
+                        {
+                            stop_video_output();
+                            start_video_output(active_video_output);
+                            // Adjust capture frequency for new system clock
+                            set_capture_frequency(settings.frequency);
+                        }
+                        osd_state.tuning_mode = false;
                     }
                     else
                     {
-                        // VGA: Cycle through available modes
-                        video_out_mode_t modes[] = {MODE_640x480_60Hz, MODE_800x600_60Hz, MODE_1024x768_60Hz,
-                                                    MODE_1280x1024_60Hz_d3, MODE_1280x1024_60Hz_d4};
-                        int mode_count = 5;
-                        int current_index = 0;
-
-                        // Find current mode index
-                        for (int i = 0; i < mode_count; i++)
-                        {
-                            if (settings.video_out_mode == modes[i])
-                            {
-                                current_index = i;
-                                break;
-                            }
-                        }
-
-                        // Move to next mode (wrap around)
-                        current_index = (current_index + 1) % mode_count;
-                        settings.video_out_mode = modes[current_index];
-                    }
-
-                    // Apply video mode change
-                    if (active_video_output == settings.video_out_type)
-                    {
-                        stop_video_output();
-                        start_video_output(active_video_output);
-                        // Adjust capture frequency for new system clock
-                        set_capture_frequency(settings.frequency);
+                        // Enter tuning mode - store original mode
+                        osd_state.original_video_mode = settings.video_out_mode;
+                        osd_state.tuning_mode = true;
                     }
                     osd_state.needs_redraw = true;
                 }
@@ -399,7 +418,7 @@ void osd_update()
                         scanlines_supported = (div == 3 || div == 4);
 #endif
                     }
-                    
+
                     if (scanlines_supported)
                     {
                         settings.scanlines_mode = !settings.scanlines_mode;
@@ -533,6 +552,22 @@ void osd_update()
                     osd_state.needs_redraw = true;
                 }
             }
+            else if (osd_menu.current_menu == MENU_TYPE_ABOUT)
+            {
+                // About submenu - only BACK button
+                if (osd_state.selected_item == 0)
+                { // Back to Main
+                    // Return to previous menu
+                    if (osd_menu.menu_depth > 0)
+                    {
+                        osd_menu.menu_depth--;
+                        osd_menu.current_menu = osd_menu.menu_stack[osd_menu.menu_depth];
+                        osd_state.selected_item = osd_menu.item_stack[osd_menu.menu_depth];
+                        osd_state.tuning_mode = false;
+                        osd_state.needs_redraw = true;
+                    }
+                }
+            }
             else
             {
                 // If we're in an unknown menu or want to close, toggle off
@@ -548,7 +583,7 @@ void osd_update()
             osd_state.needs_redraw = false;
             osd_state.text_updated = true;
         }
-        
+
         // Render text buffer to pixel buffer when needed
         if (osd_state.text_updated)
         {
@@ -567,6 +602,9 @@ void osd_show()
         osd_state.needs_redraw = true;
         osd_state.show_time = current_time;
         osd_state.last_activity_time = current_time;
+
+        // Draw border once when menu is activated
+        osd_draw_border();
     }
 }
 
@@ -609,6 +647,8 @@ void osd_buttons_init()
     for (int i = 0; i < 3; i++)
         osd_buttons.last_press_time[i] = current_time;
 
+    osd_buttons.sel_long_press_triggered = false;
+
     // Initialize menu timeout tracking
     osd_state.last_activity_time = current_time;
     osd_state.show_time = current_time;
@@ -648,12 +688,46 @@ void osd_buttons_update()
                     osd_buttons.key_hold_start[i] = current_time;
                     osd_buttons.last_repeat_time[i] = current_time;
                     osd_buttons.last_press_time[i] = current_time;
+
+                    // Reset long press trigger on new SEL press
+                    if (i == 2)
+                        osd_buttons.sel_long_press_triggered = false;
                 }
             }
             else
             {
                 // Key is held - check for repeat
                 uint32_t hold_duration = current_time - osd_buttons.key_hold_start[i];
+
+                // Check for SEL button long press (>5 seconds)
+                if (i == 2 && hold_duration > 5000000 && !osd_buttons.sel_long_press_triggered)
+                {
+                    // Trigger video output type toggle
+                    osd_buttons.sel_long_press_triggered = true;
+
+                    // Toggle video output type
+                    video_out_type_t new_type = (settings.video_out_type == DVI) ? VGA : DVI;
+                    settings.video_out_type = new_type;
+                    settings.video_out_mode = VIDEO_OUT_MODE_DEF;
+
+                    // Switch video output if different from current
+                    if (active_video_output != settings.video_out_type)
+                    {
+                        stop_video_output();
+                        start_video_output(settings.video_out_type);
+                        // Adjust capture frequency for new system clock
+                        set_capture_frequency(settings.frequency);
+                    }
+
+                    // Force menu redraw to show new output type
+                    if (osd_state.visible)
+                        osd_state.needs_redraw = true;
+
+                    // Don't process normal SEL press after long press
+                    osd_buttons.sel_pressed = false;
+                    continue;
+                }
+
                 uint32_t since_last_repeat = current_time - osd_buttons.last_repeat_time[i];
 
                 // Initial repeat delay, then accelerating repeat rate
@@ -707,50 +781,69 @@ void osd_clear_buffer()
 
 void osd_clear_text_buffer()
 {
-    memset(osd_text_buffer, ' ', OSD_TEXT_BUFFER_SIZE);
-    // Set default colors: high nibble = foreground (TEXT), low nibble = background (BACKGROUND)
+    // Clear text buffer but preserve border positions
     uint8_t default_color = (OSD_COLOR_TEXT << 4) | OSD_COLOR_BACKGROUND;
-    memset(osd_text_colors, default_color, OSD_TEXT_BUFFER_SIZE);
+
+    for (uint8_t line = 0; line < OSD_LINES; line++)
+    {
+        for (uint8_t col = 0; col < OSD_CHARS_PER_LINE; col++)
+        {
+            uint16_t pos = line * OSD_CHARS_PER_LINE + col;
+
+            // Skip border positions (first and last row, first and last column)
+            if (line == 0 || line == OSD_LINES - 1 || col == 0 || col == OSD_CHARS_PER_LINE - 1)
+                continue;
+
+            osd_text_buffer[pos] = ' ';
+            osd_text_colors[pos] = default_color;
+        }
+    }
 }
 
-char* osd_text_get_line_ptr(uint8_t line)
+char *osd_text_get_line_ptr(uint8_t line)
 {
-    if (line >= OSD_LINES) return NULL;
+    if (line >= OSD_LINES)
+        return NULL;
     return &osd_text_buffer[line * OSD_CHARS_PER_LINE];
 }
 
 void osd_text_set_char(uint8_t line, uint8_t col, char c, uint8_t fg_color, uint8_t bg_color)
 {
-    if (line >= OSD_LINES || col >= OSD_CHARS_PER_LINE) return;
+    if (line >= OSD_LINES || col >= OSD_CHARS_PER_LINE)
+        return;
+
     uint16_t pos = line * OSD_CHARS_PER_LINE + col;
     osd_text_buffer[pos] = c;
-    osd_text_colors[pos] = (fg_color << 4) | bg_color;  // High nibble: fg, Low nibble: bg
+    osd_text_colors[pos] = (fg_color << 4) | bg_color; // High nibble: fg, Low nibble: bg
 }
 
 void osd_text_print(uint8_t line, uint8_t col, const char *str, uint8_t fg_color, uint8_t bg_color)
 {
-    if (line >= OSD_LINES) return;
+    if (line >= OSD_LINES)
+        return;
+
     uint16_t line_start = line * OSD_CHARS_PER_LINE;
     uint16_t pos = line_start + col;
     uint8_t max_len = OSD_CHARS_PER_LINE - col;
-    uint8_t packed_color = (fg_color << 4) | bg_color;  // High nibble: fg, Low nibble: bg
-    
-    // Fill left padding with spaces
-    for (uint8_t i = 0; i < col; i++)
+    uint8_t packed_color = (fg_color << 4) | bg_color; // High nibble: fg, Low nibble: bg
+
+    // Fill left padding with spaces (avoid column 0 - left border)
+    for (uint8_t i = 1; i < col; i++)
     {
         osd_text_buffer[line_start + i] = ' ';
         osd_text_colors[line_start + i] = packed_color;
     }
-    
+
     uint8_t i;
-    // Copy string characters
-    for (i = 0; i < max_len && str[i] != '\0'; i++)
+    // Copy string characters (avoid last column - right border)
+    uint8_t effective_max_len = (col + max_len >= OSD_CHARS_PER_LINE) ? (OSD_CHARS_PER_LINE - col - 1) : max_len;
+    for (i = 0; i < effective_max_len && str[i] != '\0'; i++)
     {
         osd_text_buffer[pos + i] = str[i];
         osd_text_colors[pos + i] = packed_color;
     }
-    // Pad with spaces to fill the rest of the line
-    for (; i < max_len; i++)
+    // Pad with spaces to fill the rest of the line (avoid last column - right border)
+    for (; i < effective_max_len; i++)
     {
         osd_text_buffer[pos + i] = ' ';
         osd_text_colors[pos + i] = packed_color;
@@ -759,65 +852,70 @@ void osd_text_print(uint8_t line, uint8_t col, const char *str, uint8_t fg_color
 
 void osd_text_print_centered(uint8_t line, const char *str, uint8_t fg_color, uint8_t bg_color)
 {
-    if (line >= OSD_LINES) return;
-    
+    if (line >= OSD_LINES)
+        return;
+
     uint8_t len = strlen(str);
-    if (len > OSD_CHARS_PER_LINE) len = OSD_CHARS_PER_LINE;
-    
-    uint8_t col = (OSD_CHARS_PER_LINE - len) / 2;
+    // Account for border columns (exclude first and last column)
+    uint8_t available_width = OSD_CHARS_PER_LINE - 2;
+    if (len > available_width)
+        len = available_width;
+
+    uint8_t col = 1 + (available_width - len) / 2; // Start at column 1 (after left border)
     uint8_t packed_color = (fg_color << 4) | bg_color;
     uint16_t pos = line * OSD_CHARS_PER_LINE;
-    
-    // Fill left padding with spaces
-    for (uint8_t i = 0; i < col; i++)
+
+    // Fill left padding with spaces (start at column 1 to preserve left border)
+    for (uint8_t i = 1; i < col; i++)
     {
         osd_text_buffer[pos + i] = ' ';
         osd_text_colors[pos + i] = packed_color;
     }
-    
-    // Print centered text (this will also pad the right side)
+
+    // Print centered text (this will also pad the right side, but won't overwrite right border)
     osd_text_print(line, col, str, fg_color, bg_color);
 }
 
 void osd_text_printf(uint8_t line, uint8_t col, uint8_t fg_color, uint8_t bg_color, const char *format, ...)
 {
-    if (line >= OSD_LINES) return;
-    
+    if (line >= OSD_LINES)
+        return;
+
     char temp[OSD_CHARS_PER_LINE + 1];
     va_list args;
     va_start(args, format);
     vsnprintf(temp, sizeof(temp), format, args);
     va_end(args);
-    
+
     osd_text_print(line, col, temp, fg_color, bg_color);
+}
+
+void osd_draw_border()
+{
+    // Top border
+    osd_text_set_char(0, 0, OSD_CHAR_BORDER_TL, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+    for (uint8_t col = 1; col < OSD_CHARS_PER_LINE - 1; col++)
+        osd_text_set_char(0, col, OSD_CHAR_BORDER_T, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+    osd_text_set_char(0, OSD_CHARS_PER_LINE - 1, OSD_CHAR_BORDER_TR, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+
+    // Bottom border
+    osd_text_set_char(OSD_LINES - 1, 0, OSD_CHAR_BORDER_BL, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+    for (uint8_t col = 1; col < OSD_CHARS_PER_LINE - 1; col++)
+        osd_text_set_char(OSD_LINES - 1, col, OSD_CHAR_BORDER_B, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+    osd_text_set_char(OSD_LINES - 1, OSD_CHARS_PER_LINE - 1, OSD_CHAR_BORDER_BR, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+
+    // Left and right borders
+    for (uint8_t line = 1; line < OSD_LINES - 1; line++)
+    {
+        osd_text_set_char(line, 0, OSD_CHAR_BORDER_L, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+        osd_text_set_char(line, OSD_CHARS_PER_LINE - 1, OSD_CHAR_BORDER_R, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+    }
 }
 
 void osd_render_text_to_buffer()
 {
-    // Clear pixel buffer first
-    osd_clear_buffer();
-    
-    // Draw border
-    for (int y = 0; y < OSD_HEIGHT; y++)
-    {
-        for (int x = 0; x < OSD_WIDTH; x += 2)
-        {
-            int buffer_offset = y * (OSD_WIDTH / 2) + (x / 2);
-            if (buffer_offset >= OSD_BUFFER_SIZE) continue;
-
-            uint8_t color_left = OSD_COLOR_BACKGROUND;
-            uint8_t color_right = OSD_COLOR_BACKGROUND;
-
-            if (y == 0 || y == OSD_HEIGHT - 1 || x == 0 || x == OSD_WIDTH - 1)
-                color_left = OSD_COLOR_BORDER;
-            if (y == 0 || y == OSD_HEIGHT - 1 || x + 1 == 0 || x + 1 == OSD_WIDTH - 1)
-                color_right = OSD_COLOR_BORDER;
-
-            osd_buffer[buffer_offset] = color_left | (color_right << 4);
-        }
-    }
-    
     // Render text buffer to pixel buffer
+    // No need to clear - we're rendering every character which overwrites everything
     for (uint8_t line = 0; line < OSD_LINES; line++)
     {
         for (uint8_t col = 0; col < OSD_CHARS_PER_LINE; col++)
@@ -825,9 +923,9 @@ void osd_render_text_to_buffer()
             uint16_t pos = line * OSD_CHARS_PER_LINE + col;
             char c = osd_text_buffer[pos];
             uint8_t packed_color = osd_text_colors[pos];
-            uint8_t fg_color = (packed_color >> 4) & 0x0F;  // High nibble
-            uint8_t bg_color = packed_color & 0x0F;         // Low nibble
-            
+            uint8_t fg_color = (packed_color >> 4) & 0x0F; // High nibble
+            uint8_t bg_color = packed_color & 0x0F;        // Low nibble
+
             uint16_t x = col * OSD_FONT_WIDTH;
             uint16_t y = line * OSD_FONT_HEIGHT;
             osd_draw_char(osd_buffer, OSD_WIDTH, x, y, c, fg_color, bg_color);
@@ -842,274 +940,313 @@ void osd_set_position(uint16_t x, uint16_t y)
     osd_state.needs_redraw = true;
 }
 
+// Menu rendering functions
+static void render_main_menu()
+{
+    const char *items[] = {
+        "OUTPUT SETTINGS",
+        "CAPTURE SETTINGS",
+        "IMAGE ADJUST",
+        "ABOUT",
+        "SAVE",
+        "EXIT"};
+
+    for (int i = 0; i < 6; i++)
+    {
+        uint8_t line = OSD_MENU_START_LINE + i;
+        uint8_t fg_color, bg_color;
+
+        if (i == osd_state.selected_item)
+        {
+            fg_color = OSD_COLOR_BACKGROUND;
+            bg_color = OSD_COLOR_TEXT;
+        }
+        else
+        {
+            fg_color = OSD_COLOR_TEXT;
+            bg_color = OSD_COLOR_BACKGROUND;
+        }
+
+        if (i < 4)
+            osd_text_printf(line, 2, fg_color, bg_color, "%-16s >", items[i]);
+        else
+            osd_text_print(line, 2, items[i], fg_color, bg_color);
+    }
+}
+
+static void render_output_menu()
+{
+    osd_text_print_centered(OSD_SUBTITLE_LINE, "OUTPUT SETTINGS", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
+
+    for (int i = 0; i < 4; i++)
+    {
+        uint8_t line = OSD_MENU_START_LINE + i;
+        uint8_t color = OSD_COLOR_TEXT;
+        uint8_t fg_color, bg_color;
+
+        if (i == 1)
+        {
+            if (settings.video_out_type == DVI)
+                color = OSD_COLOR_DIMMED;
+            else if (settings.video_out_type == VGA)
+            {
+#ifndef LOW_RES_SCANLINE
+                uint8_t div = video_modes[settings.video_out_mode]->div;
+                if (div != 3 && div != 4)
+                    color = OSD_COLOR_DIMMED;
+#endif
+            }
+        }
+
+        if (i == 0 && i == osd_state.selected_item && osd_state.tuning_mode)
+        {
+            fg_color = OSD_COLOR_BACKGROUND;
+            bg_color = OSD_COLOR_SELECTED;
+        }
+        else if (i == osd_state.selected_item)
+        {
+            fg_color = OSD_COLOR_BACKGROUND;
+            bg_color = color;
+        }
+        else
+        {
+            fg_color = color;
+            bg_color = OSD_COLOR_BACKGROUND;
+        }
+
+        if (i == 0)
+        {
+            const char *mode_names_dvi[] = {"640X480@60", "720X576@50"};
+            const char *mode_names_vga[] = {"640X480@60", "800X600@60", "1024X768@60",
+                                            "1280X1024@60 DIV3", "1280X1024@60 DIV4"};
+            const char *current_mode_name = "UNKNOWN";
+            if (settings.video_out_type == DVI)
+            {
+                if (settings.video_out_mode == MODE_640x480_60Hz)
+                    current_mode_name = mode_names_dvi[0];
+                else if (settings.video_out_mode == MODE_720x576_50Hz)
+                    current_mode_name = mode_names_dvi[1];
+            }
+            else
+            {
+                if (settings.video_out_mode == MODE_640x480_60Hz)
+                    current_mode_name = mode_names_vga[0];
+                else if (settings.video_out_mode == MODE_800x600_60Hz)
+                    current_mode_name = mode_names_vga[1];
+                else if (settings.video_out_mode == MODE_1024x768_60Hz)
+                    current_mode_name = mode_names_vga[2];
+                else if (settings.video_out_mode == MODE_1280x1024_60Hz_d3)
+                    current_mode_name = mode_names_vga[3];
+                else if (settings.video_out_mode == MODE_1280x1024_60Hz_d4)
+                    current_mode_name = mode_names_vga[4];
+            }
+            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %s", "MODE", current_mode_name);
+        }
+        else if (i == 1)
+            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %s", "SCANLINES", settings.scanlines_mode ? "ON" : "OFF");
+        else if (i == 2)
+            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %s", "BUFFERING", settings.buffering_mode ? "X3" : "X1");
+        else if (i == 3)
+            osd_text_print(line, 2, "< BACK TO MAIN", fg_color, bg_color);
+
+        if (i == 0 && i == osd_state.selected_item && osd_state.tuning_mode)
+        {
+            osd_text_set_char(line, 1, '>', fg_color, bg_color);
+        }
+    }
+}
+
+static void render_capture_menu()
+{
+    osd_text_print_centered(OSD_SUBTITLE_LINE, "CAPTURE SETTINGS", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
+
+    for (int i = 0; i < 6; i++)
+    {
+        uint8_t line = OSD_MENU_START_LINE + i;
+        uint8_t color = OSD_COLOR_TEXT;
+        uint8_t fg_color, bg_color;
+
+        if (i == 2 && settings.cap_sync_mode != EXT)
+            color = OSD_COLOR_DIMMED;
+
+        if (i < 5 && i != 1 && i != 3 && i == osd_state.selected_item && osd_state.tuning_mode)
+        {
+            fg_color = OSD_COLOR_BACKGROUND;
+            bg_color = OSD_COLOR_SELECTED;
+        }
+        else if (i == osd_state.selected_item)
+        {
+            fg_color = OSD_COLOR_BACKGROUND;
+            bg_color = color;
+        }
+        else
+        {
+            fg_color = color;
+            bg_color = OSD_COLOR_BACKGROUND;
+        }
+
+        if (i == 0)
+            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %lu", "FREQ", settings.frequency);
+        else if (i == 1)
+            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %s", "MODE", settings.cap_sync_mode == SELF ? "SELF-SYNC" : "EXTERNAL");
+        else if (i == 2)
+            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %d", "DIVIDER", settings.ext_clk_divider);
+        else if (i == 3)
+            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %s", "SYNC", settings.video_sync_mode ? "SEPARATE" : "COMPOSITE");
+        else if (i == 4)
+            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %s", "MASK", ">");
+        else if (i == 5)
+            osd_text_print(line, 2, "< BACK TO MAIN", fg_color, bg_color);
+
+        if (i < 5 && i != 1 && i != 3 && i == osd_state.selected_item && osd_state.tuning_mode)
+        {
+            osd_text_set_char(line, 1, '>', fg_color, bg_color);
+        }
+    }
+}
+
+static void render_image_adjust_menu()
+{
+    osd_text_print_centered(OSD_SUBTITLE_LINE, "IMAGE ADJUST", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
+
+    for (int i = 0; i < 5; i++)
+    {
+        uint8_t line = OSD_MENU_START_LINE + i;
+        uint8_t color = OSD_COLOR_TEXT;
+        uint8_t fg_color, bg_color;
+
+        if (i < 3 && i == osd_state.selected_item && osd_state.tuning_mode)
+        {
+            fg_color = OSD_COLOR_BACKGROUND;
+            bg_color = OSD_COLOR_SELECTED;
+        }
+        else if (i == osd_state.selected_item)
+        {
+            fg_color = OSD_COLOR_BACKGROUND;
+            bg_color = color;
+        }
+        else
+        {
+            fg_color = color;
+            bg_color = OSD_COLOR_BACKGROUND;
+        }
+
+        if (i == 0)
+            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %d", "H_POS", settings.shX);
+        else if (i == 1)
+            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %d", "V_POS", settings.shY);
+        else if (i == 2)
+            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %d", "DELAY", settings.delay);
+        else if (i == 3)
+            osd_text_print(line, 2, "RESET TO DEFAULTS", fg_color, bg_color);
+        else if (i == 4)
+            osd_text_print(line, 2, "< BACK TO MAIN", fg_color, bg_color);
+
+        if (i < 3 && i == osd_state.selected_item && osd_state.tuning_mode)
+        {
+            osd_text_set_char(line, 1, '>', fg_color, bg_color);
+        }
+    }
+}
+
+static void render_mask_menu()
+{
+    osd_text_print_centered(OSD_SUBTITLE_LINE, "PIN INVERSION MASK", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
+
+    const char *mask_items[] = {
+        "F   (FREQ)",
+        "SSI (HSYNC)",
+        "KSI (VSYNC)",
+        "I   (BRIGHT)",
+        "R   (RED)",
+        "G   (GREEN)",
+        "B   (BLUE)",
+        "< BACK TO CAPTURE"};
+
+    for (int i = 0; i < 8; i++)
+    {
+        uint8_t line = OSD_MENU_START_LINE + i;
+        uint8_t fg_color, bg_color;
+
+        if (i == osd_state.selected_item)
+        {
+            fg_color = OSD_COLOR_BACKGROUND;
+            bg_color = OSD_COLOR_TEXT;
+        }
+        else
+        {
+            fg_color = OSD_COLOR_TEXT;
+            bg_color = OSD_COLOR_BACKGROUND;
+        }
+
+        if (i < 7)
+        {
+            uint8_t bit_pos = mask_bit_positions[i];
+            bool bit_value = (settings.pin_inversion_mask >> bit_pos) & 1;
+            osd_text_printf(line, 2, fg_color, bg_color, "%-12s %s", mask_items[i], bit_value ? "ON" : "OFF");
+        }
+        else
+        {
+            osd_text_print(line, 2, mask_items[i], fg_color, bg_color);
+        }
+    }
+}
+
+static void render_about_menu()
+{
+    osd_text_print_centered(OSD_SUBTITLE_LINE, "ABOUT", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
+
+    osd_text_printf(OSD_MENU_START_LINE, 2, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, "VERSION   %s", FW_VERSION);
+
+    osd_text_print(OSD_MENU_START_LINE + 2, 2, "https://github.com/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
+    osd_text_print(OSD_MENU_START_LINE + 3, 2, "osemenyuk-114/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
+    osd_text_print(OSD_MENU_START_LINE + 4, 2, "zx-rgbi-to-vga-hdmi", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
+
+    uint8_t fg_color, bg_color;
+    if (osd_state.selected_item == 0)
+    {
+        fg_color = OSD_COLOR_BACKGROUND;
+        bg_color = OSD_COLOR_TEXT;
+    }
+    else
+    {
+        fg_color = OSD_COLOR_TEXT;
+        bg_color = OSD_COLOR_BACKGROUND;
+    }
+    osd_text_print(OSD_MENU_START_LINE + 6, 2, "< BACK TO MAIN", fg_color, bg_color);
+}
+
 void osd_update_text_buffer()
 {
     // Clear text buffer
     osd_clear_text_buffer();
-    
-    // Draw header (lines 1 and 3)
-    osd_text_print_centered(1, "ZX RGBI CONVERTER", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
-    osd_text_print_centered(3, "SETUP MENU", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
-    
-    // Draw menu based on current menu type
-    if (osd_menu.current_menu == MENU_TYPE_MAIN)
+
+    // Draw header
+    const char *title = settings.video_out_type == VGA ? "ZX RGBI TO VGA CONVERTER" : "ZX RGBI TO HDMI CONVERTER";
+    osd_text_print_centered(OSD_TITLE_LINE, title, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
+    osd_text_print_centered(OSD_SUBTITLE_LINE, "SETUP MENU", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
+
+    // Render menu based on current menu type
+    switch (osd_menu.current_menu)
     {
-        // Main menu items
-        const char *items[] = {"OUTPUT SETTINGS", "CAPTURE SETTINGS", "IMAGE ADJUST", "SAVE", "EXIT"};
-        
-        for (int i = 0; i < 5; i++)
-        {
-            uint8_t line = 5 + i;  // Start at line 5
-            uint8_t fg_color, bg_color;
-            
-            // Use inverted colors for selected item
-            if (i == osd_state.selected_item)
-            {
-                fg_color = OSD_COLOR_BACKGROUND;
-                bg_color = OSD_COLOR_SELECTED;
-            }
-            else
-            {
-                fg_color = OSD_COLOR_TEXT;
-                bg_color = OSD_COLOR_BACKGROUND;
-            }
-            
-            // Draw item (with ">" for submenus) - padding handled by osd_text_print
-            if (i < 3)
-                osd_text_printf(line, 2, fg_color, bg_color, "%s >", items[i]);
-            else
-                osd_text_print(line, 2, items[i], fg_color, bg_color);
-        }
-    }
-    else if (osd_menu.current_menu == MENU_TYPE_OUTPUT)
-    {
-        osd_text_print_centered(3, "OUTPUT SETTINGS", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
-        
-        for (int i = 0; i < 4; i++)
-        {
-            uint8_t line = 5 + i;
-            uint8_t color = (i == osd_state.selected_item) ? OSD_COLOR_SELECTED : OSD_COLOR_TEXT;
-            uint8_t fg_color, bg_color;
-            
-            // Dim scanlines when not supported
-            if (i == 1)
-            {
-                if (settings.video_out_type == DVI)
-                    color = OSD_COLOR_DIMMED;
-                else if (settings.video_out_type == VGA)
-                {
-#ifndef LOW_RES_SCANLINE
-                    uint8_t div = video_modes[settings.video_out_mode]->div;
-                    if (div != 3 && div != 4)
-                        color = OSD_COLOR_DIMMED;
-#endif
-                }
-            }
-            
-            // Use inverted colors for selected item
-            if (i == osd_state.selected_item)
-            {
-                fg_color = OSD_COLOR_BACKGROUND;
-                bg_color = color;
-            }
-            else
-            {
-                fg_color = color;
-                bg_color = OSD_COLOR_BACKGROUND;
-            }
-            
-            // Draw item - padding handled by osd_text_print/printf
-            if (i == 0)
-            {
-                // Video mode
-                const char *mode_names_dvi[] = {"640X480 @60HZ", "720X576 @50HZ"};
-                const char *mode_names_vga[] = {"640X480 @60HZ", "800X600 @60HZ", "1024X768 @60HZ",
-                                                "1280X1024 @60HZ (DIV3)", "1280X1024 @60HZ (DIV4)"};
-                const char *current_mode_name = "UNKNOWN";
-                if (settings.video_out_type == DVI)
-                {
-                    if (settings.video_out_mode == MODE_640x480_60Hz)
-                        current_mode_name = mode_names_dvi[0];
-                    else if (settings.video_out_mode == MODE_720x576_50Hz)
-                        current_mode_name = mode_names_dvi[1];
-                }
-                else
-                {
-                    if (settings.video_out_mode == MODE_640x480_60Hz)
-                        current_mode_name = mode_names_vga[0];
-                    else if (settings.video_out_mode == MODE_800x600_60Hz)
-                        current_mode_name = mode_names_vga[1];
-                    else if (settings.video_out_mode == MODE_1024x768_60Hz)
-                        current_mode_name = mode_names_vga[2];
-                    else if (settings.video_out_mode == MODE_1280x1024_60Hz_d3)
-                        current_mode_name = mode_names_vga[3];
-                    else if (settings.video_out_mode == MODE_1280x1024_60Hz_d4)
-                        current_mode_name = mode_names_vga[4];
-                }
-                osd_text_printf(line, 2, fg_color, bg_color, "%-12s %s", "MODE:", current_mode_name);
-            }
-            else if (i == 1)
-            {
-                // Scanlines
-                osd_text_printf(line, 2, fg_color, bg_color, "%-12s %s", "SCANLINES:", settings.scanlines_mode ? "ON" : "OFF");
-            }
-            else if (i == 2)
-            {
-                // Buffering
-                osd_text_printf(line, 2, fg_color, bg_color, "%-12s %s", "BUFFERING:", settings.buffering_mode ? "X3" : "X1");
-            }
-            else if (i == 3)
-            {
-                // Back
-                osd_text_print(line, 2, "< BACK TO MAIN", fg_color, bg_color);
-            }
-        }
-    }
-    else if (osd_menu.current_menu == MENU_TYPE_CAPTURE)
-    {
-        osd_text_print_centered(3, "CAPTURE SETTINGS", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
-        
-        for (int i = 0; i < 6; i++)
-        {
-            uint8_t line = 5 + i;
-            uint8_t color = (i == osd_state.selected_item) ? OSD_COLOR_SELECTED : OSD_COLOR_TEXT;
-            uint8_t fg_color, bg_color;
-            
-            // Dim divider when in SELF mode
-            if (i == 2 && settings.cap_sync_mode != EXT)
-                color = OSD_COLOR_DIMMED;
-            
-            // Use bright cyan for tuning mode (exclude toggles: MODE and SYNC)
-            if (i < 5 && i != 1 && i != 3 && i == osd_state.selected_item && osd_state.tuning_mode)
-            {
-                fg_color = OSD_COLOR_SELECTED;  // Bright cyan text
-                bg_color = OSD_COLOR_BACKGROUND;  // Black background
-            }
-            else if (i == osd_state.selected_item)
-            {
-                // Normal selection - inverted colors
-                fg_color = OSD_COLOR_BACKGROUND;
-                bg_color = color;
-            }
-            else
-            {
-                fg_color = color;
-                bg_color = OSD_COLOR_BACKGROUND;
-            }
-            
-            // Draw tuning mode indicator - padding handled by osd_text_print/printf
-            if (i < 5 && i != 1 && i != 3 && i == osd_state.selected_item && osd_state.tuning_mode)
-            {
-                osd_text_print(line, 0, ">>", fg_color, bg_color);
-            }
-            
-            // Draw item text
-            if (i == 0)
-                osd_text_printf(line, 2, fg_color, bg_color, "%-12s %lu", "FREQ:", settings.frequency);
-            else if (i == 1)
-                osd_text_printf(line, 2, fg_color, bg_color, "%-12s %s", "MODE:", settings.cap_sync_mode == SELF ? "SELF-SYNC" : "EXTERNAL");
-            else if (i == 2)
-                osd_text_printf(line, 2, fg_color, bg_color, "%-12s %d", "DIVIDER:", settings.ext_clk_divider);
-            else if (i == 3)
-                osd_text_printf(line, 2, fg_color, bg_color, "%-12s %s", "SYNC:", settings.video_sync_mode ? "SEPARATE" : "COMPOSITE");
-            else if (i == 4)
-                osd_text_printf(line, 2, fg_color, bg_color, "%-12s %02X", "MASK >", settings.pin_inversion_mask);
-            else if (i == 5)
-                osd_text_print(line, 2, "< BACK TO MAIN", fg_color, bg_color);
-        }
-    }
-    else if (osd_menu.current_menu == MENU_TYPE_IMAGE_ADJUST)
-    {
-        osd_text_print_centered(3, "IMAGE ADJUST", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
-        
-        for (int i = 0; i < 5; i++)
-        {
-            uint8_t line = 5 + i;
-            uint8_t color = (i == osd_state.selected_item) ? OSD_COLOR_SELECTED : OSD_COLOR_TEXT;
-            uint8_t fg_color, bg_color;
-            
-            // Use bright cyan for tuning mode (first 3 items are adjustable)
-            if (i < 3 && i == osd_state.selected_item && osd_state.tuning_mode)
-            {
-                fg_color = OSD_COLOR_SELECTED;  // Bright cyan text
-                bg_color = OSD_COLOR_BACKGROUND;  // Black background
-            }
-            else if (i == osd_state.selected_item)
-            {
-                // Normal selection - inverted colors
-                fg_color = OSD_COLOR_BACKGROUND;
-                bg_color = color;
-            }
-            else
-            {
-                fg_color = color;
-                bg_color = OSD_COLOR_BACKGROUND;
-            }
-            
-            // Draw tuning mode indicator - padding handled by osd_text_print/printf
-            if (i < 3 && i == osd_state.selected_item && osd_state.tuning_mode)
-            {
-                osd_text_print(line, 0, ">>", fg_color, bg_color);
-            }
-            
-            // Draw item text
-            if (i == 0)
-                osd_text_printf(line, 2, fg_color, bg_color, "%-12s %d", "H_POS:", settings.shX);
-            else if (i == 1)
-                osd_text_printf(line, 2, fg_color, bg_color, "%-12s %d", "V_POS:", settings.shY);
-            else if (i == 2)
-                osd_text_printf(line, 2, fg_color, bg_color, "%-12s %d", "DELAY:", settings.delay);
-            else if (i == 3)
-                osd_text_print(line, 2, "RESET TO DEFAULTS", fg_color, bg_color);
-            else if (i == 4)
-                osd_text_print(line, 2, "< BACK TO MAIN", fg_color, bg_color);
-        }
-    }
-    else if (osd_menu.current_menu == MENU_TYPE_MASK)
-    {
-        osd_text_print_centered(3, "PIN INVERSION MASK", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
-        
-        const char *mask_items[] = {
-            "F   (FREQ)",
-            "SSI (HSYNC)",
-            "KSI (VSYNC)",
-            "I   (BRIGHT)",
-            "R   (RED)",
-            "G   (GREEN)",
-            "B   (BLUE)",
-            "< BACK TO CAPTURE"};
-        
-        for (int i = 0; i < 8; i++)
-        {
-            uint8_t line = 5 + i;
-            uint8_t fg_color, bg_color;
-            
-            // Use inverted colors for selected item
-            if (i == osd_state.selected_item)
-            {
-                fg_color = OSD_COLOR_BACKGROUND;
-                bg_color = OSD_COLOR_SELECTED;
-            }
-            else
-            {
-                fg_color = OSD_COLOR_TEXT;
-                bg_color = OSD_COLOR_BACKGROUND;
-            }
-            
-            // Draw item - padding handled by osd_text_print/printf
-            if (i < 7)
-            {
-                // Show mask item with ON/OFF state
-                uint8_t bit_pos = mask_bit_positions[i];
-                bool bit_value = (settings.pin_inversion_mask >> bit_pos) & 1;
-                osd_text_printf(line, 2, fg_color, bg_color, "%-12s %s", mask_items[i], bit_value ? "ON" : "OFF");
-            }
-            else
-            {
-                // Back item
-                osd_text_print(line, 2, mask_items[i], fg_color, bg_color);
-            }
-        }
+    case MENU_TYPE_MAIN:
+        render_main_menu();
+        break;
+    case MENU_TYPE_OUTPUT:
+        render_output_menu();
+        break;
+    case MENU_TYPE_CAPTURE:
+        render_capture_menu();
+        break;
+    case MENU_TYPE_IMAGE_ADJUST:
+        render_image_adjust_menu();
+        break;
+    case MENU_TYPE_MASK:
+        render_mask_menu();
+        break;
+    case MENU_TYPE_ABOUT:
+        render_about_menu();
+        break;
     }
 }
 

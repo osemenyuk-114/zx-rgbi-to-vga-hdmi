@@ -29,8 +29,17 @@ This version of the firmware:
   - HDMI (DVI) resolutions: 640×480 @60Hz and 720×576 @50Hz.
   - Optional scanline effect on the VGA output at higher resolutions for a retro look.
   - "NO SIGNAL" message when no input is detected.
+- **On-Screen Display (OSD) Menu:**
+  - Full-featured graphical menu system overlaid on video output.
+  - Three-button control (UP, DOWN, SEL) for easy navigation.
+  - Real-time parameter adjustment with live preview.
+  - Tuning mode for video settings without restarting output.
+  - Quick VGA/DVI toggle via long SEL press (5 seconds).
+  - All settings can be saved to flash memory.
+  - Auto-timeout after 10 seconds of inactivity.
+  - See [OSD Menu Guide](docs/OSD_MENU_GUIDE.md) for detailed usage instructions.
 - **Configuration via Serial Terminal:**
-  - Text-based menu system.
+  - Alternative text-based menu system for headless configuration.
   - Frequency presets for self-synchronizing capture mode (supports ZX Spectrum 48K/128K pixel clocks).
   - Real-time adjustment of all parameters (changes applied immediately).
   - Settings can be saved to flash memory without restart.

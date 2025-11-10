@@ -13,7 +13,7 @@ extern "C"
 #include "settings.h"
 #include "v_buf.h"
 #include "video_output.h"
-#include "osd.h"
+#include "osd_menu.h"
 }
 
 settings_t settings;
