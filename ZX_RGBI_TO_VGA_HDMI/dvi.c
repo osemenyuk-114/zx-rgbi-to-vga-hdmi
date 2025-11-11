@@ -6,6 +6,7 @@
 
 #include "g_config.h"
 #include "dvi.h"
+#include "osd_menu.h"
 #include "pio_programs.h"
 #include "v_buf.h"
 
@@ -17,6 +18,13 @@ static uint offset;
 
 static video_mode_t video_mode;
 static int16_t h_visible_area;
+
+static uint16_t osd_start_x;
+static uint16_t osd_end_x;
+static uint16_t osd_start_y;
+static uint16_t osd_end_y;
+static int osd_start_buf;
+static int osd_end_buf;
 
 static uint32_t *v_out_dma_buf[2];
 
@@ -131,25 +139,109 @@ static void __not_in_flash_func(dma_handler_dvi)()
     return;
 
   if (y < video_mode.v_visible_area)
-  {
-    // image area
-    uint8_t *scr_buf = &screen_buf[(uint16_t)(y / video_mode.div) * V_BUF_W / 2];
+  { // image area
+    uint16_t scaled_y = y / video_mode.div;
+    uint8_t *scr_buf = &screen_buf[scaled_y * (V_BUF_W / 2)];
     uint64_t *line_buf = active_buf;
 
-    for (int i = 0; i < h_visible_area; i++)
-    {
-      uint8_t c2 = *scr_buf++;
-      uint8_t pixel1 = c2 & 0xf;
-      uint8_t pixel2 = c2 >> 4;
+    // check if OSD is visible and overlaps with current scaled scanline
+    bool osd_active = osd_state.visible && (scaled_y >= osd_start_y && scaled_y < osd_end_y);
 
-      uint64_t *palette_ptr = &palette[pixel1 << 1];
-      *line_buf++ = *palette_ptr++;
-      *line_buf++ = *palette_ptr;
+    if (osd_active)
+    { // calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
+      uint8_t *osd_line = &osd_buffer[(scaled_y - osd_start_y) * (OSD_WIDTH / 2)];
 
-      palette_ptr = &palette[pixel2 << 1];
-      *line_buf++ = *palette_ptr++;
-      *line_buf++ = *palette_ptr;
+      int i = 0;
+
+      while (i < osd_start_buf)
+      { // fast loop for pre-OSD area (no OSD checks) - optimized palette access
+        uint8_t c2 = *scr_buf++;
+        uint8_t pixel1 = c2 & 0xf;
+        uint8_t pixel2 = c2 >> 4;
+
+        uint64_t *palette_ptr = &palette[pixel1 << 1];
+        *line_buf++ = *palette_ptr++;
+        *line_buf++ = *palette_ptr;
+
+        palette_ptr = &palette[pixel2 << 1];
+        *line_buf++ = *palette_ptr++;
+        *line_buf++ = *palette_ptr;
+
+        i++;
+      }
+
+      while (i < osd_end_buf)
+      { // ultra-simplified OSD compositing - byte-aligned boundaries (2-pixel aligned)
+        uint8_t c2 = *scr_buf++;
+        int screen_x_base = i << 1;
+
+        // Since OSD boundaries are byte-aligned, check entire pixel pair at once
+        if (screen_x_base >= osd_start_x && (screen_x_base + 1) < osd_end_x)
+        {
+          // both pixels are in OSD area - direct byte replacement
+          int osd_x = screen_x_base - osd_start_x;
+          uint8_t osd_byte = osd_line[osd_x >> 1]; // Direct byte from OSD buffer
+
+          uint8_t pixel1 = osd_byte & 0xf;
+          uint8_t pixel2 = osd_byte >> 4;
+
+          uint64_t *palette_ptr = &palette[pixel1 << 1];
+          *line_buf++ = *palette_ptr++;
+          *line_buf++ = *palette_ptr;
+
+          palette_ptr = &palette[pixel2 << 1];
+          *line_buf++ = *palette_ptr++;
+          *line_buf++ = *palette_ptr;
+        }
+        else
+        { // no OSD overlay - process screen pixels directly
+          uint8_t pixel1 = c2 & 0xf;
+          uint8_t pixel2 = c2 >> 4;
+
+          uint64_t *palette_ptr = &palette[pixel1 << 1];
+          *line_buf++ = *palette_ptr++;
+          *line_buf++ = *palette_ptr;
+
+          palette_ptr = &palette[pixel2 << 1];
+          *line_buf++ = *palette_ptr++;
+          *line_buf++ = *palette_ptr;
+        }
+
+        i++;
+      }
+
+      while (i < h_visible_area)
+      { // fast loop for post-OSD area (no OSD checks) - optimized palette access
+        uint8_t c2 = *scr_buf++;
+        uint8_t pixel1 = c2 & 0xf;
+        uint8_t pixel2 = c2 >> 4;
+
+        uint64_t *palette_ptr = &palette[pixel1 << 1];
+        *line_buf++ = *palette_ptr++;
+        *line_buf++ = *palette_ptr;
+
+        palette_ptr = &palette[pixel2 << 1];
+        *line_buf++ = *palette_ptr++;
+        *line_buf++ = *palette_ptr;
+
+        i++;
+      }
     }
+    else
+      for (int i = 0; i < h_visible_area; i++)
+      { // no OSD - maximum speed path
+        uint8_t c2 = *scr_buf++;
+        uint8_t pixel1 = c2 & 0xf;
+        uint8_t pixel2 = c2 >> 4;
+
+        uint64_t *palette_ptr = &palette[pixel1 << 1];
+        *line_buf++ = *palette_ptr++;
+        *line_buf++ = *palette_ptr;
+
+        palette_ptr = &palette[pixel2 << 1];
+        *line_buf++ = *palette_ptr++;
+        *line_buf++ = *palette_ptr;
+      }
 
     // horizontal sync
     memset64(active_buf + video_mode.h_visible_area, sync_data[0b00], video_mode.h_front_porch);
@@ -179,6 +271,22 @@ void start_dvi(video_mode_t v_mode)
   int whole_line = video_mode.whole_line * video_mode.div;
 
   h_visible_area = video_mode.h_visible_area / (2 * video_mode.div);
+
+  osd_start_x = h_visible_area - OSD_WIDTH / 2;
+  osd_end_x = osd_start_x + OSD_WIDTH;
+
+  osd_start_y = (video_mode.v_visible_area / video_mode.div - OSD_HEIGHT) / 2;
+  osd_end_y = osd_start_y + OSD_HEIGHT;
+
+  osd_start_buf = osd_start_x >> 1;
+  osd_end_buf = (osd_end_x + 1) >> 1;
+
+  // Clamp to visible area
+  if (osd_start_buf < 0)
+    osd_start_buf = 0;
+
+  if (osd_end_buf > h_visible_area)
+    osd_end_buf = h_visible_area;
 
   // initialization of constants
   const uint16_t b0 = 0b1101010100;
