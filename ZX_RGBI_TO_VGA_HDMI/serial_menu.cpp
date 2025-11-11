@@ -500,7 +500,12 @@ void handle_serial_menu()
                 }
 
                 if (video_out_type != settings.video_out_type && active_video_output != settings.video_out_type)
-                    Serial.println("  Note: Save config and restart for changes to take effect.");
+                {
+                    stop_video_output();
+                    start_video_output(settings.video_out_type);
+                    // capture PIO clock divider needs to be adjusted for new system clock frequency set in start_video_output()
+                    set_capture_frequency(settings.frequency);
+                }
 
                 if (inchar == 'q')
                 {

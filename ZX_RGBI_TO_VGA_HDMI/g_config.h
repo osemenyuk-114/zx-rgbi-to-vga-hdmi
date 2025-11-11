@@ -5,7 +5,7 @@
 #include "pico.h"
 #include "pico/time.h"
 
-#define FW_VERSION "v1.5.0"
+#define FW_VERSION "v1.6.0"
 #define BOARD_CODE_36LJU22
 // #define BOARD_CODE_09LJV23
 
