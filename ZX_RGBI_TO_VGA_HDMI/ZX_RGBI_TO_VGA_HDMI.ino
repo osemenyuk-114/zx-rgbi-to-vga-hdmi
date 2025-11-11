@@ -52,10 +52,15 @@ void setup()
 
 void loop()
 {
-  if (Serial.available())
-    handle_serial_menu();
-
   osd_update();
+
+  if (!osd_state.visible)
+  {
+    char c = get_menu_input(100);
+
+    if (c != 0)
+      handle_serial_menu();
+  }
 }
 
 void setup1()
