@@ -13,6 +13,7 @@ extern "C"
 #include "settings.h"
 #include "v_buf.h"
 #include "video_output.h"
+#include "osd_menu.h"
 }
 
 settings_t settings;
@@ -41,6 +42,8 @@ void setup()
   set_scanlines_mode();
   start_video_output(settings.video_out_type);
 
+  osd_init();
+
   start_core0 = true;
 
   Serial.println("  Starting...\n");
@@ -48,10 +51,15 @@ void setup()
 
 void loop()
 {
-  char c = get_menu_input(500);
+  osd_update();
 
-  if (c != 0)
-    handle_serial_menu();
+  if (!osd_state.visible)
+  {
+    char c = get_menu_input(100);
+
+    if (c != 0)
+      handle_serial_menu();
+  }
 }
 
 void setup1()

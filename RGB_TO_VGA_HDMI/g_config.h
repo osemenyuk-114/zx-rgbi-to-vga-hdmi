@@ -5,7 +5,7 @@
 #include "pico.h"
 #include "pico/time.h"
 
-#define FW_VERSION "v1.5.0"
+#define FW_VERSION "v1.6.0"
 #define BOARD_CODE_36LJU22
 // #define BOARD_CODE_09LJV23
 
@@ -117,7 +117,7 @@ extern uint8_t g_v_buf[];
 // settings MAX values
 #define VIDEO_OUT_TYPE_MAX OUTPUT_TYPE_MAX
 #define VIDEO_OUT_MODE_MAX VIDEO_MODE_MAX
-#define FREQUENCY_MAX 12000000
+#define FREQUENCY_MAX 10000000
 #define DELAY_MAX 31
 #define shX_MAX 200
 #define shY_MAX 200
