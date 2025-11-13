@@ -6,9 +6,19 @@
 
 #include "g_config.h"
 #include "vga.h"
-#include "osd_menu.h"
 #include "pio_programs.h"
 #include "v_buf.h"
+
+#ifdef OSD_MENU
+#include "osd_menu.h"
+
+static uint16_t osd_start_x;
+static uint16_t osd_end_x;
+static uint16_t osd_start_y;
+static uint16_t osd_end_y;
+static int osd_start_buf;
+static int osd_end_buf;
+#endif
 
 extern settings_t settings;
 
@@ -22,13 +32,6 @@ static int16_t h_margin;
 static int16_t v_visible_area;
 static int16_t v_margin;
 static bool scanlines_mode = false;
-
-static uint16_t osd_start_x;
-static uint16_t osd_end_x;
-static uint16_t osd_start_y;
-static uint16_t osd_end_y;
-static int osd_start_buf;
-static int osd_end_buf;
 
 static uint32_t *v_out_dma_buf[4];
 static uint16_t palette[256];
@@ -188,6 +191,7 @@ void __not_in_flash_func(dma_handler_vga)()
   for (int x = h_margin; x--;)
     *line_buf++ = palette[0];
 
+#ifdef OSD_MENU
   // main image area with OSD compositing
   bool osd_active = osd_state.visible && (scaled_y >= osd_start_y && scaled_y < osd_end_y);
 
@@ -283,6 +287,7 @@ void __not_in_flash_func(dma_handler_vga)()
   }
   else
   { // ultra-fast direct byte processing for non-OSD area with loop unrolling
+#endif
     int x = 0;
 
     while ((x + 4) <= h_visible_area)
@@ -300,7 +305,9 @@ void __not_in_flash_func(dma_handler_vga)()
       *line_buf++ = palette[*scr_buf++];
       x++;
     }
+#ifdef OSD_MENU
   }
+#endif
 
   // right margin
   for (int x = h_margin; x--;)
@@ -336,6 +343,7 @@ void start_vga(video_mode_t v_mode)
   if (v_margin < 0)
     v_margin = 0;
 
+#ifdef OSD_MENU
   osd_start_x = h_visible_area - OSD_WIDTH / 2;
   osd_end_x = osd_start_x + OSD_WIDTH;
 
@@ -351,6 +359,8 @@ void start_vga(video_mode_t v_mode)
 
   if (osd_end_buf > h_visible_area)
     osd_end_buf = h_visible_area;
+
+#endif
 
   set_sys_clock_khz(video_mode.sys_freq, true);
   sleep_ms(10);
