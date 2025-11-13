@@ -35,7 +35,7 @@ osd_buttons_t osd_buttons = {0};
 osd_menu_nav_t osd_menu = {0};
 uint8_t osd_buffer[OSD_BUFFER_SIZE];
 char osd_text_buffer[OSD_TEXT_BUFFER_SIZE];
-uint8_t osd_text_colors[OSD_TEXT_BUFFER_SIZE]; // High nibble: fg_color, Low nibble: bg_color
+uint8_t osd_text_colors[2][OSD_TEXT_BUFFER_SIZE]; // 0: bg_color, 1: fg_color
 
 const uint8_t osd_font_8x8[256][8] = {
     //
@@ -718,15 +718,12 @@ bool osd_button_pressed(uint8_t button)
 }
 
 void osd_clear_buffer()
-{ // Fill with background color (2 pixels per byte)
-    uint8_t bg_color_pair = OSD_COLOR_BACKGROUND | (OSD_COLOR_BACKGROUND << 4);
-    memset(osd_buffer, bg_color_pair, OSD_BUFFER_SIZE);
+{ // Fill with background color (1 pixel per byte)
+    memset(osd_buffer, OSD_COLOR_BACKGROUND, OSD_BUFFER_SIZE);
 }
 
 void osd_clear_text_buffer()
 { // Clear text buffer but preserve border positions
-    uint8_t default_color = (OSD_COLOR_TEXT << 4) | OSD_COLOR_BACKGROUND;
-
     for (uint8_t line = 0; line < OSD_LINES; line++)
     {
         for (uint8_t col = 0; col < OSD_CHARS_PER_LINE; col++)
@@ -738,7 +735,8 @@ void osd_clear_text_buffer()
                 continue;
 
             osd_text_buffer[pos] = ' ';
-            osd_text_colors[pos] = default_color;
+            osd_text_colors[0][pos] = OSD_COLOR_BACKGROUND;
+            osd_text_colors[1][pos] = OSD_COLOR_TEXT;
         }
     }
 }
@@ -757,7 +755,8 @@ void osd_text_set_char(uint8_t line, uint8_t col, char c, uint8_t fg_color, uint
 
     uint16_t pos = line * OSD_CHARS_PER_LINE + col;
     osd_text_buffer[pos] = c;
-    osd_text_colors[pos] = (fg_color << 4) | bg_color; // High nibble: fg, Low nibble: bg
+    osd_text_colors[0][pos] = bg_color;
+    osd_text_colors[1][pos] = fg_color;
 }
 
 void osd_text_print(uint8_t line, uint8_t col, const char *str, uint8_t fg_color, uint8_t bg_color)
@@ -768,13 +767,13 @@ void osd_text_print(uint8_t line, uint8_t col, const char *str, uint8_t fg_color
     uint16_t line_start = line * OSD_CHARS_PER_LINE;
     uint16_t pos = line_start + col;
     uint8_t max_len = OSD_CHARS_PER_LINE - col;
-    uint8_t packed_color = (fg_color << 4) | bg_color; // High nibble: fg, Low nibble: bg
 
     // Fill left padding with spaces (avoid column 0 - left border)
     for (uint8_t i = 1; i < col; i++)
     {
         osd_text_buffer[line_start + i] = ' ';
-        osd_text_colors[line_start + i] = packed_color;
+        osd_text_colors[0][line_start + i] = bg_color;
+        osd_text_colors[1][line_start + i] = fg_color;
     }
 
     uint8_t i;
@@ -783,13 +782,15 @@ void osd_text_print(uint8_t line, uint8_t col, const char *str, uint8_t fg_color
     for (i = 0; i < effective_max_len && str[i] != '\0'; i++)
     {
         osd_text_buffer[pos + i] = str[i];
-        osd_text_colors[pos + i] = packed_color;
+        osd_text_colors[0][pos + i] = bg_color;
+        osd_text_colors[1][pos + i] = fg_color;
     }
     // Pad with spaces to fill the rest of the line (avoid last column - right border)
     for (; i < effective_max_len; i++)
     {
         osd_text_buffer[pos + i] = ' ';
-        osd_text_colors[pos + i] = packed_color;
+        osd_text_colors[0][pos + i] = bg_color;
+        osd_text_colors[1][pos + i] = fg_color;
     }
 }
 
@@ -805,14 +806,14 @@ void osd_text_print_centered(uint8_t line, const char *str, uint8_t fg_color, ui
         len = available_width;
 
     uint8_t col = 1 + (available_width - len) / 2; // Start at column 1 (after left border)
-    uint8_t packed_color = (fg_color << 4) | bg_color;
     uint16_t pos = line * OSD_CHARS_PER_LINE;
 
     // Fill left padding with spaces (start at column 1 to preserve left border)
     for (uint8_t i = 1; i < col; i++)
     {
         osd_text_buffer[pos + i] = ' ';
-        osd_text_colors[pos + i] = packed_color;
+        osd_text_colors[0][pos + i] = bg_color;
+        osd_text_colors[1][pos + i] = fg_color;
     }
 
     // Print centered text (this will also pad the right side, but won't overwrite right border)
@@ -864,9 +865,8 @@ void osd_render_text_to_buffer()
         {
             uint16_t pos = line * OSD_CHARS_PER_LINE + col;
             char c = osd_text_buffer[pos];
-            uint8_t packed_color = osd_text_colors[pos];
-            uint8_t fg_color = (packed_color >> 4) & 0x0F; // High nibble
-            uint8_t bg_color = packed_color & 0x0F;        // Low nibble
+            uint8_t bg_color = osd_text_colors[0][pos];
+            uint8_t fg_color = osd_text_colors[1][pos];
 
             uint16_t x = col * OSD_FONT_WIDTH;
             uint16_t y = line * OSD_FONT_HEIGHT;
@@ -1118,7 +1118,8 @@ static void render_about_menu()
 
     osd_text_print(OSD_MENU_START_LINE + 2, 2, "https://github.com/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
     osd_text_print(OSD_MENU_START_LINE + 3, 2, "osemenyuk-114/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
-    osd_text_print(OSD_MENU_START_LINE + 4, 2, "zx-rgbi-to-vga-hdmi", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
+    osd_text_print(OSD_MENU_START_LINE + 4, 2, "zx-rgbi-to-vga-hdmi/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
+    osd_text_print(OSD_MENU_START_LINE + 5, 2, "tree/6bit-color", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
 
     uint8_t fg_color, bg_color;
     if (osd_state.selected_item == 0)
@@ -1131,7 +1132,8 @@ static void render_about_menu()
         fg_color = OSD_COLOR_TEXT;
         bg_color = OSD_COLOR_BACKGROUND;
     }
-    osd_text_print(OSD_MENU_START_LINE + 6, 2, "< BACK TO MAIN", fg_color, bg_color);
+
+    osd_text_print(OSD_MENU_START_LINE + 7, 2, "< BACK TO MAIN", fg_color, bg_color);
 }
 
 void osd_update_text_buffer()
@@ -1325,26 +1327,14 @@ void osd_draw_char(uint8_t *buffer, uint16_t buf_width, uint16_t x, uint16_t y,
             if (px >= buf_width || py >= OSD_HEIGHT)
                 continue;
 
-            // Calculate buffer position (2 pixels per byte)
-            int buffer_offset = py * (buf_width / 2) + (px / 2);
+            // Calculate buffer position (1 pixel per byte)
+            int buffer_offset = py * buf_width + px;
 
             if (buffer_offset >= OSD_BUFFER_SIZE)
                 continue;
 
-            // Determine pixel color
-            uint8_t pixel_color = (line & (0x80 >> col)) ? fg_color : bg_color;
-
-            // Set pixel in buffer (2 pixels per byte)
-            if (px & 1)
-            {
-                // Odd pixel (upper 4 bits)
-                buffer[buffer_offset] = (buffer[buffer_offset] & 0x0F) | (pixel_color << 4);
-            }
-            else
-            {
-                // Even pixel (lower 4 bits)
-                buffer[buffer_offset] = (buffer[buffer_offset] & 0xF0) | (pixel_color & 0x0F);
-            }
+            // Determine pixel color and write directly
+            buffer[buffer_offset] = (line & (0x80 >> col)) ? fg_color : bg_color;
         }
     }
 }

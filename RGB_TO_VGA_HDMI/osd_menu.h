@@ -3,7 +3,7 @@
 // OSD dimensions
 #define OSD_WIDTH 240
 #define OSD_HEIGHT 120
-#define OSD_BUFFER_SIZE (OSD_WIDTH * OSD_HEIGHT / 2) // 14400 bytes (2 pixels per byte)
+#define OSD_BUFFER_SIZE (OSD_WIDTH * OSD_HEIGHT) // 14400 bytes (1 pixels per byte)
 
 #define OSD_FONT_WIDTH 8
 #define OSD_FONT_HEIGHT 8
@@ -15,11 +15,11 @@
 #define OSD_BTN_DOWN 27
 #define OSD_BTN_SEL 28
 
-#define OSD_COLOR_BACKGROUND 0x0 // Black
-#define OSD_COLOR_TEXT 0xB       // Bright cyan
-#define OSD_COLOR_DIMMED 0x3     // Cyan
-#define OSD_COLOR_SELECTED 0xF   // Bright white
-#define OSD_COLOR_BORDER 0x7     // White
+#define OSD_COLOR_BACKGROUND 0b00000000 // Black
+#define OSD_COLOR_TEXT 0b00111100       // Bright cyan
+#define OSD_COLOR_DIMMED 0b00010100     // Cyan
+#define OSD_COLOR_SELECTED 0b00111111   // Bright white
+#define OSD_COLOR_BORDER 0b00010101     // White
 
 // Border characters (custom font entries in high ASCII range)
 #define OSD_CHAR_BORDER_TL 128 // Top-left corner
@@ -95,8 +95,8 @@ extern osd_state_t osd_state;
 extern osd_buttons_t osd_buttons;
 extern osd_menu_nav_t osd_menu;
 extern uint8_t osd_buffer[OSD_BUFFER_SIZE];
-extern char osd_text_buffer[OSD_TEXT_BUFFER_SIZE];    // Text buffer for menu content
-extern uint8_t osd_text_colors[OSD_TEXT_BUFFER_SIZE]; // High nibble: fg_color, Low nibble: bg_color
+extern char osd_text_buffer[OSD_TEXT_BUFFER_SIZE];       // Text buffer for menu content
+extern uint8_t osd_text_colors[2][OSD_TEXT_BUFFER_SIZE]; // 0: bg_color, 1: fg_color
 extern const uint8_t osd_font_8x8[256][8];
 
 void osd_init();

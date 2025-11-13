@@ -188,7 +188,7 @@ void __not_in_flash_func(dma_handler_vga)()
 
   if (osd_active)
   { // calculate OSD buffer line offset (OSD_WIDTH pixels, 2 pixels per byte)
-    uint8_t *osd_line = &osd_buffer[(scaled_y - osd_start_y) * OSD_WIDTH / 2];
+    uint8_t *osd_line = &osd_buffer[(scaled_y - osd_start_y) * OSD_WIDTH];
 
     int x = 0;
 
@@ -209,32 +209,13 @@ void __not_in_flash_func(dma_handler_vga)()
       x++;
     }
 
-    // OSD region - extract from OSD buffer (no conditionals in loop body)
+    // OSD region - extract from OSD buffer
     while ((x + 4) <= osd_end_buf)
     {
-      uint8_t osd_byte = *osd_line++;
-      uint8_t pixel1 = osd_byte & 0x0F;
-      uint8_t pixel2 = osd_byte >> 4;
-
-      *line_buf++ = palette[pixel1][pixel2];
-
-      osd_byte = *osd_line++;
-      pixel1 = osd_byte & 0x0F;
-      pixel2 = osd_byte >> 4;
-
-      *line_buf++ = palette[pixel1][pixel2];
-
-      osd_byte = *osd_line++;
-      pixel1 = osd_byte & 0x0F;
-      pixel2 = osd_byte >> 4;
-
-      *line_buf++ = palette[pixel1][pixel2];
-
-      osd_byte = *osd_line++;
-      pixel1 = osd_byte & 0x0F;
-      pixel2 = osd_byte >> 4;
-
-      *line_buf++ = palette[pixel1][pixel2];
+      *line_buf++ = palette[*osd_line++][*osd_line++];
+      *line_buf++ = palette[*osd_line++][*osd_line++];
+      *line_buf++ = palette[*osd_line++][*osd_line++];
+      *line_buf++ = palette[*osd_line++][*osd_line++];
 
       x += 4;
       scr_buf += 8;
@@ -242,12 +223,7 @@ void __not_in_flash_func(dma_handler_vga)()
 
     while (x < osd_end_buf)
     {
-      uint8_t osd_byte = *osd_line++;
-      uint8_t pixel1 = osd_byte & 0x0F;
-      uint8_t pixel2 = osd_byte >> 4;
-
-      *line_buf++ = palette[pixel1][pixel2];
-
+      *line_buf++ = palette[*osd_line++][*osd_line++];
       x++;
       scr_buf += 2;
     }
