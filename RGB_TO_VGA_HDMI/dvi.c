@@ -148,23 +148,23 @@ static void __not_in_flash_func(dma_handler_dvi)()
     bool osd_active = osd_state.visible && (scaled_y >= osd_start_y && scaled_y < osd_end_y);
 
     if (osd_active)
-    { // calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
-      uint8_t *osd_line = &osd_buffer[(scaled_y - osd_start_y) * (OSD_WIDTH / 2)];
+    { // calculate OSD buffer line offset using scaled coordinates (1 pixel per byte)
+      uint8_t *osd_line = &osd_buffer[(scaled_y - osd_start_y) * OSD_WIDTH];
 
       int i = 0;
 
       while (i < osd_start_buf)
       { // fast loop for pre-OSD area (no OSD checks) - optimized palette access
         uint8_t c2 = *scr_buf++;
-
         uint8_t pixel = c2 & 0x3f;
+
         uint64_t *palette_ptr = &palette[pixel << 1];
         *line_buf++ = *palette_ptr++;
         *line_buf++ = *palette_ptr;
 
         c2 = *scr_buf++;
-
         pixel = c2 & 0x3f;
+
         palette_ptr = &palette[pixel << 1];
         *line_buf++ = *palette_ptr++;
         *line_buf++ = *palette_ptr;
@@ -173,40 +173,39 @@ static void __not_in_flash_func(dma_handler_dvi)()
       }
 
       while (i < osd_end_buf)
-      { // ultra-simplified OSD compositing - byte-aligned boundaries (2-pixel aligned)
-        uint8_t c2 = *scr_buf++;
+      { // ultra-simplified OSD compositing
         int screen_x_base = i << 1;
 
-        // Since OSD boundaries are byte-aligned, check entire pixel pair at once
         if (screen_x_base >= osd_start_x && (screen_x_base + 1) < osd_end_x)
-        {
-          // both pixels are in OSD area - direct byte replacement
-          int osd_x = screen_x_base - osd_start_x;
+        { // pixels are in OSD area
+          uint8_t osd_byte = *osd_line++;
+          uint8_t pixel = osd_byte & 0x3f;
 
-          uint8_t osd_byte = osd_line[osd_x >> 1]; // Direct byte from OSD buffer
-
-          uint8_t pixel = osd_byte & 0xf;
           uint64_t *palette_ptr = &palette[pixel << 1];
           *line_buf++ = *palette_ptr++;
           *line_buf++ = *palette_ptr;
 
-          pixel = osd_byte >> 4;
+          osd_byte = *osd_line++;
+          pixel = osd_byte & 0x3f;
+
           palette_ptr = &palette[pixel << 1];
           *line_buf++ = *palette_ptr++;
           *line_buf++ = *palette_ptr;
 
-          scr_buf++;
+          scr_buf += 2;
         }
         else
         { // no OSD overlay - process screen pixels directly
+          uint8_t c2 = *scr_buf++;
           uint8_t pixel = c2 & 0x3f;
+
           uint64_t *palette_ptr = &palette[pixel << 1];
           *line_buf++ = *palette_ptr++;
           *line_buf++ = *palette_ptr;
 
           c2 = *scr_buf++;
-
           pixel = c2 & 0x3f;
+
           palette_ptr = &palette[pixel << 1];
           *line_buf++ = *palette_ptr++;
           *line_buf++ = *palette_ptr;
@@ -216,17 +215,17 @@ static void __not_in_flash_func(dma_handler_dvi)()
       }
 
       while (i < h_visible_area)
-      { // fast loop for post-OSD area (no OSD checks) - optimized palette access
+      { // fast loop for post-OSD area
         uint8_t c2 = *scr_buf++;
-
         uint8_t pixel = c2 & 0x3f;
+
         uint64_t *palette_ptr = &palette[pixel << 1];
         *line_buf++ = *palette_ptr++;
         *line_buf++ = *palette_ptr;
 
         c2 = *scr_buf++;
-
         pixel = c2 & 0x3f;
+
         palette_ptr = &palette[pixel << 1];
         *line_buf++ = *palette_ptr++;
         *line_buf++ = *palette_ptr;

@@ -23,7 +23,7 @@ if (Test-Path -Path $SKETCH_YAML -PathType Leaf) {
 if ($FQBN -ne "") {
     $PORT = $(& $ARDUINO_CLI ("board list --json" -split "\s+") | ConvertFrom-Json).detected_ports | ForEach-Object { if ($_.matching_boards.fqbn -contains $FQBN) { $_.port.address } }
 }
-
+$PORT = "COM5"
 $BAUDRATE = "9600"
 $PORT_CONFIG = "--config baudrate=$BAUDRATE" -split "\s+"
 # Optional verbose compile/upload trigger
