@@ -6,9 +6,19 @@
 
 #include "g_config.h"
 #include "dvi.h"
-#include "osd_menu.h"
 #include "pio_programs.h"
 #include "v_buf.h"
+
+#ifdef OSD_MENU
+#include "osd_menu.h"
+
+static uint16_t osd_start_x;
+static uint16_t osd_end_x;
+static uint16_t osd_start_y;
+static uint16_t osd_end_y;
+static int osd_start_buf;
+static int osd_end_buf;
+#endif
 
 extern settings_t settings;
 
@@ -18,13 +28,6 @@ static uint offset;
 
 static video_mode_t video_mode;
 static int16_t h_visible_area;
-
-static uint16_t osd_start_x;
-static uint16_t osd_end_x;
-static uint16_t osd_start_y;
-static uint16_t osd_end_y;
-static int osd_start_buf;
-static int osd_end_buf;
 
 static uint32_t *v_out_dma_buf[2];
 
@@ -144,6 +147,7 @@ static void __not_in_flash_func(dma_handler_dvi)()
     uint8_t *scr_buf = &screen_buf[scaled_y * (V_BUF_W / 2)];
     uint64_t *line_buf = active_buf;
 
+#ifdef OSD_MENU
     // check if OSD is visible and overlaps with current scaled scanline
     bool osd_active = osd_state.visible && (scaled_y >= osd_start_y && scaled_y < osd_end_y);
 
@@ -228,6 +232,7 @@ static void __not_in_flash_func(dma_handler_dvi)()
       }
     }
     else
+#endif
       for (int i = 0; i < h_visible_area; i++)
       { // no OSD - maximum speed path
         uint8_t c2 = *scr_buf++;
@@ -272,6 +277,7 @@ void start_dvi(video_mode_t v_mode)
 
   h_visible_area = video_mode.h_visible_area / (2 * video_mode.div);
 
+#ifdef OSD_MENU
   osd_start_x = h_visible_area - OSD_WIDTH / 2;
   osd_end_x = osd_start_x + OSD_WIDTH;
 
@@ -287,6 +293,8 @@ void start_dvi(video_mode_t v_mode)
 
   if (osd_end_buf > h_visible_area)
     osd_end_buf = h_visible_area;
+
+#endif
 
   // initialization of constants
   const uint16_t b0 = 0b1101010100;
