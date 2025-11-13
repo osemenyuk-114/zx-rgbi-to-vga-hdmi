@@ -61,7 +61,6 @@ EXIT
 ```text
 MODE         [resolution]    - Video output resolution
 SCANLINES    ON/OFF          - Scanline filter (VGA only, certain modes)
-BUFFERING    X1/X3           - Frame buffering mode
 < BACK TO MAIN
 ```
 
@@ -75,20 +74,17 @@ BUFFERING    X1/X3           - Frame buffering mode
 **Available Modes:**
 
 - **DVI:** 640x480@60Hz, 720x576@50Hz
-- **VGA:** 640x480@60Hz, 800x600@60Hz, 1024x768@60Hz, 1280x1024@60Hz (DIV3/DIV4)
+- **VGA:** 640x480@60Hz, 800x600@60Hz, 1280x1024@60Hz (DIV4)
 
 ### CAPTURE SETTINGS
 
 ```text
 FREQ      [value]            - Capture frequency (Hz)
-MODE      SELF-SYNC/EXTERNAL - Sync source
-DIVIDER   [value]            - External clock divider (EXT mode only)
-SYNC      COMPOSITE/SEPARATE - Video sync mode
 MASK      >                  - Pin inversion mask submenu
 < BACK TO MAIN
 ```
 
-**Adjustable Parameters (FREQ, DIVIDER):**
+**Adjustable Parameters (FREQ):**
 
 - Press SEL to enter tuning mode (`>` indicator, bright cyan highlight)
 - Use UP/DOWN to adjust value
@@ -101,20 +97,16 @@ MASK      >                  - Pin inversion mask submenu
 - After 2s: 10 kHz steps
 - After 5s: 100 kHz steps
 
-**Toggle Parameters (MODE, SYNC):**
-
-- Press SEL to toggle between values
-
 ### PIN INVERSION MASK
 
 ```text
-F   (FREQ)      ON/OFF
-SSI (HSYNC)     ON/OFF
-KSI (VSYNC)     ON/OFF
-I   (BRIGHT)    ON/OFF
-R   (RED)       ON/OFF
-G   (GREEN)     ON/OFF
-B   (BLUE)      ON/OFF
+F   (cs)        ON/OFF
+KSI (b0)        ON/OFF
+SSI (b1)        ON/OFF
+I   (g0)        ON/OFF
+R   (g1)        ON/OFF
+G   (r0)        ON/OFF
+B   (r1)        ON/OFF
 < BACK TO CAPTURE
 ```
 
@@ -149,7 +141,8 @@ VERSION   [version number]
 
 https://github.com/
 osemenyuk-114/
-zx-rgbi-to-vga-hdmi
+zx-rgbi-to-vga-hdmi/
+tree/6bit-color
 
 < BACK TO MAIN
 ```
@@ -157,7 +150,7 @@ zx-rgbi-to-vga-hdmi
 Displays:
 
 - Current firmware version
-- Project GitHub URL
+- Project GitHub URL (with branch)
 
 Press SEL on BACK to return to main menu.
 
@@ -192,7 +185,7 @@ To exit without saving, select **EXIT** instead.
 ## Tips
 
 - Menu has 10-second auto-timeout - any button press resets the timer
-- Dimmed items indicate unavailable options (e.g., SCANLINES on DVI, DIVIDER when MODE is SELF-SYNC)
+- Dimmed items indicate unavailable options (e.g., SCANLINES on DVI or when not in DIV4 mode)
 - Tuning mode allows real-time adjustment while viewing the image
 - Video mode changes only restart output if the resolution actually changed
 - Long SEL press (5s) for quick VGA/DVI toggle without opening menu
