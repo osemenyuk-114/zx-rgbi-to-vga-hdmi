@@ -150,3 +150,6 @@ extern uint8_t g_v_buf[];
 // narrow - show scanline once every four lines
 // wide   - show scanline twice in four lines
 #define NARROW_SCANLINE
+
+// enable OSD menu 
+#define OSD_MENU
