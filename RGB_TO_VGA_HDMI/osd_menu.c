@@ -1222,20 +1222,20 @@ void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction)
         {
             uint32_t hold_duration = current_time - osd_buttons.key_hold_start[button_index];
 
-            // Progressive step increase based on hold time
-            if (hold_duration > 5000000)
-                freq_step = 100000; // After 5 seconds: 100kHz steps
-            else if (hold_duration > 2000000)
-                freq_step = 10000; // After 2 seconds: 10kHz steps
-            else if (hold_duration > 1000000)
-                freq_step = 1000; // After 1 second: 1kHz steps
+            // Progressive step increase based on hold time and current frequency alignment
+            if (hold_duration > 5000000 && (settings.frequency % 100000 == 0))
+                freq_step = 100000; // After 5 seconds and 100kHz alignment: 100kHz steps
+            else if (hold_duration > 2000000 && (settings.frequency % 10000 == 0))
+                freq_step = 10000; // After 2 seconds and 10kHz alignment: 10kHz steps
+            else if (hold_duration > 1000000 && (settings.frequency % 1000 == 0))
+                freq_step = 1000; // After 1 second and 1kHz alignment: 1kHz steps
             else
                 freq_step = 100; // First second: 100Hz steps
         }
 
-        if (direction > 0 && settings.frequency < FREQUENCY_MAX - freq_step)
+        if (direction > 0 && settings.frequency <= FREQUENCY_MAX - freq_step)
             settings.frequency += freq_step;
-        else if (direction < 0 && settings.frequency > FREQUENCY_MIN + freq_step)
+        else if (direction < 0 && settings.frequency >= FREQUENCY_MIN + freq_step)
             settings.frequency -= freq_step;
         // Apply frequency change immediately
         set_capture_frequency(settings.frequency);
