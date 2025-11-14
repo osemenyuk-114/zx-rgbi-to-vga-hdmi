@@ -1276,9 +1276,9 @@ void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction)
                 freq_step = 100; // First second: 100Hz steps
         }
 
-        if (direction > 0 && settings.frequency < FREQUENCY_MAX - freq_step)
+        if (direction > 0 && settings.frequency <= FREQUENCY_MAX - freq_step)
             settings.frequency += freq_step;
-        else if (direction < 0 && settings.frequency > FREQUENCY_MIN + freq_step)
+        else if (direction < 0 && settings.frequency >= FREQUENCY_MIN + freq_step)
             settings.frequency -= freq_step;
         // Apply frequency change immediately
         set_capture_frequency(settings.frequency);
