@@ -9,7 +9,7 @@
 #include "pio_programs.h"
 #include "v_buf.h"
 
-#ifdef OSD_MENU
+#ifdef OSD_MENU_ENABLE
 #include "osd_menu.h"
 
 static uint16_t osd_start_x;
@@ -92,7 +92,7 @@ void __not_in_flash_func(dma_handler_vga)()
   switch (video_mode.div)
   {
   case 2:
-#ifdef LOW_RES_SCANLINE
+#ifdef SCANLINES_ENABLE_LOW_RES
     if (scanlines_mode)
     {
       if (line > 0)
@@ -119,7 +119,7 @@ void __not_in_flash_func(dma_handler_vga)()
   case 4:
     if (scanlines_mode)
     {
-#ifdef NARROW_SCANLINE
+#ifdef SCANLINES_USE_THIN
       if (line > 1)
         line--;
 
@@ -191,7 +191,7 @@ void __not_in_flash_func(dma_handler_vga)()
   for (int x = h_margin; x--;)
     *line_buf++ = palette[0];
 
-#ifdef OSD_MENU
+#ifdef OSD_MENU_ENABLE
   // main image area with OSD compositing
   bool osd_active = osd_state.visible && (scaled_y >= osd_start_y && scaled_y < osd_end_y);
 
@@ -305,7 +305,7 @@ void __not_in_flash_func(dma_handler_vga)()
       *line_buf++ = palette[*scr_buf++];
       x++;
     }
-#ifdef OSD_MENU
+#ifdef OSD_MENU_ENABLE
   }
 #endif
 
@@ -343,7 +343,7 @@ void start_vga(video_mode_t v_mode)
   if (v_margin < 0)
     v_margin = 0;
 
-#ifdef OSD_MENU
+#ifdef OSD_MENU_ENABLE
   osd_start_x = h_visible_area - OSD_WIDTH / 2;
   osd_end_x = osd_start_x + OSD_WIDTH;
 

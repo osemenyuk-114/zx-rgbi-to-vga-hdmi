@@ -168,12 +168,12 @@ extern uint8_t g_v_buf[];
 
 // enable scanlines on 640x480 and 800x600 resolutions
 // not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler
-// #define LOW_RES_SCANLINE
+// #define SCANLINES_ENABLE_LOW_RES
 
-// select scanline thickness for the 1280x1024 video mode
-// narrow - show scanline once every four lines
-// wide   - show scanline twice in four lines
-#define NARROW_SCANLINE
+// select scanline thickness for the 1280x1024 div4 video mode
+// thin - show scanline once every four lines
+// thick - show scanline twice in four lines
+#define SCANLINES_USE_THIN
 
 // enable OSD menu
-#define OSD_MENU
+#define OSD_MENU_ENABLE
