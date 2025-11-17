@@ -9,7 +9,7 @@
 #include "pio_programs.h"
 #include "v_buf.h"
 
-#ifdef OSD_MENU
+#ifdef OSD_MENU_ENABLE
 #include "osd_menu.h"
 
 static uint16_t osd_start_x;
@@ -147,7 +147,7 @@ static void __not_in_flash_func(dma_handler_dvi)()
     uint8_t *scr_buf = &screen_buf[scaled_y * (V_BUF_W / 2)];
     uint64_t *line_buf = active_buf;
 
-#ifdef OSD_MENU
+#ifdef OSD_MENU_ENABLE
     // check if OSD is visible and overlaps with current scaled scanline
     bool osd_active = osd_state.visible && (scaled_y >= osd_start_y && scaled_y < osd_end_y);
 
@@ -277,7 +277,7 @@ void start_dvi(video_mode_t v_mode)
 
   h_visible_area = video_mode.h_visible_area / (2 * video_mode.div);
 
-#ifdef OSD_MENU
+#ifdef OSD_MENU_ENABLE
   osd_start_x = h_visible_area - OSD_WIDTH / 2;
   osd_end_x = osd_start_x + OSD_WIDTH;
 
