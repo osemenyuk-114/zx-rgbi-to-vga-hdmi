@@ -14,7 +14,7 @@ extern "C"
 #include "v_buf.h"
 #include "video_output.h"
 
-#ifdef OSD_MENU
+#ifdef OSD_MENU_ENABLE
 #include "osd_menu.h"
 #endif
 }
@@ -45,7 +45,7 @@ void setup()
   set_scanlines_mode();
   start_video_output(settings.video_out_type);
 
-#ifdef OSD_MENU
+#ifdef OSD_MENU_ENABLE
   osd_init();
 #endif
 
@@ -56,7 +56,7 @@ void setup()
 
 void loop()
 {
-#ifdef OSD_MENU
+#ifdef OSD_MENU_ENABLE
   osd_update();
 
   if (!osd_state.visible)
@@ -67,7 +67,7 @@ void loop()
     if (c != 0)
       handle_serial_menu();
 
-#ifdef OSD_MENU
+#ifdef OSD_MENU_ENABLE
   }
 #endif
 }

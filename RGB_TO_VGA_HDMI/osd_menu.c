@@ -392,11 +392,11 @@ void osd_update()
                     bool scanlines_supported = false;
                     if (settings.video_out_type == VGA)
                     {
-#ifdef LOW_RES_SCANLINE
-                        // When LOW_RES_SCANLINE is defined, scanlines are supported for all div values
+#ifdef SCANLINES_ENABLE_LOW_RES
+                        // When SCANLINES_ENABLE_LOW_RES is defined, scanlines are supported for all div values
                         scanlines_supported = true;
 #else
-                        // When LOW_RES_SCANLINE is not defined, only support div 4
+                        // When SCANLINES_ENABLE_LOW_RES is not defined, only support div 4
                         uint8_t div = video_modes[settings.video_out_mode]->div;
                         scanlines_supported = div == 4;
 #endif
@@ -925,7 +925,7 @@ static void render_output_menu()
                 color = OSD_COLOR_DIMMED;
             else if (settings.video_out_type == VGA)
             {
-#ifndef LOW_RES_SCANLINE
+#ifndef SCANLINES_ENABLE_LOW_RES
                 uint8_t div = video_modes[settings.video_out_mode]->div;
                 if (div != 4)
                     color = OSD_COLOR_DIMMED;
