@@ -116,7 +116,7 @@ static void __not_in_flash_func(dma_handler_dvi)()
 {
   static uint16_t y = 0;
 
-  static uint8_t *screen_buf = NULL;
+  static uint8_t *scr_buffer = NULL;
   static uint32_t active_buf_idx = 0;
 
   dma_hw->ints0 = 1u << dma_ch1;
@@ -128,7 +128,7 @@ static void __not_in_flash_func(dma_handler_dvi)()
   if (y == video_mode.whole_frame)
   {
     y = 0;
-    screen_buf = get_v_buf_out();
+    scr_buffer = get_v_buf_out();
   }
 
   if (y & 1)
@@ -138,13 +138,13 @@ static void __not_in_flash_func(dma_handler_dvi)()
 
   uint64_t *active_buf = (uint64_t *)(v_out_dma_buf[active_buf_idx & 1]);
 
-  if (screen_buf == NULL)
+  if (scr_buffer == NULL)
     return;
 
   if (y < video_mode.v_visible_area)
   { // image area
     uint16_t scaled_y = y / video_mode.div;
-    uint8_t *scr_buf = &screen_buf[scaled_y * (V_BUF_W / 2)];
+    uint8_t *scr_line = &scr_buffer[scaled_y * (V_BUF_W / 2)];
     uint64_t *line_buf = active_buf;
 
 #ifdef OSD_MENU_ENABLE
@@ -159,7 +159,7 @@ static void __not_in_flash_func(dma_handler_dvi)()
 
       while (i < osd_start_buf)
       { // fast loop for pre-OSD area (no OSD checks) - optimized palette access
-        uint8_t c2 = *scr_buf++;
+        uint8_t c2 = *scr_line++;
         uint8_t pixel1 = c2 & 0xf;
         uint8_t pixel2 = c2 >> 4;
 
@@ -176,18 +176,15 @@ static void __not_in_flash_func(dma_handler_dvi)()
 
       while (i < osd_end_buf)
       { // ultra-simplified OSD compositing - byte-aligned boundaries (2-pixel aligned)
-        uint8_t c2 = *scr_buf++;
+        uint8_t c2 = *scr_line++;
         int screen_x_base = i << 1;
 
         // Since OSD boundaries are byte-aligned, check entire pixel pair at once
         if (screen_x_base >= osd_start_x && (screen_x_base + 1) < osd_end_x)
-        {
-          // both pixels are in OSD area - direct byte replacement
-          int osd_x = screen_x_base - osd_start_x;
-          uint8_t osd_byte = osd_line[osd_x >> 1]; // Direct byte from OSD buffer
-
-          uint8_t pixel1 = osd_byte & 0xf;
-          uint8_t pixel2 = osd_byte >> 4;
+        { // both pixels are in OSD area - direct byte replacement
+          uint8_t o2 = *osd_line++;
+          uint8_t pixel1 = o2 & 0xf;
+          uint8_t pixel2 = o2 >> 4;
 
           uint64_t *palette_ptr = &palette[pixel1 << 1];
           *line_buf++ = *palette_ptr++;
@@ -216,7 +213,7 @@ static void __not_in_flash_func(dma_handler_dvi)()
 
       while (i < h_visible_area)
       { // fast loop for post-OSD area (no OSD checks) - optimized palette access
-        uint8_t c2 = *scr_buf++;
+        uint8_t c2 = *scr_line++;
         uint8_t pixel1 = c2 & 0xf;
         uint8_t pixel2 = c2 >> 4;
 
@@ -235,7 +232,7 @@ static void __not_in_flash_func(dma_handler_dvi)()
 #endif
       for (int i = 0; i < h_visible_area; i++)
       { // no OSD - maximum speed path
-        uint8_t c2 = *scr_buf++;
+        uint8_t c2 = *scr_line++;
         uint8_t pixel1 = c2 & 0xf;
         uint8_t pixel2 = c2 >> 4;
 

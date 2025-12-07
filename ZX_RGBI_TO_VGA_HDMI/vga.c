@@ -42,7 +42,7 @@ void __not_in_flash_func(dma_handler_vga)()
 {
   static uint16_t y = 0;
 
-  static uint8_t *screen_buf = NULL;
+  static uint8_t *scr_buffer = NULL;
 
   dma_hw->ints0 = 1u << dma_ch1;
 
@@ -51,7 +51,7 @@ void __not_in_flash_func(dma_handler_vga)()
   if (y == video_mode.whole_frame)
   {
     y = 0;
-    screen_buf = get_v_buf_out();
+    scr_buffer = get_v_buf_out();
   }
 
   if (y >= video_mode.v_visible_area && y < (video_mode.v_visible_area + video_mode.v_front_porch))
@@ -73,7 +73,7 @@ void __not_in_flash_func(dma_handler_vga)()
     return;
   }
 
-  if (!(screen_buf))
+  if (!(scr_buffer))
   {
     dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[2], false);
     return;
@@ -184,7 +184,7 @@ void __not_in_flash_func(dma_handler_vga)()
   }
 
   uint16_t scaled_y = (y - v_margin) / video_mode.div; // represents the line in the original captured image
-  uint8_t *scr_buf = &screen_buf[scaled_y * (V_BUF_W / 2)];
+  uint8_t *scr_line = &scr_buffer[scaled_y * (V_BUF_W / 2)];
   uint16_t *line_buf = (uint16_t *)v_out_dma_buf[active_buf_idx];
 
   // left margin
@@ -204,23 +204,21 @@ void __not_in_flash_func(dma_handler_vga)()
     // ultra-fast direct byte processing for pre-OSD area with loop unrolling
     while ((x + 4) <= osd_start_buf)
     {
-      *line_buf++ = palette[*scr_buf++];
-      *line_buf++ = palette[*scr_buf++];
-      *line_buf++ = palette[*scr_buf++];
-      *line_buf++ = palette[*scr_buf++];
+      *line_buf++ = palette[*scr_line++];
+      *line_buf++ = palette[*scr_line++];
+      *line_buf++ = palette[*scr_line++];
+      *line_buf++ = palette[*scr_line++];
 
       x += 4;
     }
 
     while (x < osd_start_buf)
     {
-      *line_buf++ = palette[*scr_buf++];
+      *line_buf++ = palette[*scr_line++];
       x++;
     }
 
     // ultra-simplified OSD compositing with optimized unrolling
-    int osd_x_offset = 0;
-
     // process 4 bytes at a time for better performance
     while ((x + 4) <= osd_end_buf)
     {                                  // check if this entire 4-byte block is fully within OSD boundaries
@@ -229,26 +227,26 @@ void __not_in_flash_func(dma_handler_vga)()
 
       if (screen_x_start >= osd_start_x && (screen_x_end + 1) < osd_end_x)
       { // entire 4-byte block is OSD - direct OSD buffer processing
-        *line_buf++ = palette[osd_line[osd_x_offset++]];
-        *line_buf++ = palette[osd_line[osd_x_offset++]];
-        *line_buf++ = palette[osd_line[osd_x_offset++]];
-        *line_buf++ = palette[osd_line[osd_x_offset++]];
+        *line_buf++ = palette[*osd_line++];
+        *line_buf++ = palette[*osd_line++];
+        *line_buf++ = palette[*osd_line++];
+        *line_buf++ = palette[*osd_line++];
 
-        scr_buf += 4;
+        scr_line += 4;
       }
       else
       { // block spans boundary - process individually
         for (int i = 0; i < 4; i++)
         {
-          uint8_t screen_pixel = *scr_buf++;
+          uint8_t scr_pixel = *scr_line++;
+          uint8_t osd_pixel = *osd_line++;
+
           int pixel_x = (x + i) << 1;
 
           if (pixel_x >= osd_start_x && (pixel_x + 1) < osd_end_x)
-            *line_buf++ = palette[osd_line[osd_x_offset]];
+            *line_buf++ = palette[osd_pixel];
           else
-            *line_buf++ = palette[screen_pixel];
-
-          osd_x_offset++;
+            *line_buf++ = palette[scr_pixel];
         }
       }
 
@@ -257,31 +255,32 @@ void __not_in_flash_func(dma_handler_vga)()
 
     while (x < osd_end_buf)
     { // handle remaining bytes (0-3 bytes)
-      uint8_t screen_pixel = *scr_buf++;
+      uint8_t scr_pixel = *scr_line++;
+      uint8_t osd_pixel = *osd_line++;
+
       int screen_x_base = x << 1;
 
       if (screen_x_base >= osd_start_x && (screen_x_base + 1) < osd_end_x)
-        *line_buf++ = palette[osd_line[osd_x_offset]];
+        *line_buf++ = palette[osd_pixel];
       else
-        *line_buf++ = palette[screen_pixel];
+        *line_buf++ = palette[scr_pixel];
 
-      osd_x_offset++;
       x++;
     }
 
     while ((x + 4) <= h_visible_area)
     {
-      *line_buf++ = palette[*scr_buf++];
-      *line_buf++ = palette[*scr_buf++];
-      *line_buf++ = palette[*scr_buf++];
-      *line_buf++ = palette[*scr_buf++];
+      *line_buf++ = palette[*scr_line++];
+      *line_buf++ = palette[*scr_line++];
+      *line_buf++ = palette[*scr_line++];
+      *line_buf++ = palette[*scr_line++];
 
       x += 4;
     }
 
     while (x < h_visible_area)
     {
-      *line_buf++ = palette[*scr_buf++];
+      *line_buf++ = palette[*scr_line++];
       x++;
     }
   }
@@ -292,17 +291,17 @@ void __not_in_flash_func(dma_handler_vga)()
 
     while ((x + 4) <= h_visible_area)
     {
-      *line_buf++ = palette[*scr_buf++];
-      *line_buf++ = palette[*scr_buf++];
-      *line_buf++ = palette[*scr_buf++];
-      *line_buf++ = palette[*scr_buf++];
+      *line_buf++ = palette[*scr_line++];
+      *line_buf++ = palette[*scr_line++];
+      *line_buf++ = palette[*scr_line++];
+      *line_buf++ = palette[*scr_line++];
 
       x += 4;
     }
 
     while (x < h_visible_area)
     {
-      *line_buf++ = palette[*scr_buf++];
+      *line_buf++ = palette[*scr_line++];
       x++;
     }
 #ifdef OSD_MENU_ENABLE
