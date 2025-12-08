@@ -42,7 +42,7 @@ void __not_in_flash_func(dma_handler_vga)()
 {
   static uint16_t y = 0;
 
-  static uint8_t *screen_buf = NULL;
+  static uint8_t *scr_buffer = NULL;
 
   dma_hw->ints0 = 1u << dma_ch1;
 
@@ -51,7 +51,7 @@ void __not_in_flash_func(dma_handler_vga)()
   if (y == video_mode.whole_frame)
   {
     y = 0;
-    screen_buf = get_v_buf_out();
+    scr_buffer = get_v_buf_out();
   }
 
   if (y >= video_mode.v_visible_area && y < (video_mode.v_visible_area + video_mode.v_front_porch))
@@ -73,7 +73,7 @@ void __not_in_flash_func(dma_handler_vga)()
     return;
   }
 
-  if (!(screen_buf))
+  if (!(scr_buffer))
   {
     dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[2], false);
     return;
@@ -179,7 +179,7 @@ void __not_in_flash_func(dma_handler_vga)()
   }
 
   uint16_t scaled_y = (y - v_margin) / video_mode.div; // represents the line in the original captured image
-  uint8_t *scr_buf = &screen_buf[scaled_y * V_BUF_W];
+  uint8_t *scr_line = &scr_buffer[scaled_y * V_BUF_W];
   uint16_t *line_buf = (uint16_t *)v_out_dma_buf[active_buf_idx];
 
   // left margin
@@ -199,17 +199,17 @@ void __not_in_flash_func(dma_handler_vga)()
     // ultra-fast direct byte processing for pre-OSD area with loop unrolling
     while ((x + 4) <= osd_start_buf)
     {
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
 
       x += 4;
     }
 
     while (x < osd_start_buf)
     {
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
       x++;
     }
 
@@ -222,29 +222,29 @@ void __not_in_flash_func(dma_handler_vga)()
       *line_buf++ = palette[*osd_line++][*osd_line++];
 
       x += 4;
-      scr_buf += 8;
+      scr_line += 8;
     }
 
     while (x < osd_end_buf)
     {
       *line_buf++ = palette[*osd_line++][*osd_line++];
       x++;
-      scr_buf += 2;
+      scr_line += 2;
     }
 
     while ((x + 4) <= h_visible_area)
     {
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
 
       x += 4;
     }
 
     while (x < h_visible_area)
     {
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
       x++;
     }
   }
@@ -255,17 +255,17 @@ void __not_in_flash_func(dma_handler_vga)()
 
     while ((x + 4) <= h_visible_area)
     {
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
 
       x += 4;
     }
 
     while (x < h_visible_area)
     {
-      *line_buf++ = palette[*scr_buf++][*scr_buf++];
+      *line_buf++ = palette[*scr_line++][*scr_line++];
       x++;
     }
 #ifdef OSD_MENU_ENABLE
