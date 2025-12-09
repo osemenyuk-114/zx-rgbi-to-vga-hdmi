@@ -16,8 +16,6 @@ static uint16_t osd_start_x;
 static uint16_t osd_end_x;
 static uint16_t osd_start_y;
 static uint16_t osd_end_y;
-static int osd_start_buf;
-static int osd_end_buf;
 #endif
 
 extern settings_t settings;
@@ -196,9 +194,8 @@ void __not_in_flash_func(dma_handler_vga)()
 
     int x = 0;
 
-    // ultra-fast direct byte processing for pre-OSD area with loop unrolling
-    while ((x + 4) <= osd_start_buf)
-    {
+    while ((x + 4) <= osd_start_x)
+    { // ultra-fast direct byte processing for pre-OSD area with loop unrolling
       *line_buf++ = palette[*scr_line++][*scr_line++];
       *line_buf++ = palette[*scr_line++][*scr_line++];
       *line_buf++ = palette[*scr_line++][*scr_line++];
@@ -207,15 +204,14 @@ void __not_in_flash_func(dma_handler_vga)()
       x += 4;
     }
 
-    while (x < osd_start_buf)
+    while (x < osd_start_x)
     {
       *line_buf++ = palette[*scr_line++][*scr_line++];
       x++;
     }
 
-    // OSD region - extract from OSD buffer
-    while ((x + 4) <= osd_end_buf)
-    {
+    while ((x + 4) <= osd_end_x)
+    { // ultra-simplified OSD compositing with optimized unrolling
       *line_buf++ = palette[*osd_line++][*osd_line++];
       *line_buf++ = palette[*osd_line++][*osd_line++];
       *line_buf++ = palette[*osd_line++][*osd_line++];
@@ -225,8 +221,8 @@ void __not_in_flash_func(dma_handler_vga)()
       scr_line += 8;
     }
 
-    while (x < osd_end_buf)
-    {
+    while (x < osd_end_x)
+    { // handle remaining bytes
       *line_buf++ = palette[*osd_line++][*osd_line++];
       x++;
       scr_line += 2;
@@ -307,22 +303,11 @@ void start_vga(video_mode_t v_mode)
     v_margin = 0;
 
 #ifdef OSD_MENU_ENABLE
-  osd_start_x = h_visible_area - OSD_WIDTH / 2;
-  osd_end_x = osd_start_x + OSD_WIDTH;
+  osd_start_x = (h_visible_area - OSD_WIDTH / 2) / 2;
+  osd_end_x = osd_start_x + OSD_WIDTH / 2;
 
   osd_start_y = ((video_mode.v_visible_area - 2 * v_margin) / video_mode.div - OSD_HEIGHT) / 2;
   osd_end_y = osd_start_y + OSD_HEIGHT;
-
-  osd_start_buf = osd_start_x >> 1;
-  osd_end_buf = (osd_end_x + 1) >> 1;
-
-  // clamp to visible area
-  if (osd_start_buf < 0)
-    osd_start_buf = 0;
-
-  if (osd_end_buf > h_visible_area)
-    osd_end_buf = h_visible_area;
-
 #endif
 
   set_sys_clock_khz(video_mode.sys_freq, true);
