@@ -37,7 +37,7 @@ uint8_t osd_buffer[OSD_BUFFER_SIZE];
 char osd_text_buffer[OSD_TEXT_BUFFER_SIZE];
 uint8_t osd_text_colors[2][OSD_TEXT_BUFFER_SIZE]; // 0: bg_color, 1: fg_color
 
-const uint8_t osd_font_8x8[256][8] = {
+const uint8_t osd_font[256][8] = {
     //
     [' '] = {0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00},
     ['!'] = {0x00, 0x10, 0x10, 0x10, 0x10, 0x00, 0x10, 0x00},
@@ -724,14 +724,14 @@ void osd_clear_buffer()
 
 void osd_clear_text_buffer()
 { // Clear text buffer but preserve border positions
-    for (uint8_t line = 0; line < OSD_LINES; line++)
+    for (uint8_t row = 0; row < OSD_ROWS; row++)
     {
-        for (uint8_t col = 0; col < OSD_CHARS_PER_LINE; col++)
+        for (uint8_t col = 0; col < OSD_COLUMNS; col++)
         {
-            uint16_t pos = line * OSD_CHARS_PER_LINE + col;
+            uint16_t pos = row * OSD_COLUMNS + col;
 
             // Skip border positions (first and last row, first and last column)
-            if (line == 0 || line == OSD_LINES - 1 || col == 0 || col == OSD_CHARS_PER_LINE - 1)
+            if (row == 0 || row == OSD_ROWS - 1 || col == 0 || col == OSD_COLUMNS - 1)
                 continue;
 
             osd_text_buffer[pos] = ' ';
@@ -741,51 +741,44 @@ void osd_clear_text_buffer()
     }
 }
 
-char *osd_text_get_line_ptr(uint8_t line)
+void osd_text_set_char(uint8_t row, uint8_t col, char c, uint8_t fg_color, uint8_t bg_color)
 {
-    if (line >= OSD_LINES)
-        return NULL;
-    return &osd_text_buffer[line * OSD_CHARS_PER_LINE];
-}
-
-void osd_text_set_char(uint8_t line, uint8_t col, char c, uint8_t fg_color, uint8_t bg_color)
-{
-    if (line >= OSD_LINES || col >= OSD_CHARS_PER_LINE)
+    if (row >= OSD_ROWS || col >= OSD_COLUMNS)
         return;
 
-    uint16_t pos = line * OSD_CHARS_PER_LINE + col;
+    uint16_t pos = row * OSD_COLUMNS + col;
     osd_text_buffer[pos] = c;
     osd_text_colors[0][pos] = bg_color;
     osd_text_colors[1][pos] = fg_color;
 }
 
-void osd_text_print(uint8_t line, uint8_t col, const char *str, uint8_t fg_color, uint8_t bg_color)
+void osd_text_print(uint8_t row, uint8_t col, const char *str, uint8_t fg_color, uint8_t bg_color)
 {
-    if (line >= OSD_LINES)
+    if (row >= OSD_ROWS)
         return;
 
-    uint16_t line_start = line * OSD_CHARS_PER_LINE;
-    uint16_t pos = line_start + col;
-    uint8_t max_len = OSD_CHARS_PER_LINE - col;
+    uint16_t row_start = row * OSD_COLUMNS;
+    uint16_t pos = row_start + col;
+    uint8_t max_len = OSD_COLUMNS - col;
 
     // Fill left padding with spaces (avoid column 0 - left border)
     for (uint8_t i = 1; i < col; i++)
     {
-        osd_text_buffer[line_start + i] = ' ';
-        osd_text_colors[0][line_start + i] = bg_color;
-        osd_text_colors[1][line_start + i] = fg_color;
+        osd_text_buffer[row_start + i] = ' ';
+        osd_text_colors[0][row_start + i] = bg_color;
+        osd_text_colors[1][row_start + i] = fg_color;
     }
 
     uint8_t i;
     // Copy string characters (avoid last column - right border)
-    uint8_t effective_max_len = (col + max_len >= OSD_CHARS_PER_LINE) ? (OSD_CHARS_PER_LINE - col - 1) : max_len;
+    uint8_t effective_max_len = (col + max_len >= OSD_COLUMNS) ? (OSD_COLUMNS - col - 1) : max_len;
     for (i = 0; i < effective_max_len && str[i] != '\0'; i++)
     {
         osd_text_buffer[pos + i] = str[i];
         osd_text_colors[0][pos + i] = bg_color;
         osd_text_colors[1][pos + i] = fg_color;
     }
-    // Pad with spaces to fill the rest of the line (avoid last column - right border)
+    // Pad with spaces to fill the rest of the row (avoid last column - right border)
     for (; i < effective_max_len; i++)
     {
         osd_text_buffer[pos + i] = ' ';
@@ -794,19 +787,19 @@ void osd_text_print(uint8_t line, uint8_t col, const char *str, uint8_t fg_color
     }
 }
 
-void osd_text_print_centered(uint8_t line, const char *str, uint8_t fg_color, uint8_t bg_color)
+void osd_text_print_centered(uint8_t row, const char *str, uint8_t fg_color, uint8_t bg_color)
 {
-    if (line >= OSD_LINES)
+    if (row >= OSD_ROWS)
         return;
 
     uint8_t len = strlen(str);
     // Account for border columns (exclude first and last column)
-    uint8_t available_width = OSD_CHARS_PER_LINE - 2;
+    uint8_t available_width = OSD_COLUMNS - 2;
     if (len > available_width)
         len = available_width;
 
     uint8_t col = 1 + (available_width - len) / 2; // Start at column 1 (after left border)
-    uint16_t pos = line * OSD_CHARS_PER_LINE;
+    uint16_t pos = row * OSD_COLUMNS;
 
     // Fill left padding with spaces (start at column 1 to preserve left border)
     for (uint8_t i = 1; i < col; i++)
@@ -817,41 +810,41 @@ void osd_text_print_centered(uint8_t line, const char *str, uint8_t fg_color, ui
     }
 
     // Print centered text (this will also pad the right side, but won't overwrite right border)
-    osd_text_print(line, col, str, fg_color, bg_color);
+    osd_text_print(row, col, str, fg_color, bg_color);
 }
 
-void osd_text_printf(uint8_t line, uint8_t col, uint8_t fg_color, uint8_t bg_color, const char *format, ...)
+void osd_text_printf(uint8_t row, uint8_t col, uint8_t fg_color, uint8_t bg_color, const char *format, ...)
 {
-    if (line >= OSD_LINES)
+    if (row >= OSD_ROWS)
         return;
 
-    char temp[OSD_CHARS_PER_LINE + 1];
+    char temp[OSD_COLUMNS + 1];
     va_list args;
     va_start(args, format);
     vsnprintf(temp, sizeof(temp), format, args);
     va_end(args);
 
-    osd_text_print(line, col, temp, fg_color, bg_color);
+    osd_text_print(row, col, temp, fg_color, bg_color);
 }
 
 void osd_draw_border()
 { // Top border
     osd_text_set_char(0, 0, OSD_CHAR_BORDER_TL, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
-    for (uint8_t col = 1; col < OSD_CHARS_PER_LINE - 1; col++)
+    for (uint8_t col = 1; col < OSD_COLUMNS - 1; col++)
         osd_text_set_char(0, col, OSD_CHAR_BORDER_T, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
-    osd_text_set_char(0, OSD_CHARS_PER_LINE - 1, OSD_CHAR_BORDER_TR, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+    osd_text_set_char(0, OSD_COLUMNS - 1, OSD_CHAR_BORDER_TR, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
 
     // Bottom border
-    osd_text_set_char(OSD_LINES - 1, 0, OSD_CHAR_BORDER_BL, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
-    for (uint8_t col = 1; col < OSD_CHARS_PER_LINE - 1; col++)
-        osd_text_set_char(OSD_LINES - 1, col, OSD_CHAR_BORDER_B, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
-    osd_text_set_char(OSD_LINES - 1, OSD_CHARS_PER_LINE - 1, OSD_CHAR_BORDER_BR, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+    osd_text_set_char(OSD_ROWS - 1, 0, OSD_CHAR_BORDER_BL, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+    for (uint8_t col = 1; col < OSD_COLUMNS - 1; col++)
+        osd_text_set_char(OSD_ROWS - 1, col, OSD_CHAR_BORDER_B, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+    osd_text_set_char(OSD_ROWS - 1, OSD_COLUMNS - 1, OSD_CHAR_BORDER_BR, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
 
     // Left and right borders
-    for (uint8_t line = 1; line < OSD_LINES - 1; line++)
+    for (uint8_t row = 1; row < OSD_ROWS - 1; row++)
     {
-        osd_text_set_char(line, 0, OSD_CHAR_BORDER_L, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
-        osd_text_set_char(line, OSD_CHARS_PER_LINE - 1, OSD_CHAR_BORDER_R, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+        osd_text_set_char(row, 0, OSD_CHAR_BORDER_L, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+        osd_text_set_char(row, OSD_COLUMNS - 1, OSD_CHAR_BORDER_R, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
     }
 }
 
@@ -859,17 +852,17 @@ void osd_render_text_to_buffer()
 {
     // Render text buffer to pixel buffer
     // No need to clear - we're rendering every character which overwrites everything
-    for (uint8_t line = 0; line < OSD_LINES; line++)
+    for (uint8_t row = 0; row < OSD_ROWS; row++)
     {
-        for (uint8_t col = 0; col < OSD_CHARS_PER_LINE; col++)
+        for (uint8_t col = 0; col < OSD_COLUMNS; col++)
         {
-            uint16_t pos = line * OSD_CHARS_PER_LINE + col;
+            uint16_t pos = row * OSD_COLUMNS + col;
             char c = osd_text_buffer[pos];
             uint8_t bg_color = osd_text_colors[0][pos];
             uint8_t fg_color = osd_text_colors[1][pos];
 
             uint16_t x = col * OSD_FONT_WIDTH;
-            uint16_t y = line * OSD_FONT_HEIGHT;
+            uint16_t y = row * OSD_FONT_HEIGHT;
             osd_draw_char(osd_buffer, OSD_WIDTH, x, y, c, fg_color, bg_color);
         }
     }
@@ -888,7 +881,7 @@ static void render_main_menu()
 
     for (int i = 0; i < 6; i++)
     {
-        uint8_t line = OSD_MENU_START_LINE + i;
+        uint8_t row = OSD_MENU_START_ROW + i;
         uint8_t fg_color, bg_color;
 
         if (i == osd_state.selected_item)
@@ -903,19 +896,19 @@ static void render_main_menu()
         }
 
         if (i < 4)
-            osd_text_printf(line, 2, fg_color, bg_color, "%-16s >", items[i]);
+            osd_text_printf(row, 2, fg_color, bg_color, "%-16s >", items[i]);
         else
-            osd_text_print(line, 2, items[i], fg_color, bg_color);
+            osd_text_print(row, 2, items[i], fg_color, bg_color);
     }
 }
 
 static void render_output_menu()
 {
-    osd_text_print_centered(OSD_SUBTITLE_LINE, "OUTPUT SETTINGS", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
+    osd_text_print_centered(OSD_SUBTITLE_ROW, "OUTPUT SETTINGS", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
 
     for (int i = 0; i < 3; i++)
     {
-        uint8_t line = OSD_MENU_START_LINE + i;
+        uint8_t row = OSD_MENU_START_ROW + i;
         uint8_t color = OSD_COLOR_TEXT;
         uint8_t fg_color, bg_color;
 
@@ -970,27 +963,27 @@ static void render_output_menu()
                 else if (settings.video_out_mode == MODE_1280x1024_60Hz_d4)
                     current_mode_name = mode_names_vga[2];
             }
-            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %s", "MODE", current_mode_name);
+            osd_text_printf(row, 2, fg_color, bg_color, "%-9s %s", "MODE", current_mode_name);
         }
         else if (i == 1)
-            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %s", "SCANLINES", settings.scanlines_mode ? "ON" : "OFF");
+            osd_text_printf(row, 2, fg_color, bg_color, "%-9s %s", "SCANLINES", settings.scanlines_mode ? "ON" : "OFF");
         else if (i == 2)
-            osd_text_print(line, 2, "< BACK TO MAIN", fg_color, bg_color);
+            osd_text_print(row, 2, "< BACK TO MAIN", fg_color, bg_color);
 
         if (i == 0 && i == osd_state.selected_item && osd_state.tuning_mode)
         {
-            osd_text_set_char(line, 1, '>', fg_color, bg_color);
+            osd_text_set_char(row, 1, '>', fg_color, bg_color);
         }
     }
 }
 
 static void render_capture_menu()
 {
-    osd_text_print_centered(OSD_SUBTITLE_LINE, "CAPTURE SETTINGS", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
+    osd_text_print_centered(OSD_SUBTITLE_ROW, "CAPTURE SETTINGS", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
 
     for (int i = 0; i < 3; i++)
     {
-        uint8_t line = OSD_MENU_START_LINE + i;
+        uint8_t row = OSD_MENU_START_ROW + i;
         uint8_t fg_color, bg_color;
 
         if (i < 2 && i == osd_state.selected_item && osd_state.tuning_mode)
@@ -1010,26 +1003,26 @@ static void render_capture_menu()
         }
 
         if (i == 0)
-            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %lu", "FREQ", settings.frequency);
+            osd_text_printf(row, 2, fg_color, bg_color, "%-9s %lu", "FREQ", settings.frequency);
         else if (i == 1)
-            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %s", "MASK", ">");
+            osd_text_printf(row, 2, fg_color, bg_color, "%-9s %s", "MASK", ">");
         else if (i == 2)
-            osd_text_print(line, 2, "< BACK TO MAIN", fg_color, bg_color);
+            osd_text_print(row, 2, "< BACK TO MAIN", fg_color, bg_color);
 
         if (i < 2 && i == osd_state.selected_item && osd_state.tuning_mode)
         {
-            osd_text_set_char(line, 1, '>', fg_color, bg_color);
+            osd_text_set_char(row, 1, '>', fg_color, bg_color);
         }
     }
 }
 
 static void render_image_adjust_menu()
 {
-    osd_text_print_centered(OSD_SUBTITLE_LINE, "IMAGE ADJUST", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
+    osd_text_print_centered(OSD_SUBTITLE_ROW, "IMAGE ADJUST", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
 
     for (int i = 0; i < 5; i++)
     {
-        uint8_t line = OSD_MENU_START_LINE + i;
+        uint8_t row = OSD_MENU_START_ROW + i;
         uint8_t color = OSD_COLOR_TEXT;
         uint8_t fg_color, bg_color;
 
@@ -1050,26 +1043,26 @@ static void render_image_adjust_menu()
         }
 
         if (i == 0)
-            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %d", "H_POS", settings.shX);
+            osd_text_printf(row, 2, fg_color, bg_color, "%-9s %d", "H_POS", settings.shX);
         else if (i == 1)
-            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %d", "V_POS", settings.shY);
+            osd_text_printf(row, 2, fg_color, bg_color, "%-9s %d", "V_POS", settings.shY);
         else if (i == 2)
-            osd_text_printf(line, 2, fg_color, bg_color, "%-9s %d", "DELAY", settings.delay);
+            osd_text_printf(row, 2, fg_color, bg_color, "%-9s %d", "DELAY", settings.delay);
         else if (i == 3)
-            osd_text_print(line, 2, "RESET TO DEFAULTS", fg_color, bg_color);
+            osd_text_print(row, 2, "RESET TO DEFAULTS", fg_color, bg_color);
         else if (i == 4)
-            osd_text_print(line, 2, "< BACK TO MAIN", fg_color, bg_color);
+            osd_text_print(row, 2, "< BACK TO MAIN", fg_color, bg_color);
 
         if (i < 3 && i == osd_state.selected_item && osd_state.tuning_mode)
         {
-            osd_text_set_char(line, 1, '>', fg_color, bg_color);
+            osd_text_set_char(row, 1, '>', fg_color, bg_color);
         }
     }
 }
 
 static void render_mask_menu()
 {
-    osd_text_print_centered(OSD_SUBTITLE_LINE, "PIN INVERSION MASK", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
+    osd_text_print_centered(OSD_SUBTITLE_ROW, "PIN INVERSION MASK", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
 
     const char *mask_items[] = {
         "F   (cs)",
@@ -1083,7 +1076,7 @@ static void render_mask_menu()
 
     for (int i = 0; i < 8; i++)
     {
-        uint8_t line = OSD_MENU_START_LINE + i;
+        uint8_t row = OSD_MENU_START_ROW + i;
         uint8_t fg_color, bg_color;
 
         if (i == osd_state.selected_item)
@@ -1101,25 +1094,25 @@ static void render_mask_menu()
         {
             uint8_t bit_pos = mask_bit_positions[i];
             bool bit_value = (settings.pin_inversion_mask >> bit_pos) & 1;
-            osd_text_printf(line, 2, fg_color, bg_color, "%-12s %s", mask_items[i], bit_value ? "ON" : "OFF");
+            osd_text_printf(row, 2, fg_color, bg_color, "%-12s %s", mask_items[i], bit_value ? "ON" : "OFF");
         }
         else
         {
-            osd_text_print(line, 2, mask_items[i], fg_color, bg_color);
+            osd_text_print(row, 2, mask_items[i], fg_color, bg_color);
         }
     }
 }
 
 static void render_about_menu()
 {
-    osd_text_print_centered(OSD_SUBTITLE_LINE, "ABOUT", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
+    osd_text_print_centered(OSD_SUBTITLE_ROW, "ABOUT", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
 
-    osd_text_printf(OSD_MENU_START_LINE, 2, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, "VERSION   %s", FW_VERSION);
+    osd_text_printf(OSD_MENU_START_ROW, 2, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, "VERSION   %s", FW_VERSION);
 
-    osd_text_print(OSD_MENU_START_LINE + 2, 2, "https://github.com/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
-    osd_text_print(OSD_MENU_START_LINE + 3, 2, "osemenyuk-114/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
-    osd_text_print(OSD_MENU_START_LINE + 4, 2, "zx-rgbi-to-vga-hdmi/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
-    osd_text_print(OSD_MENU_START_LINE + 5, 2, "tree/6bit-color", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
+    osd_text_print(OSD_MENU_START_ROW + 2, 2, "https://github.com/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
+    osd_text_print(OSD_MENU_START_ROW + 3, 2, "osemenyuk-114/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
+    osd_text_print(OSD_MENU_START_ROW + 4, 2, "zx-rgbi-to-vga-hdmi/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
+    osd_text_print(OSD_MENU_START_ROW + 5, 2, "tree/6bit-color", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
 
     uint8_t fg_color, bg_color;
     if (osd_state.selected_item == 0)
@@ -1133,7 +1126,7 @@ static void render_about_menu()
         bg_color = OSD_COLOR_BACKGROUND;
     }
 
-    osd_text_print(OSD_MENU_START_LINE + 7, 2, "< BACK TO MAIN", fg_color, bg_color);
+    osd_text_print(OSD_MENU_START_ROW + 7, 2, "< BACK TO MAIN", fg_color, bg_color);
 }
 
 void osd_update_text_buffer()
@@ -1142,8 +1135,8 @@ void osd_update_text_buffer()
 
     // Draw header
     const char *title = settings.video_out_type == VGA ? "RGB TO VGA CONVERTER" : "RGB TO HDMI CONVERTER";
-    osd_text_print_centered(OSD_TITLE_LINE, title, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
-    osd_text_print_centered(OSD_SUBTITLE_LINE, "SETUP MENU", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
+    osd_text_print_centered(OSD_TITLE_ROW, title, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND);
+    osd_text_print_centered(OSD_SUBTITLE_ROW, "SETUP MENU", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND);
 
     // Render menu based on current menu type
     switch (osd_menu.current_menu)
@@ -1313,12 +1306,12 @@ void osd_draw_char(uint8_t *buffer, uint16_t buf_width, uint16_t x, uint16_t y,
     if (c < 0 || c > 255)
         return;
 
-    const uint8_t *char_data = osd_font_8x8[(uint8_t)c];
+    const uint8_t *char_data = osd_font[(uint8_t)c];
 
-    for (int row = 0; row < 8; row++)
+    for (int row = 0; row < OSD_FONT_HEIGHT; row++)
     {
         uint8_t line = char_data[row];
-        for (int col = 0; col < 8; col++)
+        for (int col = 0; col < OSD_FONT_WIDTH; col++)
         {
             uint16_t px = x + col;
             uint16_t py = y + row;
@@ -1337,31 +1330,4 @@ void osd_draw_char(uint8_t *buffer, uint16_t buf_width, uint16_t x, uint16_t y,
             buffer[buffer_offset] = (line & (0x80 >> col)) ? fg_color : bg_color;
         }
     }
-}
-
-void osd_draw_string(uint8_t *buffer, uint16_t buf_width, uint16_t x, uint16_t y,
-                     const char *str, uint8_t fg_color, uint8_t bg_color)
-{
-    uint16_t cur_x = x;
-    while (*str && cur_x < buf_width - 8)
-    {
-        osd_draw_char(buffer, buf_width, cur_x, y, *str, fg_color, bg_color);
-        cur_x += 8; // ZX Spectrum: 8 pixels per character (no extra spacing)
-        str++;
-    }
-}
-
-void osd_draw_string_centered(uint8_t *buffer, uint16_t buf_width, uint16_t y,
-                              const char *str, uint8_t fg_color, uint8_t bg_color)
-{
-    int len = strlen(str);
-    int start_x = (buf_width - (len * 8)) / 2; // ZX Spectrum: 8 pixels per character
-
-    // Snap to 8-pixel grid
-    start_x = (start_x / 8) * 8;
-
-    if (start_x < 0)
-        start_x = 0;
-
-    osd_draw_string(buffer, buf_width, start_x, y, str, fg_color, bg_color);
 }
