@@ -7,9 +7,9 @@
 
 #define OSD_FONT_WIDTH 8
 #define OSD_FONT_HEIGHT 8
-#define OSD_CHARS_PER_LINE (OSD_WIDTH / OSD_FONT_WIDTH)       // 30 characters
-#define OSD_LINES (OSD_HEIGHT / OSD_FONT_HEIGHT)              // 15 lines
-#define OSD_TEXT_BUFFER_SIZE (OSD_CHARS_PER_LINE * OSD_LINES) // 450 bytes
+#define OSD_COLUMNS (OSD_WIDTH / OSD_FONT_WIDTH)      // 30 characters
+#define OSD_ROWS (OSD_HEIGHT / OSD_FONT_HEIGHT)       // 15 rows
+#define OSD_TEXT_BUFFER_SIZE (OSD_COLUMNS * OSD_ROWS) // 450 bytes
 
 #define OSD_BTN_UP 26
 #define OSD_BTN_DOWN 27
@@ -34,9 +34,9 @@
 #define OSD_MENU_TIMEOUT_US 10000000 // 10 seconds
 
 // Menu layout constants
-#define OSD_TITLE_LINE 1
-#define OSD_SUBTITLE_LINE 3
-#define OSD_MENU_START_LINE 5
+#define OSD_TITLE_ROW 1
+#define OSD_SUBTITLE_ROW 3
+#define OSD_MENU_START_ROW 5
 
 #define MENU_TYPE_MAIN 0
 #define MENU_TYPE_OUTPUT 1
@@ -120,10 +120,10 @@ void osd_draw_char(uint8_t *buffer, uint16_t buf_width, uint16_t x, uint16_t y,
                    char c, uint8_t fg_color, uint8_t bg_color);
 
 // Text buffer helpers
-void osd_text_print(uint8_t line, uint8_t col, const char *str, uint8_t fg_color, uint8_t bg_color);
-void osd_text_print_centered(uint8_t line, const char *str, uint8_t fg_color, uint8_t bg_color);
-void osd_text_printf(uint8_t line, uint8_t col, uint8_t fg_color, uint8_t bg_color, const char *format, ...);
-void osd_text_set_char(uint8_t line, uint8_t col, char c, uint8_t fg_color, uint8_t bg_color);
+void osd_text_print(uint8_t row, uint8_t col, const char *str, uint8_t fg_color, uint8_t bg_color);
+void osd_text_print_centered(uint8_t row, const char *str, uint8_t fg_color, uint8_t bg_color);
+void osd_text_printf(uint8_t row, uint8_t col, uint8_t fg_color, uint8_t bg_color, const char *format, ...);
+void osd_text_set_char(uint8_t row, uint8_t col, char c, uint8_t fg_color, uint8_t bg_color);
 
 void osd_adjust_image_parameter(uint8_t param_index, int8_t direction);
 void osd_adjust_video_mode(int8_t direction);
