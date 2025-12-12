@@ -8,7 +8,7 @@
 #define OSD_FONT_WIDTH 8
 #define OSD_FONT_HEIGHT 8
 #define OSD_COLUMNS (OSD_WIDTH / OSD_FONT_WIDTH)      // 30 characters
-#define OSD_ROWS (OSD_HEIGHT / OSD_FONT_HEIGHT)       // 15 lines
+#define OSD_ROWS (OSD_HEIGHT / OSD_FONT_HEIGHT)       // 15 rows
 #define OSD_TEXT_BUFFER_SIZE (OSD_COLUMNS * OSD_ROWS) // 450 bytes
 
 #define OSD_BTN_UP 26
