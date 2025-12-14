@@ -5,7 +5,7 @@
 #include "vga.h"
 
 extern settings_t settings;
-extern video_out_type_t active_video_output;
+video_out_type_t active_video_output = VIDEO_OUT_TYPE_DEF;
 
 void start_video_output(video_out_type_t output_type)
 {
