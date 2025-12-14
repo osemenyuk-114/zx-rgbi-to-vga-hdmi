@@ -18,6 +18,12 @@ static uint16_t osd_start_y;
 static uint16_t osd_end_y;
 #endif
 
+// sync pulse patterns (positive polarity)
+#define NO_SYNC 0b00000000
+#define V_SYNC 0b10000000
+#define H_SYNC 0b01000000
+#define VH_SYNC 0b11000000
+
 extern settings_t settings;
 
 static int dma_ch0;
