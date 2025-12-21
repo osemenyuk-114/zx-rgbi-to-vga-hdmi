@@ -111,7 +111,7 @@ void draw_welcome_screen_h(video_mode_t video_mode)
   }
 }
 
-const char nosignal[14][114] = {
+const char nosignal[14][115] = {
     "xx      xx      xxxxxx                  xxxxxx      xxxxxx      xxxxxx      xx      xx        xx        xx",
     "xx      xx     xxxxxxxx                xxxxxxxx     xxxxxx     xxxxxxxx     xx      xx       xxxx       xx",
     "xxx     xx    xxx    xxx              xxx    xxx      xx      xxx    xxx    xxx     xx      xxxxxx      xx",
