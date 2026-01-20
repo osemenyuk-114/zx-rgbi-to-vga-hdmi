@@ -97,8 +97,9 @@ void print_video_out_menu()
     case VGA:
         Serial.println("  2    800x600 @60Hz (div 2)");
         Serial.println("  3   1024x768 @60Hz (div 3)");
-        Serial.println("  4  1280x1024 @60Hz (div 3)");
-        Serial.println("  5  1280x1024 @60Hz (div 4)");
+        Serial.println("  4   1024x768 @60Hz (div 4)");
+        Serial.println("  5  1280x1024 @60Hz (div 3)");
+        Serial.println("  6  1280x1024 @60Hz (div 4)");
         break;
 
     default:
@@ -272,8 +273,12 @@ void print_video_out_mode()
         Serial.println("800x600 @60Hz");
         break;
 
-    case MODE_1024x768_60Hz:
-        Serial.println("1024x768 @60Hz");
+    case MODE_1024x768_60Hz_d3:
+        Serial.println("1024x768 @60Hz (div 3)");
+        break;
+
+    case MODE_1024x768_60Hz_d4:
+        Serial.println("1024x768 @60Hz (div 4)");
         break;
 
     case MODE_1280x1024_60Hz_d3:
@@ -557,7 +562,7 @@ void handle_serial_menu()
                 case '3':
                     if (settings.video_out_type == VGA)
                     {
-                        settings.video_out_mode = MODE_1024x768_60Hz;
+                        settings.video_out_mode = MODE_1024x768_60Hz_d3;
                         print_video_out_mode();
                     }
 
@@ -566,13 +571,22 @@ void handle_serial_menu()
                 case '4':
                     if (settings.video_out_type == VGA)
                     {
-                        settings.video_out_mode = MODE_1280x1024_60Hz_d3;
+                        settings.video_out_mode = MODE_1024x768_60Hz_d4;
                         print_video_out_mode();
                     }
 
                     break;
 
                 case '5':
+                    if (settings.video_out_type == VGA)
+                    {
+                        settings.video_out_mode = MODE_1280x1024_60Hz_d3;
+                        print_video_out_mode();
+                    }
+
+                    break;
+
+                case '6':
                     if (settings.video_out_type == VGA)
                     {
                         settings.video_out_mode = MODE_1280x1024_60Hz_d4;

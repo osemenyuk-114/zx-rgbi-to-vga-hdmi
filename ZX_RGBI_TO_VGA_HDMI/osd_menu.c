@@ -973,7 +973,8 @@ static void render_output_menu()
         if (i == 0)
         {
             const char *mode_names_dvi[] = {"640X480@60", "720X576@50"};
-            const char *mode_names_vga[] = {"640X480@60", "800X600@60", "1024X768@60",
+            const char *mode_names_vga[] = {"640X480@60", "800X600@60",
+                                            "1024X768@60 DIV3", "1024X768@60 DIV4",
                                             "1280X1024@60 DIV3", "1280X1024@60 DIV4"};
             const char *current_mode_name = "UNKNOWN";
             if (settings.video_out_type == DVI)
@@ -989,12 +990,14 @@ static void render_output_menu()
                     current_mode_name = mode_names_vga[0];
                 else if (settings.video_out_mode == MODE_800x600_60Hz)
                     current_mode_name = mode_names_vga[1];
-                else if (settings.video_out_mode == MODE_1024x768_60Hz)
+                else if (settings.video_out_mode == MODE_1024x768_60Hz_d3)
                     current_mode_name = mode_names_vga[2];
-                else if (settings.video_out_mode == MODE_1280x1024_60Hz_d3)
+                else if (settings.video_out_mode == MODE_1024x768_60Hz_d4)
                     current_mode_name = mode_names_vga[3];
-                else if (settings.video_out_mode == MODE_1280x1024_60Hz_d4)
+                else if (settings.video_out_mode == MODE_1280x1024_60Hz_d3)
                     current_mode_name = mode_names_vga[4];
+                else if (settings.video_out_mode == MODE_1280x1024_60Hz_d4)
+                    current_mode_name = mode_names_vga[5];
             }
             osd_text_printf(row, 2, fg_color, bg_color, "%-9s %s", "MODE", current_mode_name);
         }
@@ -1328,7 +1331,8 @@ void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction)
 void osd_adjust_video_mode(int8_t direction)
 {
     video_out_mode_t modes_dvi[] = {MODE_640x480_60Hz, MODE_720x576_50Hz};
-    video_out_mode_t modes_vga[] = {MODE_640x480_60Hz, MODE_800x600_60Hz, MODE_1024x768_60Hz,
+    video_out_mode_t modes_vga[] = {MODE_640x480_60Hz, MODE_800x600_60Hz,
+                                    MODE_1024x768_60Hz_d3, MODE_1024x768_60Hz_d4,
                                     MODE_1280x1024_60Hz_d3, MODE_1280x1024_60Hz_d4};
 
     video_out_mode_t *modes;
@@ -1342,7 +1346,7 @@ void osd_adjust_video_mode(int8_t direction)
     else
     {
         modes = modes_vga;
-        mode_count = 5;
+        mode_count = 6;
     }
 
     // Find current mode index
