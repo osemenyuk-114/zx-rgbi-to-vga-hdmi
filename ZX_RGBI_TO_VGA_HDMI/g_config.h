@@ -172,7 +172,7 @@ extern uint8_t g_v_buf[];
 // not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler
 // #define SCANLINES_ENABLE_LOW_RES
 
-// select scanline thickness for the 1280x1024 div4 video mode
+// select scanline thickness for the 1024x768 and 1280x1024 DIV4 video modes
 // thin - show scanline once every four lines
 // thick - show scanline twice in four lines
 #define SCANLINES_USE_THIN
