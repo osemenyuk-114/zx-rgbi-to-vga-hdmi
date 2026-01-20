@@ -24,7 +24,8 @@ typedef enum video_out_mode_t
   MODE_720x576_50Hz,
   VIDEO_MODE_DVI_MAX = MODE_720x576_50Hz,
   MODE_800x600_60Hz,
-  MODE_1024x768_60Hz,
+  MODE_1024x768_60Hz_d3,
+  MODE_1024x768_60Hz_d4,
   MODE_1280x1024_60Hz_d3,
   MODE_1280x1024_60Hz_d4,
   VIDEO_MODE_MAX = MODE_1280x1024_60Hz_d4,
@@ -75,7 +76,8 @@ typedef struct video_mode_t
 extern video_mode_t mode_640x480_60Hz;
 extern video_mode_t mode_720x576_50Hz;
 extern video_mode_t mode_800x600_60Hz;
-extern video_mode_t mode_1024x768_60Hz;
+extern video_mode_t mode_1024x768_60Hz_d3;
+extern video_mode_t mode_1024x768_60Hz_d4;
 extern video_mode_t mode_1280x1024_60Hz_d3;
 extern video_mode_t mode_1280x1024_60Hz_d4;
 
