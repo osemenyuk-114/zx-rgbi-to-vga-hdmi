@@ -9,9 +9,9 @@
 extern "C"
 {
 #include "g_config.h"
-#include "v_buf.h"
-#include "settings.h"
 #include "rgb_capture.h"
+#include "settings.h"
+#include "v_buf.h"
 #include "video_output.h"
 }
 
