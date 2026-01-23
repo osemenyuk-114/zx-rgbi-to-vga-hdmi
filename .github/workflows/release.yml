@@ -41,8 +41,8 @@ jobs:
           # Extract base version from g_config.h
           BASE_VERSION=$(grep -oP '#define FW_VERSION "\K[^"]+' ZX_RGBI_TO_VGA_HDMI/g_config.h)
           
-          # Build identifier: Commit SHA
-          BUILD_ID=${{ github.sha }}
+          # Build identifier: Short commit SHA (first 7 chars)
+          BUILD_ID=$(printf '%.7s' "${{ github.sha }}")
           
           # Full version
           FULL_VERSION="${BASE_VERSION}-${BUILD_ID}"
