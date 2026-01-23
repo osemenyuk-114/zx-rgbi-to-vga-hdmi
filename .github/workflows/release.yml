@@ -16,6 +16,42 @@ jobs:
         with:
           fetch-depth: 0
       
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+      
+      - name: Cache PlatformIO
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            .pio
+          key: ${{ runner.os }}-platformio-${{ hashFiles('**/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-platformio-
+      
+      - name: Install PlatformIO
+        run: |
+          pip install platformio
+      
+      - name: Extract firmware version
+        id: fw_version
+        run: |
+          FW_VERSION=$(grep -oP '#define FW_VERSION "\K[^"]+' ZX_RGBI_TO_VGA_HDMI/g_config.h)
+          echo "version=$FW_VERSION" >> $GITHUB_OUTPUT
+          echo "Firmware Version: $FW_VERSION"
+      
+      - name: Build firmware
+        run: |
+          pio run
+      
+      - name: Rename firmware file
+        run: |
+          FW_VERSION="${{ steps.fw_version.outputs.version }}"
+          cp .pio/build/pico/firmware.uf2 zx-rgbi-to-vga-hdmi_${FW_VERSION}.uf2
+          echo "Created: zx-rgbi-to-vga-hdmi_${FW_VERSION}.uf2"
+      
       - name: Update latest tag
         run: |
           git config user.name "github-actions[bot]"
@@ -27,21 +63,27 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: latest
-          name: Latest Development Build
+          name: Latest Development Build (${{ steps.fw_version.outputs.version }})
           body: |
             This is an automatically updated release that always points to the latest commit on the main branch.
             
+            **Firmware Version:** ${{ steps.fw_version.outputs.version }}
             **Commit:** ${{ github.sha }}
             **Date:** ${{ github.event.head_commit.timestamp }}
             **Message:** ${{ github.event.head_commit.message }}
             
-            To use this version:
+            ### Installation
+            1. Download the `.uf2` file below
+            2. Hold the BOOTSEL button on your Raspberry Pi Pico while connecting USB
+            3. Drag and drop the `.uf2` file onto the RPI-RP2 drive
+            
+            To clone this version:
             ```bash
             git clone --branch latest https://github.com/${{ github.repository }}.git
             ```
-            
-            Or download the source code archive below.
           draft: false
           prerelease: false
+          files: |
+            zx-rgbi-to-vga-hdmi_${{ steps.fw_version.outputs.version }}.uf2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
