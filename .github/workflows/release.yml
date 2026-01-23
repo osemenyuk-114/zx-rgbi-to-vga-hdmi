@@ -51,7 +51,7 @@ jobs:
       - name: Build firmware
         run: |
           # Build with custom version string
-          pio run --environment pico -- -DFW_VERSION='"${{ steps.fw_version.outputs.version }}"'
+          pio run --environment pico --build-flags '-DFW_VERSION="\"${{ steps.fw_version.outputs.version }}\""'
       
       - name: Rename firmware file
         run: |
