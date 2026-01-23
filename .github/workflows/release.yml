@@ -38,13 +38,20 @@ jobs:
       - name: Extract firmware version
         id: fw_version
         run: |
-          FW_VERSION=$(grep -oP '#define FW_VERSION "\K[^"]+' ZX_RGBI_TO_VGA_HDMI/g_config.h)
-          echo "version=$FW_VERSION" >> $GITHUB_OUTPUT
-          echo "Firmware Version: $FW_VERSION"
+          # Extract base version from g_config.h for reference
+          BASE_VERSION=$(grep -oP '#define FW_VERSION "\K[^"]+' ZX_RGBI_TO_VGA_HDMI/g_config.h)
+          
+          # Build identifier: YYMMDD format (exactly 6 chars)
+          BUILD_ID=$(date +%y%m%d)
+          
+          echo "version=$BUILD_ID" >> $GITHUB_OUTPUT
+          echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
+          echo "Firmware Version: $BUILD_ID (based on $BASE_VERSION)"
       
       - name: Build firmware
         run: |
-          pio run
+          # Build with custom version string
+          pio run --environment pico -- -DFW_VERSION='"${{ steps.fw_version.outputs.version }}"'
       
       - name: Rename firmware file
         run: |
@@ -63,7 +70,7 @@ jobs:
         uses: softprops/action-gh-release@v1
         with:
           tag_name: latest
-          name: Latest Development Build (${{ steps.fw_version.outputs.version }})
+          name: Latest Development Build (${{ steps.fw_version.outputs.base_version }})
           body: |
             This is an automatically updated release that always points to the latest commit on the main branch.
             
