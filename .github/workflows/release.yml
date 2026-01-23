@@ -38,15 +38,22 @@ jobs:
       - name: Extract firmware version
         id: fw_version
         run: |
-          # Extract base version from g_config.h for reference
+          # Extract base version from g_config.h
           BASE_VERSION=$(grep -oP '#define FW_VERSION "\K[^"]+' ZX_RGBI_TO_VGA_HDMI/g_config.h)
           
-          # Build identifier: YYMMDD format (exactly 6 chars)
+          # Build identifier: YYMMDD format
           BUILD_ID=$(date +%y%m%d)
           
-          echo "version=$BUILD_ID" >> $GITHUB_OUTPUT
+          # Full version
+          FULL_VERSION="${BASE_VERSION}-${BUILD_ID}"
+          
+          # Version for filename
+          FULL_VERSION_NO_V="${FULL_VERSION#v}"
+          
+          echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
+          echo "version_no_v=$FULL_VERSION_NO_V" >> $GITHUB_OUTPUT
           echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
-          echo "Firmware Version: $BUILD_ID (based on $BASE_VERSION)"
+          echo "Firmware Version: $FULL_VERSION"
       
       - name: Build firmware
         run: |
@@ -56,9 +63,9 @@ jobs:
       
       - name: Rename firmware file
         run: |
-          FW_VERSION="${{ steps.fw_version.outputs.version }}"
-          cp .pio/build/pico/firmware.uf2 zx-rgbi-to-vga-hdmi_${FW_VERSION}.uf2
-          echo "Created: zx-rgbi-to-vga-hdmi_${FW_VERSION}.uf2"
+          FW_VERSION_NO_V="${{ steps.fw_version.outputs.version_no_v }}"
+          cp .pio/build/pico/firmware.uf2 ZX_RGBI_TO_VGA_HDMI.ino-${FW_VERSION_NO_V}.uf2
+          echo "Created: ZX_RGBI_TO_VGA_HDMI.ino-${FW_VERSION_NO_V}.uf2"
       
       - name: Update latest tag
         run: |
@@ -92,6 +99,6 @@ jobs:
           draft: false
           prerelease: false
           files: |
-            zx-rgbi-to-vga-hdmi_${{ steps.fw_version.outputs.version }}.uf2
+            ZX_RGBI_TO_VGA_HDMI.ino-${{ steps.fw_version.outputs.version_no_v }}.uf2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
