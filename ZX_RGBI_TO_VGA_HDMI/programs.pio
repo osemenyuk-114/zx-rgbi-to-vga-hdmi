@@ -6,12 +6,12 @@ PUBLIC delay:
     nop               ; the capture delay will be added to this command
 l001:
     in     pins, 8
-    push   block
+    push   iffull block
     nop    [8]
     jmp    pin, l001
 l005:
     in     pins, 8    ; sub-synchronization by sync pulse
-    push   block
+    push   iffull block
     jmp    pin, l000
     jmp    pin, l000
     jmp    pin, l000
@@ -36,7 +36,7 @@ l04:
     in     pins, 8
     wait   1 gpio, F_PIN
     jmp    x--, l04
-    push   block
+    push   iffull block
     jmp    pin, divider1
 PUBLIC divider2:
     set    x, 0          ; an external clock divider will be added to this command
@@ -46,7 +46,7 @@ l02:
     in     pins, 8
     wait   1 gpio, F_PIN
     jmp    x--, l02
-    push   block    
+    push   iffull block
     jmp    divider2
 .wrap
 
