@@ -5,7 +5,7 @@
 #include "pico.h"
 #include "pico/time.h"
 
-#define FW_VERSION "v1.6.0"
+#define FW_VERSION "v1.7.0"
 #define BOARD_CODE_36LJU22
 // #define BOARD_CODE_09LJV23
 
@@ -175,5 +175,14 @@ extern uint8_t g_v_buf[];
 // thick - show scanline twice in four lines
 #define SCANLINES_USE_THIN
 
+/* handled in platformio.ini
 // enable OSD menu
 #define OSD_MENU_ENABLE
+
+// enable FlashFloppy OSD
+#define OSD_FF_ENABLE
+
+#if defined(OSD_MENU_ENABLE) || defined(OSD_FF_ENABLE)
+#define OSD_ENABLE
+#endif
+*/

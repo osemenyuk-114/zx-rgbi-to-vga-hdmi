@@ -9,13 +9,8 @@
 #include "pio_programs.h"
 #include "v_buf.h"
 
-#ifdef OSD_MENU_ENABLE
-#include "osd_menu.h"
-
-static uint16_t osd_start_x;
-static uint16_t osd_end_x;
-static uint16_t osd_start_y;
-static uint16_t osd_end_y;
+#ifdef OSD_ENABLE
+#include "osd.h"
 #endif
 
 extern settings_t settings;
@@ -24,8 +19,8 @@ static int dma_ch0;
 static int dma_ch1;
 static uint offset;
 
-static video_mode_t video_mode;
-static int16_t h_visible_area;
+extern video_mode_t video_mode;
+extern int16_t h_visible_area;
 
 static uint32_t *v_out_dma_buf[2];
 
@@ -145,17 +140,17 @@ static void __not_in_flash_func(dma_handler_dvi)()
     uint8_t *scr_line = &scr_buffer[scaled_y * (V_BUF_W / 2)];
     uint64_t *line_buf = active_buf;
 
-#ifdef OSD_MENU_ENABLE
+#ifdef OSD_ENABLE
     // check if OSD is visible and overlaps with current scaled scanline
-    bool osd_active = osd_state.visible && (scaled_y >= osd_start_y && scaled_y < osd_end_y);
+    bool osd_active = osd_state.visible && (scaled_y >= osd_mode.start_y && scaled_y < osd_mode.end_y);
 
     if (osd_active)
     { // calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
-      uint8_t *osd_line = &osd_buffer[(scaled_y - osd_start_y) * (OSD_WIDTH / 2)];
+      uint8_t *osd_line = &osd_buffer[(scaled_y - osd_mode.start_y) * (osd_mode.width / 2)];
 
       int x = 0;
 
-      while (x < osd_start_x)
+      while (x < osd_mode.start_x)
       { // fast loop for pre-OSD area (no OSD checks) - optimized palette access
         uint8_t c2 = *scr_line++;
         uint8_t pixel1 = c2 & 0xf;
@@ -172,7 +167,7 @@ static void __not_in_flash_func(dma_handler_dvi)()
         x++;
       }
 
-      while (x < osd_end_x)
+      while (x < osd_mode.end_x)
       { // ultra-simplified OSD compositing - byte-aligned boundaries (2-pixel aligned)
         scr_line++;
         uint8_t o2 = *osd_line++;
@@ -245,21 +240,9 @@ static void __not_in_flash_func(dma_handler_dvi)()
   }
 }
 
-void start_dvi(video_mode_t v_mode)
+void start_dvi()
 {
-  video_mode = v_mode;
-
   int whole_line = video_mode.whole_line * video_mode.div;
-
-  h_visible_area = video_mode.h_visible_area / (2 * video_mode.div);
-
-#ifdef OSD_MENU_ENABLE
-  osd_start_x = (h_visible_area - OSD_WIDTH / 2) / 2;
-  osd_end_x = osd_start_x + OSD_WIDTH / 2;
-
-  osd_start_y = (video_mode.v_visible_area / video_mode.div - OSD_HEIGHT) / 2;
-  osd_end_y = osd_start_y + OSD_HEIGHT;
-#endif
 
   // initialization of constants
   const uint16_t b0 = 0b1101010100;

@@ -1,24 +1,59 @@
 #include "g_config.h"
 #include "video_output.h"
-#include "v_buf.h"
 #include "dvi.h"
+#include "v_buf.h"
 #include "vga.h"
+
+#ifdef OSD_ENABLE
+#include "osd.h"
+#endif
 
 extern settings_t settings;
 video_out_type_t active_video_output = VIDEO_OUT_TYPE_DEF;
+
+video_mode_t video_mode;
+int16_t h_visible_area;
+int16_t h_margin;
+int16_t v_visible_area;
+int16_t v_margin;
+
+void set_video_mode_params(video_mode_t v_mode)
+{
+  video_mode = v_mode;
+
+  h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 2;
+  h_margin = (h_visible_area - (uint8_t)(settings.frequency / 1000000) * (ACTIVE_VIDEO_TIME / 2)) / 2;
+
+  if (h_margin < 0)
+    h_margin = 0;
+
+  h_visible_area -= h_margin * 2;
+
+  v_visible_area = V_BUF_H * video_mode.div;
+  v_margin = ((int16_t)((video_mode.v_visible_area - v_visible_area) / (video_mode.div * 2) + 0.5)) * video_mode.div;
+
+  if (v_margin < 0)
+    v_margin = 0;
+}
 
 void start_video_output(video_out_type_t output_type)
 {
   active_video_output = output_type;
 
+  set_video_mode_params(*(video_modes[settings.video_out_mode]));
+
+#ifdef OSD_ENABLE
+  osd_set_position();
+#endif
+
   switch (output_type)
   {
   case DVI:
-    start_dvi(*(video_modes[settings.video_out_mode]));
+    start_dvi();
     break;
 
   case VGA:
-    start_vga(*(video_modes[settings.video_out_mode]));
+    start_vga();
     break;
 
   default:
@@ -104,7 +139,7 @@ void draw_welcome_screen_h(video_mode_t video_mode)
   }
 }
 
-const char nosignal[14][114] = {
+const char nosignal[14][115] = {
     "xx      xx      xxxxxx                  xxxxxx      xxxxxx      xxxxxx      xx      xx        xx        xx",
     "xx      xx     xxxxxxxx                xxxxxxxx     xxxxxx     xxxxxxxx     xx      xx       xxxx       xx",
     "xxx     xx    xxx    xxx              xxx    xxx      xx      xxx    xxx    xxx     xx      xxxxxx      xx",
@@ -118,7 +153,8 @@ const char nosignal[14][114] = {
     "xx     xxx    xx      xx              xx      xx      xx      xx      xx    xx     xxx    xx      xx    xx",
     "xx     xxx    xxx    xxx              xxx    xxx      xx      xxx    xxx    xx     xxx    xx      xx    xx",
     "xx      xx     xxxxxxxx                xxxxxxxx     xxxxxx     xxxxxxxx     xx      xx    xx      xx    xxxxxxxxxx",
-    "xx      xx      xxxxxx                  xxxxxx      xxxxxx      xxxxxx      xx      xx    xx      xx    xxxxxxxxxx"};
+    "xx      xx      xxxxxx                  xxxxxx      xxxxxx      xxxxxx      xx      xx    xx      xx    xxxxxxxxxx",
+};
 
 void draw_no_signal(video_mode_t video_mode)
 {

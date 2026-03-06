@@ -9,10 +9,15 @@
 extern "C"
 {
 #include "g_config.h"
-#include "v_buf.h"
-#include "settings.h"
 #include "rgb_capture.h"
+#include "settings.h"
+#include "v_buf.h"
 #include "video_output.h"
+
+#ifdef OSD_FF_ENABLE
+#include "osd.h"
+#include "ff_osd.h"
+#endif
 }
 
 // External variables that need to be accessed
@@ -73,9 +78,13 @@ void print_main_menu()
     Serial.println("  d   set external clock divider");
     Serial.println("  y   set video sync mode");
     Serial.println("  t   set capture delay and image position");
-    Serial.println("  m   set pin inversion mask\n");
+    Serial.println("  m   set pin inversion mask");
 
-    Serial.println("  p   show configuration");
+#ifdef OSD_FF_ENABLE
+    Serial.println("  g   configure FlashFloppy OSD");
+#endif
+
+    Serial.println("\n  p   show configuration");
     Serial.println("  h   show help (this menu)");
     Serial.println("  q   exit configuration mode");
     Serial.println("  w   save configuration");
@@ -105,8 +114,7 @@ void print_video_out_menu()
         break;
     }
 
-    Serial.println();
-    Serial.println("  p   show configuration");
+    Serial.println("\n  p   show configuration");
     Serial.println("  h   show help (this menu)");
     Serial.println("  q   exit to main menu\n");
 }
@@ -221,6 +229,23 @@ void print_pin_inversion_mask_menu()
     Serial.println("  q   exit to main menu\n");
 }
 
+#ifdef OSD_FF_ENABLE
+void print_ff_osd_menu()
+{
+    Serial.println("\n      * FlashFloppy OSD configuration *\n");
+
+    Serial.println("  r   toggle OSD rows (2/4)");
+    Serial.println("  a   increment OSD minimum columns");
+    Serial.println("  z   decrement OSD minimum columns");
+    Serial.println("  s   increment OSD maximum columns");
+    Serial.println("  x   decrement OSD maximum columns\n");
+
+    Serial.println("  p   show configuration");
+    Serial.println("  h   show help (this menu)");
+    Serial.println("  q   exit to main menu\n");
+}
+#endif
+
 void print_test_menu()
 {
     Serial.println("\n      * Tests *\n");
@@ -228,9 +253,12 @@ void print_test_menu()
     Serial.println("  1   draw welcome image (vertical stripes)");
     Serial.println("  2   draw welcome image (horizontal stripes)");
     Serial.println("  3   draw \"NO SIGNAL\" screen");
-    Serial.println("  i   show captured frame count\n");
+    Serial.println("  i   show captured frame count");
+#ifdef OSD_FF_ENABLE
+    Serial.println("  g   show FlashFloppy OSD display data");
+#endif
 
-    Serial.println("  p   show configuration");
+    Serial.println("\n  p   show configuration");
     Serial.println("  h   show help (this menu)");
     Serial.println("  q   exit to main menu\n");
 }
@@ -421,6 +449,37 @@ void print_pin_inversion_mask()
     Serial.print("  Pin inversion mask .......... ");
     Serial.println(binary_str);
 }
+
+#ifdef OSD_FF_ENABLE
+void print_ff_osd_config()
+{
+    Serial.print("  OSD rows ................... ");
+    Serial.println(ff_osd_config.rows, DEC);
+
+    Serial.print("  OSD columns ................ ");
+    Serial.print(ff_osd_config.min_cols, DEC);
+    Serial.print(" - ");
+    Serial.println(ff_osd_config.max_cols, DEC);
+}
+
+void print_ff_osd_rows()
+{
+    Serial.print("  OSD rows ................... ");
+    Serial.println(ff_osd_config.rows, DEC);
+}
+
+void print_ff_osd_min_cols()
+{
+    Serial.print("  OSD min columns ............ ");
+    Serial.println(ff_osd_config.min_cols, DEC);
+}
+
+void print_ff_osd_max_cols()
+{
+    Serial.print("  OSD max columns ............ ");
+    Serial.println(ff_osd_config.max_cols, DEC);
+}
+#endif
 
 void print_settings()
 {
@@ -1113,6 +1172,82 @@ void handle_serial_menu()
             break;
         }
 
+#ifdef OSD_FF_ENABLE
+        case 'g':
+        {
+            inchar = 'h';
+
+            while (1)
+            {
+                if (inchar != 'h')
+                    inchar = get_menu_input(10);
+
+                osd_clear_text_buffer();
+                osd_text_print_centered(0, "* FlashFloppy OSD Configuration *", 7, 0, 1);
+                osd_render_text_to_buffer();
+
+                osd_mode.x = 1;
+                osd_mode.y = 1;
+                osd_mode.columns = ff_osd_display.cols;
+                osd_mode.rows = ff_osd_config.rows;
+                osd_mode.border_enabled = false;
+                osd_mode.width = osd_mode.columns * OSD_FONT_WIDTH;
+                osd_mode.height = osd_mode.rows * OSD_FONT_HEIGHT;
+                osd_mode.buffer_size = osd_mode.width * osd_mode.height / 2;
+
+                osd_set_position();
+                osd_state.visible = true; // enable OSD display for configuration
+
+                switch (inchar)
+                {
+                case 'p':
+                    print_ff_osd_config();
+                    break;
+
+                case 'h':
+                    print_ff_osd_menu();
+                    break;
+
+                case 'r':
+                    ff_osd_config.rows = (ff_osd_config.rows == 2) ? 4 : 2;
+                    print_ff_osd_rows();
+                    break;
+
+                case 'a':
+                    ff_osd_config.min_cols = ff_osd_set_min_cols(ff_osd_config.min_cols + 1);
+                    print_ff_osd_min_cols();
+                    break;
+                case 'z':
+                    ff_osd_config.min_cols = ff_osd_set_min_cols(ff_osd_config.min_cols - 1);
+                    print_ff_osd_min_cols();
+                    break;
+                case 's':
+                    ff_osd_config.max_cols = ff_osd_set_max_cols(ff_osd_config.max_cols + 1);
+                    print_ff_osd_max_cols();
+                    break;
+                case 'x':
+                    ff_osd_config.max_cols = ff_osd_set_max_cols(ff_osd_config.max_cols - 1);
+                    print_ff_osd_max_cols();
+                    break;
+
+                default:
+                    break;
+                }
+
+                if (inchar == 'q')
+                {
+                    osd_state.visible = false; // restore OSD state
+                    inchar = 'h';
+                    break;
+                }
+
+                inchar = 0;
+            }
+
+            break;
+        }
+#endif
+
         case 'T':
         {
             inchar = 'h';
@@ -1130,11 +1265,6 @@ void handle_serial_menu()
 
                 case 'h':
                     print_test_menu();
-                    break;
-
-                case 'i':
-                    Serial.print("  Current frame count ......... ");
-                    Serial.println(frame_count, DEC);
                     break;
 
                 case '1':
@@ -1159,6 +1289,42 @@ void handle_serial_menu()
 
                     break;
                 }
+
+                case 'i':
+                    Serial.print("  Current frame count ......... ");
+                    Serial.println(frame_count, DEC);
+                    break;
+
+#ifdef OSD_FF_ENABLE
+                case 'g':
+                {
+                    Serial.println("\n      * FF OSD Display Data *\n");
+                    Serial.print("  Display on .................. ");
+                    Serial.println(ff_osd_display.on ? "Yes" : "No");
+                    Serial.print("  Rows ........................ ");
+                    Serial.println(ff_osd_display.rows, DEC);
+                    Serial.print("  Cols ........................ ");
+                    Serial.println(ff_osd_display.cols, DEC);
+
+                    Serial.println("\n  Text content:\n");
+                    for (int row = 0; row < ff_osd_display.rows && row < 4; row++)
+                    {
+                        Serial.print("    Row ");
+                        Serial.print(row, DEC);
+                        Serial.print(": Height bits: ");
+                        Serial.print((ff_osd_display.heights >> row) & 1, HEX);
+                        Serial.print(" \"");
+                        for (int col = 0; col < ff_osd_display.cols && col < 40; col++)
+                        {
+                            char c = ff_osd_display.text[row][col];
+                            Serial.print((c >= 32 && c < 127) ? c : '.');
+                        }
+                        Serial.println("\"");
+                    }
+                    Serial.println("");
+                    break;
+                }
+#endif
 
                 default:
                     break;

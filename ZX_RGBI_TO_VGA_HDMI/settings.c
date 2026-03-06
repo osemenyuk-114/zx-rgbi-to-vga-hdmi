@@ -1,6 +1,6 @@
 #include "hardware/flash.h"
-#include "hardware/watchdog.h"
 #include "hardware/sync.h"
+#include "hardware/watchdog.h"
 
 #include "g_config.h"
 #include "settings.h"
