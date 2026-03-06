@@ -6,12 +6,12 @@ PUBLIC delay:
     nop               ; the capture delay will be added to this command
 l001:
     in     pins, 8
-    push   block
+    push   iffull block
     nop    [8]
     jmp    pin, l001
 l005:
     in     pins, 8    ; sub-synchronization by sync pulse
-    push   block
+    push   iffull block
     jmp    pin, l000
     jmp    pin, l000
     jmp    pin, l000

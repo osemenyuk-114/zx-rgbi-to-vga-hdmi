@@ -98,7 +98,7 @@ void set_pin_inversion_mask(uint8_t pin_inversion_mask)
   }
 }
 
-void __not_in_flash_func(dma_handler_capture())
+void __attribute__((hot)) __not_in_flash_func(dma_handler_capture())
 {
   static int x_s;
   register int x = x_s;
@@ -168,19 +168,7 @@ void __not_in_flash_func(dma_handler_capture())
 
     if (x & 1)
     {
-      if (cap_buf == NULL)
-        continue;
-
-      if (x < 0)
-        continue;
-
-      if (y < 0)
-        continue;
-
-      if (x >= V_BUF_W)
-        continue;
-
-      if (y >= V_BUF_H)
+      if (!cap_buf || (unsigned)x >= V_BUF_W || (unsigned)y >= V_BUF_H)
         continue;
 
       *cap_buf8++ = pix8 & 0x3f;
@@ -236,7 +224,7 @@ void start_capture()
   sm_config_set_in_pins(&c, CAP_PIN_D0);
   sm_config_set_jmp_pin(&c, HS_PIN);
 
-  sm_config_set_in_shift(&c, false, false, 8); // autopush not needed
+  sm_config_set_in_shift(&c, true, false, 32); // 32-bit push with direct byte-order DMA reads
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
 
   uint16_t div_int;
@@ -256,7 +244,7 @@ void start_capture()
   // main (data) DMA channel
   dma_channel_config c0 = dma_channel_get_default_config(dma_ch0);
 
-  channel_config_set_transfer_data_size(&c0, DMA_SIZE_8);
+  channel_config_set_transfer_data_size(&c0, DMA_SIZE_32);
   channel_config_set_read_increment(&c0, false);
   channel_config_set_write_increment(&c0, true);
   channel_config_set_dreq(&c0, DREQ_PIO_CAP + SM_CAP);
@@ -267,7 +255,7 @@ void start_capture()
       &c0,
       &cap_dma_buf[0][0],    // write address
       &PIO_CAP->rxf[SM_CAP], // read address
-      CAP_DMA_BUF_SIZE,      //
+      CAP_DMA_BUF_SIZE / 4,  //
       false                  // don't start yet
   );
 
