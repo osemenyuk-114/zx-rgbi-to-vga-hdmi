@@ -3,7 +3,7 @@
 
 extern settings_t settings;
 
-uint8_t *v_bufs[3] = {g_v_buf, g_v_buf + V_BUF_SZ, g_v_buf + 2 * V_BUF_SZ};
+uint8_t *v_bufs[3] = {g_v_buf, g_v_buf + V_BUF_SZ, g_v_buf + (2 * V_BUF_SZ)};
 
 bool show_v_buf[] = {false, false, false};
 
@@ -16,7 +16,7 @@ bool first_frame = true;
 void *__not_in_flash_func(get_v_buf_out)()
 {
   if (!buffering_mode || first_frame)
-  return v_bufs[0];
+    return v_bufs[0];
 
   if (!show_v_buf[(v_buf_out_idx + 1) % 3])
   {
@@ -38,7 +38,7 @@ void *__not_in_flash_func(get_v_buf_out)()
 void *__not_in_flash_func(get_v_buf_in)()
 {
   if (!buffering_mode)
-  return v_bufs[0];
+    return v_bufs[0];
 
   first_frame = false;
   show_v_buf[v_buf_in_idx] = false;

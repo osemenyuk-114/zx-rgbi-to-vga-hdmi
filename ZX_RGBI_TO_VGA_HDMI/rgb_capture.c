@@ -19,10 +19,11 @@ extern settings_t settings;
 static int dma_ch0;
 static int dma_ch1;
 static uint offset;
-const pio_program_t *program = NULL;
+static const pio_program_t *program = NULL;
 
 static uint16_t h_sync_pulse_2;
 static uint16_t v_sync_pulse;
+static volatile uint8_t capture_sync_mask = (uint8_t)(1u << HS_PIN);
 
 volatile uint32_t frame_count = 0;
 
@@ -119,28 +120,35 @@ void set_pin_inversion_mask(uint8_t pin_inversion_mask)
   }
 }
 
+static inline void update_capture_sync_mask(bool video_sync_mode)
+{
+  capture_sync_mask = video_sync_mode ? (uint8_t)((1u << HS_PIN) | (1u << VS_PIN)) : (uint8_t)(1u << HS_PIN);
+}
+
 void set_video_sync_mode(bool video_sync_mode)
 {
   settings.video_sync_mode = video_sync_mode;
+  update_capture_sync_mask(video_sync_mode);
 }
 
 void __attribute__((hot)) __not_in_flash_func(dma_handler_capture())
 {
   static int x_s;
-  register int x = x_s;
+  int x = x_s;
 
   static int y_s;
-  register int y = y_s;
+  int y = y_s;
 
   static uint CS_idx_s = 0;
   uint CS_idx = CS_idx_s;
 
   static uint8_t pix8_s;
-  register uint8_t pix8 = pix8_s;
+  uint8_t pix8 = pix8_s;
 
-  int shX = settings.shX;
-  int shY = settings.shY;
-  uint8_t sync_mask = settings.video_sync_mode ? ((1u << VS_PIN) | (1u << HS_PIN)) : (1u << HS_PIN);
+  const int shX = settings.shX;
+  const int shY = settings.shY;
+  const bool video_sync_mode = settings.video_sync_mode;
+  const uint8_t sync_mask = capture_sync_mask;
 
   static uint8_t *cap_buf8_s = g_v_buf;
   uint8_t *cap_buf8 = cap_buf8_s;
@@ -150,65 +158,72 @@ void __attribute__((hot)) __not_in_flash_func(dma_handler_capture())
 
   dma_hw->ints1 = 1u << dma_ch1;
 
-  dma_channel_set_read_addr(dma_ch1, &cap_dma_buf_addr[active_buf_idx & 1], false);
+  uint32_t cur_buf_idx = active_buf_idx & 1u;
+  dma_channel_set_read_addr(dma_ch1, &cap_dma_buf_addr[cur_buf_idx], false);
 
-  uint8_t *buf8 = (uint8_t *)cap_dma_buf[active_buf_idx & 1];
+  uint8_t *buf8 = (uint8_t *)cap_dma_buf[cur_buf_idx];
+  uint8_t *const buf8_end = buf8 + CAP_DMA_BUF_SIZE;
 
   active_buf_idx++;
 
-  for (int k = CAP_DMA_BUF_SIZE; k--;)
+  while (buf8 < buf8_end)
   {
     uint8_t val8 = *buf8++;
 
     x++;
 
-    if ((val8 & sync_mask) != sync_mask) // detect active sync pulses
+    // Active video is the common path; handle it first and continue.
+    if ((val8 & sync_mask) == sync_mask)
     {
-      if (CS_idx == h_sync_pulse_2) // start in the middle of the H_SYNC pulse // this should help ignore the spikes
+      // Even sample: cache low nibble source and reset sync pulse counter.
+      if ((x & 1) == 0)
       {
-        y++;
-        // set the pointer to the beginning of a new line
-        if ((y >= 0) && (cap_buf != NULL))
-          cap_buf8 = &(((uint8_t *)cap_buf)[y * V_BUF_W / 2]);
-      }
-
-      CS_idx++;
-      x = -shX - 1;
-
-      if (sync_mask == (1u << HS_PIN)) // composite sync
-      {
-        if (CS_idx < v_sync_pulse) // detect V_SYNC pulse
-          continue;
-      }
-      else if (val8 & (1u << VS_PIN))
+        CS_idx = 0;
+        pix8 = val8;
         continue;
-
-      if (y >= 0) // start capture of a new frame
-      {
-        if (frame_count > 10) // power on delay // noise immunity at the sync input
-          cap_buf = get_v_buf_in();
-        else if (frame_count == 5) // clear video buffers
-          clear_video_buffers();
-
-        frame_count++;
       }
 
-      y = -shY - 1;
+      // Odd sample: pack two 4-bit pixels into one byte.
+      if (cap_buf && (unsigned)x < V_BUF_W && (unsigned)y < V_BUF_H)
+        *cap_buf8++ = (uint8_t)((pix8 & 0x0f) | (val8 << 4));
+
       continue;
     }
 
-    if (x & 1)
+    // Detect active sync pulses.
+    if (CS_idx == h_sync_pulse_2)
     {
-      if (!cap_buf || (unsigned)x >= V_BUF_W || (unsigned)y >= V_BUF_H)
-        continue;
+      y++;
 
-      *cap_buf8++ = (pix8 & 0xf) | (val8 << 4);
+      // Set the pointer to the beginning of a new line.
+      if ((y >= 0) && cap_buf)
+        cap_buf8 = &cap_buf[y * (V_BUF_W / 2)];
     }
-    else
+
+    CS_idx++;
+    x = -shX - 1;
+
+    if (!video_sync_mode)
     {
-      CS_idx = 0;
-      pix8 = val8;
+      // Composite sync: detect V_SYNC pulse by pulse width.
+      if (CS_idx < v_sync_pulse)
+        continue;
     }
+    else if (val8 & (1u << VS_PIN))
+      continue;
+
+    if (y >= 0)
+    {
+      // Start capture of a new frame (with startup noise immunity).
+      if (frame_count > 10)
+        cap_buf = get_v_buf_in();
+      else if (frame_count == 5)
+        clear_video_buffers();
+
+      frame_count++;
+    }
+
+    y = -shY - 1;
   }
 
   x_s = x;
@@ -221,6 +236,8 @@ void __attribute__((hot)) __not_in_flash_func(dma_handler_capture())
 void start_capture()
 {
   uint8_t pin_inversion_mask = settings.pin_inversion_mask;
+
+  update_capture_sync_mask(settings.video_sync_mode);
 
   // video timing variables measured in pixels
   h_sync_pulse_2 = 3 * (uint8_t)(settings.frequency / 1000000); // 3 µs - 1/2 of the H_SYNC pulse

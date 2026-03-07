@@ -314,8 +314,8 @@ void start_vga(video_mode_t v_mode)
     v_margin = 0;
 
 #ifdef OSD_MENU_ENABLE
-  osd_start_x = (h_visible_area - OSD_WIDTH / 2) / 2;
-  osd_end_x = osd_start_x + OSD_WIDTH / 2;
+  osd_start_x = (h_visible_area - (OSD_WIDTH / 2)) / 2;
+  osd_end_x = osd_start_x + (OSD_WIDTH / 2);
 
   osd_start_y = ((video_mode.v_visible_area - 2 * v_margin) / video_mode.div - OSD_HEIGHT) / 2;
   osd_end_y = osd_start_y + OSD_HEIGHT;
