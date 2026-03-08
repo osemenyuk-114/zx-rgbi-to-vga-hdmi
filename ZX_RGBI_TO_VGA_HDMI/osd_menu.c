@@ -726,7 +726,6 @@ static void render_about_menu()
         fg_color = OSD_COLOR_TEXT;
         bg_color = OSD_COLOR_BACKGROUND;
     }
-
     osd_text_print(OSD_MENU_START_ROW + 7, 2, "< BACK TO MAIN", fg_color, bg_color, 0);
 }
 
