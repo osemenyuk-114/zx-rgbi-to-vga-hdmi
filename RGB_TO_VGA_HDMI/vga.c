@@ -295,7 +295,7 @@ void start_vga(video_mode_t v_mode)
   int h_sync_pulse = video_mode.h_sync_pulse / video_mode.div;
 
   h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 2;
-  h_margin = (h_visible_area - (uint8_t)(settings.frequency / 1000000) * ACTIVE_VIDEO_TIME / 2) / 2;
+  h_margin = (h_visible_area - (uint8_t)(settings.frequency / 1000000) * (ACTIVE_VIDEO_TIME / 2)) / 2;
 
   if (h_margin < 0)
     h_margin = 0;
@@ -309,8 +309,8 @@ void start_vga(video_mode_t v_mode)
     v_margin = 0;
 
 #ifdef OSD_MENU_ENABLE
-  osd_start_x = (h_visible_area - OSD_WIDTH / 2) / 2;
-  osd_end_x = osd_start_x + OSD_WIDTH / 2;
+  osd_start_x = (h_visible_area - (OSD_WIDTH / 2)) / 2;
+  osd_end_x = osd_start_x + (OSD_WIDTH / 2);
 
   osd_start_y = ((video_mode.v_visible_area - 2 * v_margin) / video_mode.div - OSD_HEIGHT) / 2;
   osd_end_y = osd_start_y + OSD_HEIGHT;

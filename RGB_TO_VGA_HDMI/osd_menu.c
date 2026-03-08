@@ -771,7 +771,7 @@ void osd_text_print(uint8_t row, uint8_t col, const char *str, uint8_t fg_color,
 
     uint8_t i;
     // Copy string characters (avoid last column - right border)
-    uint8_t effective_max_len = (col + max_len >= OSD_COLUMNS) ? (OSD_COLUMNS - col - 1) : max_len;
+    uint8_t effective_max_len = (col + max_len >= OSD_COLUMNS) ? ((OSD_COLUMNS - 1) - col) : max_len;
     for (i = 0; i < effective_max_len && str[i] != '\0'; i++)
     {
         osd_text_buffer[pos + i] = str[i];
