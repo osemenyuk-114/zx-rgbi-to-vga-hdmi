@@ -15,7 +15,6 @@ extern "C"
 #include "video_output.h"
 
 #ifdef OSD_FF_ENABLE
-#include "osd.h"
 #include "ff_osd.h"
 #endif
 }
@@ -106,8 +105,9 @@ void print_video_out_menu()
     case VGA:
         Serial.println("  2    800x600 @60Hz (div 2)");
         Serial.println("  3   1024x768 @60Hz (div 3)");
-        Serial.println("  4  1280x1024 @60Hz (div 3)");
-        Serial.println("  5  1280x1024 @60Hz (div 4)");
+        Serial.println("  4   1024x768 @60Hz (div 4)");
+        Serial.println("  5  1280x1024 @60Hz (div 3)");
+        Serial.println("  6  1280x1024 @60Hz (div 4)");
         break;
 
     default:
@@ -229,23 +229,6 @@ void print_pin_inversion_mask_menu()
     Serial.println("  q   exit to main menu\n");
 }
 
-#ifdef OSD_FF_ENABLE
-void print_ff_osd_menu()
-{
-    Serial.println("\n      * FlashFloppy OSD configuration *\n");
-
-    Serial.println("  r   toggle OSD rows (2/4)");
-    Serial.println("  a   increment OSD minimum columns");
-    Serial.println("  z   decrement OSD minimum columns");
-    Serial.println("  s   increment OSD maximum columns");
-    Serial.println("  x   decrement OSD maximum columns\n");
-
-    Serial.println("  p   show configuration");
-    Serial.println("  h   show help (this menu)");
-    Serial.println("  q   exit to main menu\n");
-}
-#endif
-
 void print_test_menu()
 {
     Serial.println("\n      * Tests *\n");
@@ -300,8 +283,12 @@ void print_video_out_mode()
         Serial.println("800x600 @60Hz");
         break;
 
-    case MODE_1024x768_60Hz:
-        Serial.println("1024x768 @60Hz");
+    case MODE_1024x768_60Hz_d3:
+        Serial.println("1024x768 @60Hz (div 3)");
+        break;
+
+    case MODE_1024x768_60Hz_d4:
+        Serial.println("1024x768 @60Hz (div 4)");
         break;
 
     case MODE_1280x1024_60Hz_d3:
@@ -451,33 +438,47 @@ void print_pin_inversion_mask()
 }
 
 #ifdef OSD_FF_ENABLE
-void print_ff_osd_config()
+void print_ff_osd_menu()
 {
-    Serial.print("  OSD rows ................... ");
-    Serial.println(ff_osd_config.rows, DEC);
+    Serial.println("\n      * FlashFloppy OSD configuration *\n");
 
-    Serial.print("  OSD columns ................ ");
-    Serial.print(ff_osd_config.min_cols, DEC);
-    Serial.print(" - ");
-    Serial.println(ff_osd_config.max_cols, DEC);
+    Serial.println("  i   change I2C protocol");
+    Serial.println("  r   change number of rows (2/4)");
+    Serial.println("  a   increment number of columns");
+    Serial.println("  z   decrement number of columns");
+
+    Serial.println("  p   show configuration");
+    Serial.println("  h   show help (this menu)");
+    Serial.println("  q   exit to main menu\n");
+}
+
+void print_ff_osd_i2c_protocol()
+{
+    Serial.print("  I2C protocol ............... ");
+
+    if (settings.ff_osd_config.i2c_protocol)
+        printf("FlashFloppy\n");
+    else
+        printf("LCD HD44780\n");
 }
 
 void print_ff_osd_rows()
 {
-    Serial.print("  OSD rows ................... ");
-    Serial.println(ff_osd_config.rows, DEC);
+    Serial.print("  Rows ....................... ");
+    Serial.println(settings.ff_osd_config.rows, DEC);
 }
 
-void print_ff_osd_min_cols()
+void print_ff_osd_cols()
 {
-    Serial.print("  OSD min columns ............ ");
-    Serial.println(ff_osd_config.min_cols, DEC);
+    Serial.print("  Columns .................... ");
+    Serial.println(settings.ff_osd_config.cols, DEC);
 }
 
-void print_ff_osd_max_cols()
+void print_ff_osd_config()
 {
-    Serial.print("  OSD max columns ............ ");
-    Serial.println(ff_osd_config.max_cols, DEC);
+    print_ff_osd_i2c_protocol();
+    print_ff_osd_rows();
+    print_ff_osd_cols();
 }
 #endif
 
@@ -616,7 +617,7 @@ void handle_serial_menu()
                 case '3':
                     if (settings.video_out_type == VGA)
                     {
-                        settings.video_out_mode = MODE_1024x768_60Hz;
+                        settings.video_out_mode = MODE_1024x768_60Hz_d3;
                         print_video_out_mode();
                     }
 
@@ -625,13 +626,22 @@ void handle_serial_menu()
                 case '4':
                     if (settings.video_out_type == VGA)
                     {
-                        settings.video_out_mode = MODE_1280x1024_60Hz_d3;
+                        settings.video_out_mode = MODE_1024x768_60Hz_d4;
                         print_video_out_mode();
                     }
 
                     break;
 
                 case '5':
+                    if (settings.video_out_type == VGA)
+                    {
+                        settings.video_out_mode = MODE_1280x1024_60Hz_d3;
+                        print_video_out_mode();
+                    }
+
+                    break;
+
+                case '6':
                     if (settings.video_out_type == VGA)
                     {
                         settings.video_out_mode = MODE_1280x1024_60Hz_d4;
@@ -1182,22 +1192,6 @@ void handle_serial_menu()
                 if (inchar != 'h')
                     inchar = get_menu_input(10);
 
-                osd_clear_text_buffer();
-                osd_text_print_centered(0, "* FlashFloppy OSD Configuration *", 7, 0, 1);
-                osd_render_text_to_buffer();
-
-                osd_mode.x = 1;
-                osd_mode.y = 1;
-                osd_mode.columns = ff_osd_display.cols;
-                osd_mode.rows = ff_osd_config.rows;
-                osd_mode.border_enabled = false;
-                osd_mode.width = osd_mode.columns * OSD_FONT_WIDTH;
-                osd_mode.height = osd_mode.rows * OSD_FONT_HEIGHT;
-                osd_mode.buffer_size = osd_mode.width * osd_mode.height / 2;
-
-                osd_set_position();
-                osd_state.visible = true; // enable OSD display for configuration
-
                 switch (inchar)
                 {
                 case 'p':
@@ -1208,26 +1202,35 @@ void handle_serial_menu()
                     print_ff_osd_menu();
                     break;
 
+                case 'i':
+                    settings.ff_osd_config.i2c_protocol = !settings.ff_osd_config.i2c_protocol;
+                    print_ff_osd_i2c_protocol();
+                    break;
+
                 case 'r':
-                    ff_osd_config.rows = (ff_osd_config.rows == 2) ? 4 : 2;
-                    print_ff_osd_rows();
+                    if (!settings.ff_osd_config.i2c_protocol)
+                    {
+                        settings.ff_osd_config.rows = (settings.ff_osd_config.rows == 2) ? 4 : 2;
+                        print_ff_osd_rows();
+                    }
+
                     break;
 
                 case 'a':
-                    ff_osd_config.min_cols = ff_osd_set_min_cols(ff_osd_config.min_cols + 1);
-                    print_ff_osd_min_cols();
+                    if (!settings.ff_osd_config.i2c_protocol)
+                    {
+                        settings.ff_osd_config.cols = ff_osd_set_cols(settings.ff_osd_config.cols + 1);
+                        print_ff_osd_cols();
+                    }
+
                     break;
+
                 case 'z':
-                    ff_osd_config.min_cols = ff_osd_set_min_cols(ff_osd_config.min_cols - 1);
-                    print_ff_osd_min_cols();
-                    break;
-                case 's':
-                    ff_osd_config.max_cols = ff_osd_set_max_cols(ff_osd_config.max_cols + 1);
-                    print_ff_osd_max_cols();
-                    break;
-                case 'x':
-                    ff_osd_config.max_cols = ff_osd_set_max_cols(ff_osd_config.max_cols - 1);
-                    print_ff_osd_max_cols();
+                    if (!settings.ff_osd_config.i2c_protocol)
+                    {
+                        settings.ff_osd_config.cols = ff_osd_set_cols(settings.ff_osd_config.cols - 1);
+                        print_ff_osd_cols();
+                    }
                     break;
 
                 default:
@@ -1236,7 +1239,6 @@ void handle_serial_menu()
 
                 if (inchar == 'q')
                 {
-                    osd_state.visible = false; // restore OSD state
                     inchar = 'h';
                     break;
                 }
@@ -1303,10 +1305,11 @@ void handle_serial_menu()
                     Serial.println(ff_osd_display.on ? "Yes" : "No");
                     Serial.print("  Rows ........................ ");
                     Serial.println(ff_osd_display.rows, DEC);
-                    Serial.print("  Cols ........................ ");
+                    Serial.print("  Columns ..................... ");
                     Serial.println(ff_osd_display.cols, DEC);
 
                     Serial.println("\n  Text content:\n");
+
                     for (int row = 0; row < ff_osd_display.rows && row < 4; row++)
                     {
                         Serial.print("    Row ");
@@ -1314,13 +1317,16 @@ void handle_serial_menu()
                         Serial.print(": Height bits: ");
                         Serial.print((ff_osd_display.heights >> row) & 1, HEX);
                         Serial.print(" \"");
+
                         for (int col = 0; col < ff_osd_display.cols && col < 40; col++)
                         {
                             char c = ff_osd_display.text[row][col];
                             Serial.print((c >= 32 && c < 127) ? c : '.');
                         }
+
                         Serial.println("\"");
                     }
+
                     Serial.println("");
                     break;
                 }

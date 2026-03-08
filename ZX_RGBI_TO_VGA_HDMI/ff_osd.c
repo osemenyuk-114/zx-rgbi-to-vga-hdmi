@@ -116,20 +116,22 @@ static const uint I2C_SLAVE_SCL_PIN = 19;
 #define FF_OSD_BUTTON_RIGHT 2
 #define FF_OSD_BUTTON_SELECT 4
 
-#define FF_OSD_COLUMNS_MIN 1
+#define FF_OSD_COLUMNS_MIN 16
 #define FF_OSD_COLUMNS_MAX 40
 
 const char ff_osd_fw_ver[] = FF_OSD_FW_VER;
 
+extern settings_t settings;
+
 const static ff_osd_config_t default_ff_osd_config = {
-    .min_cols = 16,
-    .max_cols = 40,
+    .i2c_protocol = false,
+    .cols = 16,
     .rows = 2,
 };
 
 ff_osd_config_t ff_osd_config = {
-    .min_cols = 16,
-    .max_cols = 40,
+    .i2c_protocol = true,
+    .cols = 40,
     .rows = 4,
 };
 
@@ -140,8 +142,7 @@ static enum {
     C_banner,
     // LCD
     C_rows,
-    C_min_cols,
-    C_max_cols,
+    C_cols,
     // Exit
     C_save,
     C_max
@@ -156,8 +157,6 @@ ff_osd_display_t ff_osd_display = {
     .text = {},
 };
 
-// I2C custom protocol state
-bool ff_osd_i2c_protocol;  // using the custom protocol?
 uint8_t ff_osd_buttons_rx; // button state: Gotek -> OSD
 
 // state: OSD -> Gotek
@@ -226,14 +225,9 @@ uint8_t button_repeat(uint8_t pb, uint8_t b, uint8_t m, struct repeat *r)
     return b;
 }
 
-uint16_t ff_osd_set_min_cols(int16_t min_cols)
+uint16_t ff_osd_set_cols(int16_t cols)
 {
-    return min_t(uint16_t, max_t(uint16_t, min_cols, FF_OSD_COLUMNS_MIN), (FF_OSD_COLUMNS_MAX * 2) / ff_osd_config.rows);
-}
-
-uint16_t ff_osd_set_max_cols(int16_t max_cols)
-{
-    return min_t(uint16_t, max_t(uint16_t, max_cols, ff_osd_config.min_cols), (FF_OSD_COLUMNS_MAX * 2) / ff_osd_config.rows);
+    return min_t(uint16_t, max_t(uint16_t, cols, FF_OSD_COLUMNS_MIN), FF_OSD_COLUMNS_MAX);
 }
 
 void ff_osd_set_buttons(uint8_t buttons)
@@ -251,11 +245,11 @@ void display_off(void)
 
 static void lcd_display_update(void)
 {
-    if (ff_osd_i2c_protocol)
+    if (ff_osd_config.i2c_protocol)
         return;
 
     ff_osd_display.rows = ff_osd_config.rows;
-    ff_osd_display.cols = ff_osd_config.min_cols;
+    ff_osd_display.cols = ff_osd_config.cols;
 }
 
 void __not_in_flash_func(i2c_slave_handler)(i2c_inst_t *i2c, i2c_slave_event_t event)
@@ -268,11 +262,11 @@ void __not_in_flash_func(i2c_slave_handler)(i2c_inst_t *i2c, i2c_slave_event_t e
     case I2C_SLAVE_RECEIVE: // master has written some data
         // On address match (first RECEIVE after FINISH), mark transaction start
         if (!addr_matched)
-    {
-        t_ring[MASK(t_ring, t_prod++)] = d_prod;
+        {
+            t_ring[MASK(t_ring, t_prod++)] = d_prod;
             rp = 0;
             addr_matched = true;
-    }
+        }
 
         // Read incoming byte - ISR is called for each byte received
         d_ring[MASK(d_ring, d_prod++)] = i2c_read_byte_raw(i2c);
@@ -281,13 +275,13 @@ void __not_in_flash_func(i2c_slave_handler)(i2c_inst_t *i2c, i2c_slave_event_t e
     case I2C_SLAVE_REQUEST: // master is requesting data
         // On address match for read operation, just reset read position
         if (!addr_matched)
-    {
-        rp = 0;
+        {
+            rp = 0;
             addr_matched = true;
-    }
+        }
 
         // Send response byte - ISR is called for each byte requested
-    uint8_t *info = (uint8_t *)&ff_osd_info;
+        uint8_t *info = (uint8_t *)&ff_osd_info;
         i2c_write_byte_raw(i2c, (rp < sizeof(ff_osd_info)) ? info[rp++] : 0);
         break;
 
@@ -303,7 +297,10 @@ void __not_in_flash_func(i2c_slave_handler)(i2c_inst_t *i2c, i2c_slave_event_t e
 
 void ff_osd_i2c_init()
 {
-    ff_osd_i2c_protocol = true;
+    ff_osd_config = settings.ff_osd_config;
+
+    // Apply config to display (important for LCD mode)
+    lcd_display_update();
 
     // Initialize GPIO pins for I2C
     gpio_init(I2C_SLAVE_SDA_PIN);
@@ -318,11 +315,17 @@ void ff_osd_i2c_init()
     i2c_init(I2C_INST, I2C_BAUDRATE);
 
     // Initialize I2C slave mode with our address and handler
-    uint8_t slave_addr = ff_osd_i2c_protocol ? 0x10 : 0x27;
+    uint8_t slave_addr = ff_osd_config.i2c_protocol ? 0x10 : 0x27;
     i2c_slave_init(I2C_INST, slave_addr, &i2c_slave_handler);
 }
 
-static void __not_in_flash_func(ff_osd_process)(void)
+void ff_osd_set_address()
+{
+    uint8_t slave_addr = ff_osd_config.i2c_protocol ? 0x10 : 0x27;
+    I2C_INST->hw->sar = slave_addr;
+}
+
+static void __not_in_flash_func(ffosd_process)(void)
 {
     uint16_t d_c, d_p, t_c, t_p;
 
@@ -489,7 +492,7 @@ static void __not_in_flash_func(lcd_process_dat)(uint8_t dat)
     lcd_ddraddr++;
 
     if (x >= ff_osd_display.cols)
-        ff_osd_display.cols = min_t(unsigned int, x + 1, ff_osd_config.max_cols);
+        ff_osd_display.cols = min_t(unsigned int, x + 1, FF_OSD_COLUMNS_MAX);
 }
 
 static void __not_in_flash_func(lcd_process)(void)
@@ -532,7 +535,7 @@ static void __not_in_flash_func(lcd_process)(void)
 
 void ff_osd_i2c_process(void)
 {
-    return ff_osd_i2c_protocol ? ff_osd_process() : lcd_process();
+    return ff_osd_config.i2c_protocol ? ffosd_process() : lcd_process();
 }
 
 void ff_osd_update()
@@ -566,6 +569,7 @@ void ff_osd_update()
         osd_mode.columns = ff_osd_display.cols;
 
         uint8_t double_height_rows = 0;
+
         for (int i = 0; i < ff_osd_display.rows; i++)
             if ((ff_osd_display.heights >> i) & 1)
                 double_height_rows++;
@@ -594,7 +598,7 @@ void ff_osd_update()
                 continue;
 
             // Check if this row should be double-height
-            uint8_t is_double_height = ff_osd_i2c_protocol && ((ff_osd_display.heights >> row) & 1);
+            uint8_t is_double_height = ff_osd_config.i2c_protocol && ((ff_osd_display.heights >> row) & 1);
 
             osd_text_heights[osd_row] = is_double_height;
 
@@ -622,7 +626,6 @@ void ff_osd_update()
             }
 
             row_text[out_pos] = '\0';
-
             // Print the entire row at once with the appropriate height
             osd_text_print(osd_row, 0, row_text, fg_color, bg_color, is_double_height);
         }
@@ -709,7 +712,7 @@ void ff_osd_config_process(uint8_t b, uint8_t fg_color, uint8_t bg_color)
             lcd_display_update();
         }
 
-        if ((config_state == C_rows) && ff_osd_i2c_protocol)
+        if ((config_state == C_rows) && ff_osd_config.i2c_protocol)
         {
             // Skip LCD config options if using the extended OSD protocol.
             config_state = C_save;
@@ -744,37 +747,20 @@ void ff_osd_config_process(uint8_t b, uint8_t fg_color, uint8_t bg_color)
 
         break;
 
-    case C_min_cols:
+    case C_cols:
         if (changed)
-            osd_text_printf(0, 0, fg_color, bg_color, 0, "Min.Col (1-%u):", 80 / ff_osd_config.rows);
+            osd_text_printf(0, 0, fg_color, bg_color, 0, "Col (%u-%u):", FF_OSD_COLUMNS_MIN, FF_OSD_COLUMNS_MAX);
 
         if (b & FF_OSD_BUTTON_LEFT)
-            ff_osd_config.min_cols--;
+            ff_osd_config.cols--;
 
         if (b & FF_OSD_BUTTON_RIGHT)
-            ff_osd_config.min_cols++;
+            ff_osd_config.cols++;
 
-        ff_osd_config.min_cols = min_t(uint16_t, max_t(uint16_t, ff_osd_config.min_cols, 1), 80 / ff_osd_config.rows);
-
-        if (b)
-            osd_text_printf(1, 0, fg_color, bg_color, 0, "%u", ff_osd_config.min_cols);
-
-        break;
-
-    case C_max_cols:
-        if (changed)
-            osd_text_printf(0, 0, fg_color, bg_color, 0, "Max.Col (%u-%u):", ff_osd_config.min_cols, 80 / ff_osd_config.rows);
-
-        if (b & FF_OSD_BUTTON_LEFT)
-            ff_osd_config.max_cols--;
-
-        if (b & FF_OSD_BUTTON_RIGHT)
-            ff_osd_config.max_cols++;
-
-        ff_osd_config.max_cols = min_t(uint16_t, max_t(uint16_t, ff_osd_config.max_cols, ff_osd_config.min_cols), 80 / ff_osd_config.rows);
+        ff_osd_config.cols = min_t(uint16_t, max_t(uint16_t, ff_osd_config.cols, FF_OSD_COLUMNS_MIN), FF_OSD_COLUMNS_MAX);
 
         if (b)
-            osd_text_printf(1, 0, fg_color, bg_color, 0, "%u", ff_osd_config.max_cols);
+            osd_text_printf(1, 0, fg_color, bg_color, 0, "%u", ff_osd_config.cols);
 
         break;
 

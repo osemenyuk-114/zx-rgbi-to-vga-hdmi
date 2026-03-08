@@ -24,7 +24,8 @@ typedef enum video_out_mode_t
   MODE_720x576_50Hz,
   VIDEO_MODE_DVI_MAX = MODE_720x576_50Hz,
   MODE_800x600_60Hz,
-  MODE_1024x768_60Hz,
+  MODE_1024x768_60Hz_d3,
+  MODE_1024x768_60Hz_d4,
   MODE_1280x1024_60Hz_d3,
   MODE_1280x1024_60Hz_d4,
   VIDEO_MODE_MAX = MODE_1280x1024_60Hz_d4,
@@ -37,6 +38,15 @@ typedef enum cap_sync_mode_t
   EXT,
   SYNC_MODE_MAX = EXT,
 } cap_sync_mode_t;
+
+#ifdef OSD_FF_ENABLE
+typedef struct ff_osd_config_t
+{
+  uint16_t cols;
+  uint16_t rows;
+  bool i2c_protocol : 1; // false = LCD_HD44780, true = FlashFloppy
+} ff_osd_config_t;
+#endif
 
 typedef struct settings_t
 {
@@ -52,6 +62,9 @@ typedef struct settings_t
   int16_t shX;
   int16_t shY;
   uint8_t pin_inversion_mask;
+#ifdef OSD_FF_ENABLE
+  ff_osd_config_t ff_osd_config;
+#endif
 } settings_t;
 
 typedef struct video_mode_t
@@ -75,7 +88,8 @@ typedef struct video_mode_t
 extern video_mode_t mode_640x480_60Hz;
 extern video_mode_t mode_720x576_50Hz;
 extern video_mode_t mode_800x600_60Hz;
-extern video_mode_t mode_1024x768_60Hz;
+extern video_mode_t mode_1024x768_60Hz_d3;
+extern video_mode_t mode_1024x768_60Hz_d4;
 extern video_mode_t mode_1280x1024_60Hz_d3;
 extern video_mode_t mode_1280x1024_60Hz_d4;
 
@@ -170,7 +184,7 @@ extern uint8_t g_v_buf[];
 // not enabled due to reduced image brightness and uneven line thickness caused by monitor scaler
 // #define SCANLINES_ENABLE_LOW_RES
 
-// select scanline thickness for the 1280x1024 div4 video mode
+// select scanline thickness for the 1024x768 and 1280x1024 DIV4 video modes
 // thin - show scanline once every four lines
 // thick - show scanline twice in four lines
 #define SCANLINES_USE_THIN

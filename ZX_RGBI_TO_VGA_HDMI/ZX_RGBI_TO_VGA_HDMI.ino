@@ -82,12 +82,12 @@ void setup1()
   pinMode(PIN_LED, OUTPUT);
   digitalWrite(PIN_LED, LOW);
 
+  while (!start_core0)
+    sleep_ms(10);
+
 #ifdef OSD_FF_ENABLE
   ff_osd_i2c_init();
 #endif
-
-  while (!start_core0)
-    sleep_ms(10);
 
   start_capture();
 }

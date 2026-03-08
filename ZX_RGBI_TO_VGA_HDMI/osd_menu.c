@@ -75,7 +75,6 @@ void osd_menu_update()
         // Don't process the button press that opened the menu
         osd_buttons.up_pressed = false;
         osd_buttons.down_pressed = false;
-
         return;
     }
 
@@ -102,7 +101,6 @@ void osd_menu_update()
         if (osd_button_pressed(0))
         {                          // UP button
             osd_update_activity(); // Reset timeout on user interaction
-
             if (osd_menu.current_menu == MENU_TYPE_OUTPUT && osd_menu_state.tuning_mode && osd_menu_state.selected_item == 0)
             { // Video mode adjustment
                 osd_adjust_video_mode(1);
@@ -132,7 +130,6 @@ void osd_menu_update()
         if (osd_button_pressed(1))
         {                          // DOWN button
             osd_update_activity(); // Reset timeout on user interaction
-
             if (osd_menu.current_menu == MENU_TYPE_OUTPUT && osd_menu_state.tuning_mode && osd_menu_state.selected_item == 0)
             { // Video mode adjustment
                 osd_adjust_video_mode(-1);
@@ -164,7 +161,6 @@ void osd_menu_update()
         if (osd_button_pressed(2) && osd_menu_state.selected_item >= 0)
         {                          // SEL button for item selection
             osd_update_activity(); // Reset timeout on user interaction
-
             if (osd_menu.current_menu == MENU_TYPE_MAIN)
             {
                 // Main menu selection
@@ -427,6 +423,7 @@ void osd_menu_update()
             }
             osd_buttons.sel_pressed = false;
         }
+
         // Update text buffer when menu state changes
         if (osd_state.needs_redraw)
         {
@@ -434,6 +431,7 @@ void osd_menu_update()
             osd_state.needs_redraw = false;
             osd_state.text_updated = true;
         }
+
         // Render text buffer to pixel buffer when needed
         if (osd_state.text_updated)
         {
@@ -503,7 +501,6 @@ static void render_output_menu()
             {
 #ifndef SCANLINES_ENABLE_LOW_RES
                 uint8_t div = video_modes[settings.video_out_mode]->div;
-
                 if (div != 3 && div != 4)
                     color = OSD_COLOR_DIMMED;
 #endif
@@ -529,10 +526,10 @@ static void render_output_menu()
         if (i == 0)
         {
             const char *mode_names_dvi[] = {"640X480@60", "720X576@50"};
-            const char *mode_names_vga[] = {"640X480@60", "800X600@60", "1024X768@60",
+            const char *mode_names_vga[] = {"640X480@60", "800X600@60",
+                                            "1024X768@60 DIV3", "1024X768@60 DIV4",
                                             "1280X1024@60 DIV3", "1280X1024@60 DIV4"};
             const char *current_mode_name = "UNKNOWN";
-
             if (settings.video_out_type == DVI)
             {
                 if (settings.video_out_mode == MODE_640x480_60Hz)
@@ -546,14 +543,15 @@ static void render_output_menu()
                     current_mode_name = mode_names_vga[0];
                 else if (settings.video_out_mode == MODE_800x600_60Hz)
                     current_mode_name = mode_names_vga[1];
-                else if (settings.video_out_mode == MODE_1024x768_60Hz)
+                else if (settings.video_out_mode == MODE_1024x768_60Hz_d3)
                     current_mode_name = mode_names_vga[2];
-                else if (settings.video_out_mode == MODE_1280x1024_60Hz_d3)
+                else if (settings.video_out_mode == MODE_1024x768_60Hz_d4)
                     current_mode_name = mode_names_vga[3];
-                else if (settings.video_out_mode == MODE_1280x1024_60Hz_d4)
+                else if (settings.video_out_mode == MODE_1280x1024_60Hz_d3)
                     current_mode_name = mode_names_vga[4];
+                else if (settings.video_out_mode == MODE_1280x1024_60Hz_d4)
+                    current_mode_name = mode_names_vga[5];
             }
-
             osd_text_printf(row, 2, fg_color, bg_color, 0, "%-9s %s", "MODE", current_mode_name);
         }
         else if (i == 1)
@@ -564,7 +562,9 @@ static void render_output_menu()
             osd_text_print(row, 2, "< BACK TO MAIN", fg_color, bg_color, 0);
 
         if (i == 0 && i == osd_menu_state.selected_item && osd_menu_state.tuning_mode)
+        {
             osd_text_set_char(row, 1, '>', fg_color, bg_color);
+        }
     }
 }
 
@@ -611,7 +611,9 @@ static void render_capture_menu()
             osd_text_print(row, 2, "< BACK TO MAIN", fg_color, bg_color, 0);
 
         if (i < 5 && i != 1 && i != 3 && i == osd_menu_state.selected_item && osd_menu_state.tuning_mode)
+        {
             osd_text_set_char(row, 1, '>', fg_color, bg_color);
+        }
     }
 }
 
@@ -653,7 +655,9 @@ static void render_image_adjust_menu()
             osd_text_print(row, 2, "< BACK TO MAIN", fg_color, bg_color, 0);
 
         if (i < 3 && i == osd_menu_state.selected_item && osd_menu_state.tuning_mode)
+        {
             osd_text_set_char(row, 1, '>', fg_color, bg_color);
+        }
     }
 }
 
@@ -691,11 +695,12 @@ static void render_mask_menu()
         {
             uint8_t bit_pos = mask_bit_positions[i];
             bool bit_value = (settings.pin_inversion_mask >> bit_pos) & 1;
-
             osd_text_printf(row, 2, fg_color, bg_color, 0, "%-12s %s", mask_items[i], bit_value ? "ON" : "OFF");
         }
         else
+        {
             osd_text_print(row, 2, mask_items[i], fg_color, bg_color, 0);
+        }
     }
 }
 
@@ -710,7 +715,6 @@ static void render_about_menu()
     osd_text_print(OSD_MENU_START_ROW + 4, 2, "zx-rgbi-to-vga-hdmi-PICOSDK", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
 
     uint8_t fg_color, bg_color;
-
     if (osd_menu_state.selected_item == 0)
     {
         fg_color = OSD_COLOR_BACKGROUND;
@@ -721,41 +725,36 @@ static void render_about_menu()
         fg_color = OSD_COLOR_TEXT;
         bg_color = OSD_COLOR_BACKGROUND;
     }
-
     osd_text_print(OSD_MENU_START_ROW + 6, 2, "< BACK TO MAIN", fg_color, bg_color, 0);
 }
 
 void osd_update_text_buffer()
 { // Clear text buffer
     osd_clear_text_buffer();
+
     // Draw header
     const char *title = settings.video_out_type == VGA ? "ZX RGBI TO VGA CONVERTER" : "ZX RGBI TO HDMI CONVERTER";
-
     osd_text_print_centered(OSD_TITLE_ROW, title, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
     osd_text_print_centered(OSD_SUBTITLE_ROW, "SETUP MENU", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND, 0);
+
     // Render menu based on current menu type
     switch (osd_menu.current_menu)
     {
     case MENU_TYPE_MAIN:
         render_main_menu();
         break;
-
     case MENU_TYPE_OUTPUT:
         render_output_menu();
         break;
-
     case MENU_TYPE_CAPTURE:
         render_capture_menu();
         break;
-
     case MENU_TYPE_IMAGE_ADJUST:
         render_image_adjust_menu();
         break;
-
     case MENU_TYPE_MASK:
         render_mask_menu();
         break;
-
     case MENU_TYPE_ABOUT:
         render_about_menu();
         break;
@@ -806,12 +805,15 @@ void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction)
     {
         uint32_t freq_step = 100; // Base step: 100Hz
         uint32_t current_time = time_us_32();
+
         // Determine which button is being used (UP or DOWN)
         uint8_t button_index = (direction > 0) ? 0 : 1; // 0=UP, 1=DOWN
+
         // Calculate step size based on key hold duration
         if (osd_buttons.key_held[button_index])
         {
             uint32_t hold_duration = current_time - osd_buttons.key_hold_start[button_index];
+
             // Progressive step increase based on hold time and current frequency alignment
             if (hold_duration > 5000000 && (settings.frequency % 100000 == 0))
                 freq_step = 100000; // After 5 seconds and 100kHz alignment: 100kHz steps
@@ -863,12 +865,14 @@ void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction)
         // UP/DOWN moves between bit positions (0-6, bit 7 is always 0)
         // When a bit is selected, it can be toggled
         if (direction > 0)
-        { // Move to next bit position (right)
+        {
+            // Move to next bit position (right)
             if (osd_menu_state.mask_bit_position < 6)
                 osd_menu_state.mask_bit_position++;
         }
         else if (direction < 0)
-        { // Move to previous bit position (left)
+        {
+            // Move to previous bit position (left)
             if (osd_menu_state.mask_bit_position > 0)
                 osd_menu_state.mask_bit_position--;
         }
@@ -880,7 +884,8 @@ void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction)
 void osd_adjust_video_mode(int8_t direction)
 {
     video_out_mode_t modes_dvi[] = {MODE_640x480_60Hz, MODE_720x576_50Hz};
-    video_out_mode_t modes_vga[] = {MODE_640x480_60Hz, MODE_800x600_60Hz, MODE_1024x768_60Hz,
+    video_out_mode_t modes_vga[] = {MODE_640x480_60Hz, MODE_800x600_60Hz,
+                                    MODE_1024x768_60Hz_d3, MODE_1024x768_60Hz_d4,
                                     MODE_1280x1024_60Hz_d3, MODE_1280x1024_60Hz_d4};
 
     video_out_mode_t *modes;
@@ -894,8 +899,9 @@ void osd_adjust_video_mode(int8_t direction)
     else
     {
         modes = modes_vga;
-        mode_count = 5;
+        mode_count = 6;
     }
+
     // Find current mode index
     int8_t current_index = -1;
     for (uint8_t i = 0; i < mode_count; i++)
@@ -904,9 +910,11 @@ void osd_adjust_video_mode(int8_t direction)
             current_index = i;
             break;
         }
+
     // Default to first mode if current mode not found
     if (current_index == -1)
         current_index = 0;
+
     // Calculate new index with wrapping
     int8_t new_index = current_index + direction;
 
@@ -914,6 +922,7 @@ void osd_adjust_video_mode(int8_t direction)
         new_index = mode_count - 1; // Wrap to last mode
     else if (new_index >= mode_count)
         new_index = 0; // Wrap to first mode
+
     // Update mode in settings (don't apply yet - wait for SEL press)
     settings.video_out_mode = modes[new_index];
 }
