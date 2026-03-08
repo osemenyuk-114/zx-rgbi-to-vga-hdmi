@@ -1,7 +1,7 @@
 #include "g_config.h"
 #include "video_output.h"
-#include "v_buf.h"
 #include "dvi.h"
+#include "v_buf.h"
 #include "vga.h"
 
 extern settings_t settings;
