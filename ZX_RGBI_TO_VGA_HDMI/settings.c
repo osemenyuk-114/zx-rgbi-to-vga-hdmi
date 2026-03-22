@@ -1,3 +1,5 @@
+#include <stddef.h>
+
 #include "hardware/flash.h"
 #include "hardware/sync.h"
 #include "hardware/watchdog.h"
@@ -52,6 +54,42 @@ void check_settings(settings_t *settings)
     settings->buffering_mode = false;
     settings->video_sync_mode = false;
   }
+
+  settings->crc = calculate_settings_crc(settings);
+}
+
+void reset_settings_to_defaults(settings_t *settings)
+{
+  settings->video_out_type = VIDEO_OUT_TYPE_DEF;
+  settings->video_out_mode = VIDEO_OUT_MODE_DEF;
+  settings->cap_sync_mode = CAP_SYNC_MODE_DEF;
+  settings->frequency = FREQUENCY_DEF;
+  settings->ext_clk_divider = EXT_CLK_DIVIDER_DEF;
+  settings->delay = DELAY_DEF;
+  settings->shX = shX_DEF;
+  settings->shY = shY_DEF;
+  settings->pin_inversion_mask = PIN_INVERSION_MASK_DEF;
+  settings->scanlines_mode = false;
+  settings->buffering_mode = false;
+  settings->video_sync_mode = false;
+  settings->crc = calculate_settings_crc(settings);
+}
+
+uint32_t calculate_settings_crc(const settings_t *settings)
+{
+  const uint8_t *data = (const uint8_t *)settings;
+  // CRC covers all fields except the crc field itself (last 4 bytes)
+  size_t len = offsetof(settings_t, crc);
+  uint32_t crc = 0xFFFFFFFF;
+
+  for (size_t i = 0; i < len; i++)
+  {
+    crc ^= data[i];
+    for (int bit = 0; bit < 8; bit++)
+      crc = (crc >> 1) ^ (0xEDB88320 & -(crc & 1));
+  }
+
+  return ~crc;
 }
 
 void load_settings(settings_t *settings)
@@ -59,6 +97,13 @@ void load_settings(settings_t *settings)
   const int *saved_settings = (const int *)(XIP_BASE + (PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE));
 
   memcpy(settings, saved_settings, sizeof(settings_t));
+
+  if (settings->crc != calculate_settings_crc(settings))
+  {
+    reset_settings_to_defaults(settings);
+    return;
+  }
+
   check_settings(settings);
 }
 

@@ -106,8 +106,7 @@ void print_video_out_menu()
         break;
     }
 
-    Serial.println();
-    Serial.println("  p   show configuration");
+    Serial.println("\n  p   show configuration");
     Serial.println("  h   show help (this menu)");
     Serial.println("  q   exit to main menu\n");
 }
@@ -1146,11 +1145,6 @@ void handle_serial_menu()
                     print_test_menu();
                     break;
 
-                case 'i':
-                    Serial.print("  Current frame count ......... ");
-                    Serial.println(frame_count, DEC);
-                    break;
-
                 case '1':
                 case '2':
                 case '3':
@@ -1173,6 +1167,11 @@ void handle_serial_menu()
 
                     break;
                 }
+
+                case 'i':
+                    Serial.print("  Current frame count ......... ");
+                    Serial.println(frame_count, DEC);
+                    break;
 
                 default:
                     break;
