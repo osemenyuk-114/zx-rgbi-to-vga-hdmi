@@ -73,6 +73,7 @@ This version of the firmware:
 
 ### Code Quality
 
+- **Settings Integrity**: CRC-32 validation on saved settings — corrupted or uninitialized flash data is detected on boot and automatically replaced with safe defaults.
 - **Memory Optimization**: Reduced unnecessary memory allocations and pointer complexity in video output modules.
 - **Architecture Refinements**: Better separation of concerns between video input capture and output generation systems.
 - **Maintainability**: Cleaner code structure while preserving critical hardware-specific requirements for reliable video processing.
