@@ -4,6 +4,9 @@ on:
   push:
     branches: [ main ]
 
+env:
+  PIO_ENV: osd_menu
+
 jobs:
   update-latest-tag:
     runs-on: ubuntu-latest
@@ -59,12 +62,12 @@ jobs:
         run: |
           # Build with custom version string using environment variable
           export PLATFORMIO_BUILD_FLAGS='-DFW_VERSION="\"${{ steps.fw_version.outputs.version }}\""'
-          pio run --environment pico
+          pio run --environment $PIO_ENV
       
       - name: Rename firmware file
         run: |
           FW_VERSION_NO_V="${{ steps.fw_version.outputs.version_no_v }}"
-          cp .pio/build/pico/firmware.uf2 ZX_RGBI_TO_VGA_HDMI.ino-${FW_VERSION_NO_V}.uf2
+          cp .pio/build/$PIO_ENV/firmware.uf2 ZX_RGBI_TO_VGA_HDMI.ino-${FW_VERSION_NO_V}.uf2
           echo "Created: ZX_RGBI_TO_VGA_HDMI.ino-${FW_VERSION_NO_V}.uf2"
       
       - name: Update latest tag
