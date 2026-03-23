@@ -7,7 +7,7 @@
 
 // FW_VERSION can be overridden at build time via -DFW_VERSION="..."
 #ifndef FW_VERSION
-#define FW_VERSION "v1.6.0"
+#define FW_VERSION "v1.6.1"
 #endif
 
 #define BOARD_CODE_36LJU22
@@ -69,6 +69,7 @@ typedef struct settings_t
 #ifdef OSD_FF_ENABLE
   ff_osd_config_t ff_osd_config;
 #endif
+  uint32_t crc;
 } settings_t;
 
 typedef struct video_mode_t

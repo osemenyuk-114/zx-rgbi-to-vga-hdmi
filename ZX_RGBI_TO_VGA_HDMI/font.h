@@ -1,6 +1,6 @@
 #pragma once
 
-#define FONT_STYLE 2
+#define FONT_STYLE 1
 
 #if FONT_STYLE == 1
 
