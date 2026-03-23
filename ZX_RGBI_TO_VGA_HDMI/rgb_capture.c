@@ -240,8 +240,8 @@ void start_capture()
   update_capture_sync_mask(settings.video_sync_mode);
 
   // video timing variables measured in pixels
-  h_sync_pulse_2 = 3 * (uint8_t)(settings.frequency / 1000000); // 3 µs - 1/2 of the H_SYNC pulse
-  v_sync_pulse = 30 * (uint8_t)(settings.frequency / 1000000);  // 30 µs - V_SYNC pulse
+  h_sync_pulse_2 = 3 * settings.frequency / 1000000; // 3 µs - 1/2 of the H_SYNC pulse
+  v_sync_pulse = 30 * settings.frequency / 1000000;  // 30 µs - V_SYNC pulse
 
   // set capture pins
   for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)

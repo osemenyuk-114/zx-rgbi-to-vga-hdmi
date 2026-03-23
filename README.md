@@ -68,12 +68,12 @@ This version of the firmware:
 
 ### Development Experience
 
-- **PlatformIO Integration**: Full PlatformIO support with Arduino framework for easier development and dependency management. The project can also be built using the Arduino IDE for those who prefer a simpler setup (requires: Optimization **-O3**, USB Stack - **Pico SDK**).
-- **Enhanced Build System**: Improved VS Code integration with custom build scripts for streamlined development workflow.
-- **Better Task Management**: Added comprehensive build, upload, and monitoring tasks with proper error handling.
+- **PlatformIO Integration**: Full PlatformIO support with Arduino framework for easier development and dependency management. 
+- **Arduino IDE builds**: The project can also be built using the Arduino IDE for those who prefer a simpler setup (requires: Optimization **-O3**, USB Stack - **Pico SDK**).
 
 ### Code Quality
 
+- **Settings Integrity**: CRC-32 validation on saved settings — corrupted or uninitialized flash data is detected on boot and automatically replaced with safe defaults.
 - **Memory Optimization**: Reduced unnecessary memory allocations and pointer complexity in video output modules.
 - **Architecture Refinements**: Better separation of concerns between video input capture and output generation systems.
 - **Maintainability**: Cleaner code structure while preserving critical hardware-specific requirements for reliable video processing.

@@ -25,7 +25,6 @@ extern int16_t h_visible_area;
 static uint32_t *v_out_dma_buf[2];
 
 static uint64_t sync_data[4];
-static uint64_t R64, G64, B64, Y64;
 static uint64_t palette[32];
 
 static void __not_in_flash_func(memset64)(uint64_t *dst, const uint64_t data, uint32_t size)
@@ -244,6 +243,9 @@ void start_dvi()
 {
   int whole_line = video_mode.whole_line * video_mode.div;
 
+  set_sys_clock_khz(video_mode.sys_freq, true);
+  sleep_ms(10);
+
   // initialization of constants
   const uint16_t b0 = 0b1101010100;
   const uint16_t b1 = 0b0010101011;
@@ -254,14 +256,6 @@ void start_dvi()
   sync_data[0b01] = get_ser_diff_data(b0, b0, b2);
   sync_data[0b10] = get_ser_diff_data(b0, b0, b1);
   sync_data[0b11] = get_ser_diff_data(b0, b0, b0);
-
-  R64 = get_ser_diff_data(tmds_encoder(255), tmds_encoder(0), tmds_encoder(0));
-  G64 = get_ser_diff_data(tmds_encoder(0), tmds_encoder(255), tmds_encoder(0));
-  B64 = get_ser_diff_data(tmds_encoder(0), tmds_encoder(0), tmds_encoder(255));
-  Y64 = get_ser_diff_data(tmds_encoder(255), tmds_encoder(255), tmds_encoder(0));
-
-  set_sys_clock_khz(video_mode.sys_freq, true);
-  sleep_ms(10);
 
   // palette initialization
   for (int c = 0; c < 16; c++)

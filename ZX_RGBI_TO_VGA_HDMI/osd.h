@@ -1,7 +1,7 @@
 #pragma once
 
 // OSD dimensions
-#define OSD_WIDTH 320
+#define OSD_WIDTH 240
 #define OSD_HEIGHT 120
 #define OSD_BUFFER_SIZE (OSD_WIDTH * OSD_HEIGHT / 2) // 19200 bytes (2 pixels per byte)
 
