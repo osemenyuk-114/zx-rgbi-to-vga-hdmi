@@ -9,13 +9,8 @@
 #include "pio_programs.h"
 #include "v_buf.h"
 
-#ifdef OSD_MENU_ENABLE
-#include "osd_menu.h"
-
-static uint16_t osd_start_x;
-static uint16_t osd_end_x;
-static uint16_t osd_start_y;
-static uint16_t osd_end_y;
+#ifdef OSD_ENABLE
+#include "osd.h"
 #endif
 
 extern settings_t settings;
@@ -30,7 +25,6 @@ static int16_t h_visible_area;
 static uint32_t *v_out_dma_buf[2];
 
 static uint64_t sync_data[4];
-static uint64_t R64, G64, B64, Y64;
 static uint64_t palette[128];
 
 static void __not_in_flash_func(memset64)(uint64_t *dst, const uint64_t data, uint32_t size)
@@ -145,17 +139,17 @@ static void __not_in_flash_func(dma_handler_dvi)()
     uint8_t *scr_line = &scr_buffer[scaled_y * V_BUF_W];
     uint64_t *line_buf = active_buf;
 
-#ifdef OSD_MENU_ENABLE
+#ifdef OSD_ENABLE
     // check if OSD is visible and overlaps with current scaled scanline
-    bool osd_active = osd_state.visible && (scaled_y >= osd_start_y && scaled_y < osd_end_y);
+    bool osd_active = osd_state.visible && (scaled_y >= osd_mode.start_y && scaled_y < osd_mode.end_y);
 
     if (osd_active)
     { // calculate OSD buffer line offset using scaled coordinates (1 pixel per byte)
-      uint8_t *osd_line = &osd_buffer[(scaled_y - osd_start_y) * OSD_WIDTH];
+      uint8_t *osd_line = &osd_buffer[(scaled_y - osd_mode.start_y) * osd_mode.width];
 
       int x = 0;
 
-      while (x < osd_start_x)
+      while (x < osd_mode.start_x)
       { // fast loop for pre-OSD area (no OSD checks) - optimized palette access
         uint8_t c2 = *scr_line++;
         uint8_t pixel = c2 & 0x3f;
@@ -174,7 +168,7 @@ static void __not_in_flash_func(dma_handler_dvi)()
         x++;
       }
 
-      while (x < osd_end_x)
+      while (x < osd_mode.end_x)
       { // ultra-simplified OSD compositing
         scr_line += 2;
         uint8_t o2 = *osd_line++;
@@ -261,13 +255,16 @@ void start_dvi(video_mode_t v_mode)
 
   h_visible_area = video_mode.h_visible_area / (2 * video_mode.div);
 
-#ifdef OSD_MENU_ENABLE
-  osd_start_x = (h_visible_area - (OSD_WIDTH / 2)) / 2;
-  osd_end_x = osd_start_x + (OSD_WIDTH / 2);
+#ifdef OSD_ENABLE
+  osd_mode.start_x = (h_visible_area - (OSD_WIDTH / 2)) / 2;
+  osd_mode.end_x = osd_mode.start_x + (OSD_WIDTH / 2);
 
-  osd_start_y = (video_mode.v_visible_area / video_mode.div - OSD_HEIGHT) / 2;
-  osd_end_y = osd_start_y + OSD_HEIGHT;
+  osd_mode.start_y = (video_mode.v_visible_area / video_mode.div - OSD_HEIGHT) / 2;
+  osd_mode.end_y = osd_mode.start_y + OSD_HEIGHT;
 #endif
+
+  set_sys_clock_khz(video_mode.sys_freq, true);
+  sleep_ms(10);
 
   // initialization of constants
   const uint16_t b0 = 0b1101010100;
@@ -280,24 +277,14 @@ void start_dvi(video_mode_t v_mode)
   sync_data[0b10] = get_ser_diff_data(b0, b0, b1);
   sync_data[0b11] = get_ser_diff_data(b0, b0, b0);
 
-  R64 = get_ser_diff_data(tmds_encoder(255), tmds_encoder(0), tmds_encoder(0));
-  G64 = get_ser_diff_data(tmds_encoder(0), tmds_encoder(255), tmds_encoder(0));
-  B64 = get_ser_diff_data(tmds_encoder(0), tmds_encoder(0), tmds_encoder(255));
-  Y64 = get_ser_diff_data(tmds_encoder(255), tmds_encoder(255), tmds_encoder(0));
-
-  set_sys_clock_khz(video_mode.sys_freq, true);
-  sleep_ms(10);
-
   // palette initialization
-  for (int i = 0; i < 64; i++)
+  for (int c = 0; c < 64; c++)
   {
-    uint8_t c2 = i * 2;
-    uint8_t R = ((i % 4) != 0) ? (((i % 4) == 3) ? 255 : 170) : 0;
-    uint8_t G = (((i >> 2) % 4) != 0) ? ((((i >> 2) % 4) == 3) ? 255 : 170) : 0;
-    uint8_t B = (((i >> 4) % 4) != 0) ? ((((i >> 4) % 4) == 3) ? 255 : 170) : 0;
-
-    palette[c2] = get_ser_diff_data(tmds_encoder(R), tmds_encoder(G), tmds_encoder(B));
-    palette[c2 + 1] = palette[c2] ^ 0x0003ffffffffffffl;
+    uint8_t R = ((c % 4) != 0) ? (((c % 4) == 3) ? 255 : 170) : 0;
+    uint8_t G = (((c >> 2) % 4) != 0) ? ((((c >> 2) % 4) == 3) ? 255 : 170) : 0;
+    uint8_t B = (((c >> 4) % 4) != 0) ? ((((c >> 4) % 4) == 3) ? 255 : 170) : 0;
+    palette[c * 2] = get_ser_diff_data(tmds_encoder(R), tmds_encoder(G), tmds_encoder(B));
+    palette[c * 2 + 1] = palette[c * 2] ^ 0x0003ffffffffffffl;
   }
 
   // set DVI pins

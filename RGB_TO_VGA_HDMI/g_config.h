@@ -7,7 +7,7 @@
 
 // FW_VERSION can be overridden at build time via -DFW_VERSION="..."
 #ifndef FW_VERSION
-#define FW_VERSION "v1.6.0"
+#define FW_VERSION "v1.6.1"
 #endif
 
 #define BOARD_CODE_36LJU22
@@ -42,6 +42,7 @@ typedef struct settings_t
   int16_t shX;
   int16_t shY;
   uint8_t pin_inversion_mask;
+  uint32_t crc;
 } settings_t;
 
 typedef struct video_mode_t
@@ -155,5 +156,11 @@ extern uint8_t g_v_buf[];
 // thick - show scanline twice in four lines
 #define SCANLINES_USE_THIN
 
-// enable OSD menu 
+/* handled in platformio.ini
+// enable OSD menu
 #define OSD_MENU_ENABLE
+
+#if defined(OSD_MENU_ENABLE)
+#define OSD_ENABLE
+#endif
+*/

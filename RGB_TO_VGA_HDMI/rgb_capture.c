@@ -172,7 +172,8 @@ void __attribute__((hot)) __not_in_flash_func(dma_handler_capture())
     CS_idx++;
     x = -shX - 1;
 
-    if (CS_idx < v_sync_pulse) // detect V_SYNC pulse by pulse width.
+    // Composite sync: detect V_SYNC pulse by pulse width.
+    if (CS_idx < v_sync_pulse)
       continue;
 
     if (y >= 0)
@@ -201,8 +202,8 @@ void start_capture()
   uint8_t pin_inversion_mask = settings.pin_inversion_mask;
 
   // video timing variables measured in pixels
-  h_sync_pulse_2 = 3 * (uint8_t)(settings.frequency / 1000000); // 3 µs - 1/2 of the H_SYNC pulse
-  v_sync_pulse = 30 * (uint8_t)(settings.frequency / 1000000);  // 30 µs - V_SYNC pulse
+  h_sync_pulse_2 = 3 * settings.frequency / 1000000; // 3 µs - 1/2 of the H_SYNC pulse
+  v_sync_pulse = 30 * settings.frequency / 1000000;  // 30 µs - V_SYNC pulse
 
   // set capture pins
   for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)
