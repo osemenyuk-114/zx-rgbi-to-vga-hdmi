@@ -201,76 +201,76 @@ void __not_in_flash_func(dma_handler_vga)()
 
     int x = 0;
 
-    while ((x + 4) <= osd_mode.start_x)
-    { // ultra-fast direct byte processing for pre-OSD area with loop unrolling
-      *line_buf++ = palette[*scr_line++];
-      *line_buf++ = palette[*scr_line++];
-      *line_buf++ = palette[*scr_line++];
-      *line_buf++ = palette[*scr_line++];
-
-      x += 4;
-    }
-
-    while (x < osd_mode.start_x)
+    if (!osd_mode.full_width)
     {
-      *line_buf++ = palette[*scr_line++];
-      x++;
-    }
+      for (; (x + 4) <= osd_mode.start_x; x += 4)
+      { // ultra-fast direct byte processing for pre-OSD area with loop unrolling
+        *line_buf++ = palette[*scr_line++];
+        *line_buf++ = palette[*scr_line++];
+        *line_buf++ = palette[*scr_line++];
+        *line_buf++ = palette[*scr_line++];
+      }
 
-    while ((x + 4) <= osd_mode.end_x)
+      for (; x < osd_mode.start_x; x++)
+        *line_buf++ = palette[*scr_line++];
+    }
+    else
+      for (; x < osd_mode.start_x; x++)
+      {
+        *line_buf++ = palette[0];
+        scr_line++;
+      }
+
+    for (; (x + 4) <= osd_mode.end_x; x += 4)
     { // ultra-simplified OSD compositing with optimized unrolling
       *line_buf++ = palette[*osd_line++];
       *line_buf++ = palette[*osd_line++];
       *line_buf++ = palette[*osd_line++];
       *line_buf++ = palette[*osd_line++];
-
-      x += 4;
       scr_line += 4;
     }
 
-    while (x < osd_mode.end_x)
+    for (; x < osd_mode.end_x; x++)
     { // handle remaining bytes (0-3 bytes)
       *line_buf++ = palette[*osd_line++];
-      x++;
       scr_line++;
     }
 
-    while ((x + 4) <= h_visible_area)
+    if (!osd_mode.full_width)
     {
-      *line_buf++ = palette[*scr_line++];
-      *line_buf++ = palette[*scr_line++];
-      *line_buf++ = palette[*scr_line++];
-      *line_buf++ = palette[*scr_line++];
+      for (; (x + 4) <= h_visible_area; x += 4)
+      {
+        *line_buf++ = palette[*scr_line++];
+        *line_buf++ = palette[*scr_line++];
+        *line_buf++ = palette[*scr_line++];
+        *line_buf++ = palette[*scr_line++];
+      }
 
-      x += 4;
+      for (; x < h_visible_area; x++)
+        *line_buf++ = palette[*scr_line++];
     }
-
-    while (x < h_visible_area)
-    {
-      *line_buf++ = palette[*scr_line++];
-      x++;
-    }
+    else
+      for (; x < h_visible_area; x++)
+      {
+        *line_buf++ = palette[0];
+        scr_line++;
+      }
   }
   else
   { // ultra-fast direct byte processing for non-OSD area with loop unrolling
 #endif
     int x = 0;
 
-    while ((x + 4) <= h_visible_area)
+    for (; (x + 4) <= h_visible_area; x += 4)
     {
       *line_buf++ = palette[*scr_line++];
       *line_buf++ = palette[*scr_line++];
       *line_buf++ = palette[*scr_line++];
       *line_buf++ = palette[*scr_line++];
-
-      x += 4;
     }
 
-    while (x < h_visible_area)
-    {
+    for (; x < h_visible_area; x++)
       *line_buf++ = palette[*scr_line++];
-      x++;
-    }
 #ifdef OSD_ENABLE
   }
 #endif

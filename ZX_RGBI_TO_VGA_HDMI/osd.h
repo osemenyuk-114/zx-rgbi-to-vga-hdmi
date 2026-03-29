@@ -36,6 +36,7 @@ typedef struct
     uint8_t rows;
     uint8_t columns;
     bool border_enabled;
+    bool full_width;
     uint16_t text_buffer_size;
 } osd_mode_t;
 
@@ -45,6 +46,7 @@ typedef struct
     bool visible;
     bool needs_redraw;
     bool text_updated;           // True when text buffer needs to be rendered to OSD buffer
+    bool menu_active;            // True when OSD menu owns the display
     uint64_t last_activity_time; // Time of last user interaction
     uint64_t show_time;          // Time when OSD was shown
 } osd_state_t;

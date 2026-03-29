@@ -7,7 +7,7 @@
 
 // FW_VERSION can be overridden at build time via -DFW_VERSION="..."
 #ifndef FW_VERSION
-#define FW_VERSION "v1.6.1"
+#define FW_VERSION "v1.7.0"
 #endif
 
 #define BOARD_CODE_36LJU22
@@ -46,9 +46,11 @@ typedef enum cap_sync_mode_t
 #ifdef OSD_FF_ENABLE
 typedef struct ff_osd_config_t
 {
+  bool i2c_protocol : 1; // false = LCD_HD44780, true = FlashFloppy
   uint16_t cols;
   uint16_t rows;
-  bool i2c_protocol : 1; // false = LCD_HD44780, true = FlashFloppy
+  uint8_t h_position;  // 1=left, 2=left-center, 3=center, 4=center-right, 5=right
+  bool v_position : 1; // false = at the top, true = at the bottom of the screen
 } ff_osd_config_t;
 #endif
 
@@ -193,15 +195,3 @@ extern uint8_t g_v_buf[];
 // thin - show scanline once every four lines
 // thick - show scanline twice in four lines
 #define SCANLINES_USE_THIN
-
-/* handled in platformio.ini
-// enable OSD menu
-#define OSD_MENU_ENABLE
-
-// enable FlashFloppy OSD
-#define OSD_FF_ENABLE
-
-#if defined(OSD_MENU_ENABLE) || defined(OSD_FF_ENABLE)
-#define OSD_ENABLE
-#endif
-*/

@@ -14,6 +14,7 @@
 #define MENU_TYPE_IMAGE_ADJUST 3
 #define MENU_TYPE_MASK 4
 #define MENU_TYPE_ABOUT 5
+#define MENU_TYPE_FF_OSD 6
 
 typedef enum
 {
@@ -55,3 +56,4 @@ void osd_update_text_buffer(); // Update text buffer based on current menu state
 void osd_adjust_image_parameter(uint8_t param_index, int8_t direction);
 void osd_adjust_video_mode(int8_t direction);
 void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction);
+void osd_adjust_ff_osd_parameter(uint8_t param_index, int8_t direction);

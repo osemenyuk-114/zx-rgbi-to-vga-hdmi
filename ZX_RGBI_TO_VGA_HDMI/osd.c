@@ -45,6 +45,7 @@ osd_mode_t osd_mode = {
     .columns = OSD_COLUMNS,
     .rows = OSD_ROWS,
     .border_enabled = true,
+    .full_width = false,
     .text_buffer_size = OSD_TEXT_BUFFER_SIZE};
 
 uint8_t osd_buffer[OSD_BUFFER_SIZE];
@@ -77,37 +78,100 @@ void osd_init()
 
 void osd_set_position()
 {
+    // Limit OSD dimensions to fit within the available display area
+    // Horizontal: width/2 must not exceed h_visible_area
+    if (osd_mode.width / 2 > h_visible_area)
+    {
+        osd_mode.width = h_visible_area * 2;
+        osd_mode.columns = osd_mode.width / OSD_FONT_WIDTH;
+    }
+
+    // Vertical: height must not exceed available vertical display lines
+    uint16_t v_display_lines = (video_mode.v_visible_area - 2 * v_margin) / video_mode.div;
+    if (osd_mode.height > v_display_lines)
+    {
+        osd_mode.height = v_display_lines;
+        osd_mode.rows = osd_mode.height / OSD_FONT_HEIGHT;
+    }
+
+    // Enforce static array bounds
+    if (osd_mode.rows > OSD_ROWS)
+        osd_mode.rows = OSD_ROWS;
+
+    if (osd_mode.columns > 0 && osd_mode.columns * osd_mode.rows > OSD_TEXT_BUFFER_SIZE)
+        osd_mode.rows = OSD_TEXT_BUFFER_SIZE / osd_mode.columns;
+
+    // Recalculate derived values after limiting
+    osd_mode.width = osd_mode.columns * OSD_FONT_WIDTH;
+    osd_mode.height = osd_mode.rows * OSD_FONT_HEIGHT;
+    osd_mode.buffer_size = osd_mode.width * osd_mode.height / 2;
+
+    if (osd_mode.buffer_size > OSD_BUFFER_SIZE)
+    {
+        osd_mode.buffer_size = OSD_BUFFER_SIZE;
+        osd_mode.rows = (OSD_BUFFER_SIZE * 2 / osd_mode.width) / OSD_FONT_HEIGHT;
+        osd_mode.height = osd_mode.rows * OSD_FONT_HEIGHT;
+        osd_mode.buffer_size = osd_mode.width * osd_mode.height / 2;
+    }
+
+    osd_mode.text_buffer_size = osd_mode.columns * osd_mode.rows;
+
+    uint16_t osd_half_w = osd_mode.width / 2;
+
     switch (osd_mode.x)
     {
-    case 0:
-        osd_mode.start_x = (h_visible_area - osd_mode.width / 2) / 2;
+    case 0: // Center horizontally (menu OSD)
+    case 3: // Center
+        osd_mode.start_x = (h_visible_area - osd_half_w) / 2;
         break;
 
-    default:
-        osd_mode.start_x = osd_mode.x - 1;
+    case 1: // Left
+        osd_mode.start_x = 0;
+        break;
+
+    case 2: // Between left and center
+        osd_mode.start_x = (h_visible_area - osd_half_w) / 4;
+        break;
+
+    case 4: // Between center and right
+        osd_mode.start_x = (h_visible_area - osd_half_w) * 3 / 4;
+        break;
+
+    case 5: // Right
+        osd_mode.start_x = h_visible_area - osd_half_w;
         break;
     }
 
+    if (osd_mode.start_x + osd_mode.width / 2 > h_visible_area)
+        osd_mode.start_x = h_visible_area - osd_mode.width / 2;
+
     osd_mode.end_x = osd_mode.start_x + osd_mode.width / 2;
 
-    if (osd_mode.end_x > h_visible_area)
+    if (osd_mode.width / 2 > h_visible_area)
+    {
+        osd_mode.start_x = 0;
         osd_mode.end_x = h_visible_area;
+    }
 
     switch (osd_mode.y)
     {
-    case 0:
-        osd_mode.start_y = ((video_mode.v_visible_area - 2 * v_margin) / video_mode.div - osd_mode.height) / 2;
+    case 0: // Center vertically
+        osd_mode.start_y = (v_display_lines - osd_mode.height) / 2;
         break;
 
-    default:
-        osd_mode.start_y = osd_mode.y - 1;
+    case 1: // Top
+        osd_mode.start_y = 0;
+        break;
+
+    case 2: // Bottom
+        osd_mode.start_y = v_display_lines - osd_mode.height;
         break;
     }
 
     osd_mode.end_y = osd_mode.start_y + osd_mode.height;
 
-    if (osd_mode.end_y > (video_mode.v_visible_area - 2 * v_margin) / video_mode.div)
-        osd_mode.end_y = (video_mode.v_visible_area - 2 * v_margin) / video_mode.div;
+    if (osd_mode.end_y > v_display_lines)
+        osd_mode.end_y = v_display_lines;
 }
 
 void osd_show()
@@ -353,13 +417,15 @@ void osd_draw_char(uint8_t *buffer, uint16_t buf_width, uint16_t x, uint16_t y,
 
 void osd_update()
 {
-#ifdef OSD_FF_ENABLE
-    ff_osd_update();
+#ifdef OSD_MENU_ENABLE
+    // Menu OSD has higher priority
+    osd_menu_update();
+    if (osd_state.menu_active)
+        return;
 #endif
 
-#ifdef OSD_MENU_ENABLE
-    // Handle menu OSD if FF OSD is not active
-    osd_menu_update();
+#ifdef OSD_FF_ENABLE
+    ff_osd_update();
 #endif
 }
 

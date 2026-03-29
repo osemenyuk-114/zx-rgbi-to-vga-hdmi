@@ -16,6 +16,7 @@ typedef struct __attribute__((packed)) ff_osd_info_t
 } ff_osd_info_t;
 
 extern ff_osd_display_t ff_osd_display;
+extern ff_osd_config_t ff_osd_config;
 extern uint8_t ff_osd_buttons_rx;
 
 void ff_osd_update();
@@ -25,3 +26,4 @@ void ff_osd_set_address();
 void ff_osd_set_buttons(uint8_t buttons);
 void ff_osd_config_process(uint8_t b, uint8_t fg_color, uint8_t bg_color);
 uint16_t ff_osd_set_cols(int16_t cols);
+uint8_t ff_osd_set_h_position(int8_t h_position);

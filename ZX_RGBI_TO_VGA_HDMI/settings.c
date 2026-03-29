@@ -55,6 +55,11 @@ void check_settings(settings_t *settings)
     settings->video_sync_mode = false;
   }
 
+#ifdef OSD_FF_ENABLE
+  if (settings->ff_osd_config.h_position < 1 || settings->ff_osd_config.h_position > 5)
+    settings->ff_osd_config.h_position = 3;
+#endif
+
   settings->crc = calculate_settings_crc(settings);
 }
 
@@ -72,6 +77,16 @@ void reset_settings_to_defaults(settings_t *settings)
   settings->scanlines_mode = false;
   settings->buffering_mode = false;
   settings->video_sync_mode = false;
+#ifdef OSD_FF_ENABLE
+  settings->ff_osd_config = (ff_osd_config_t){
+      .i2c_protocol = true,
+      .cols = 40,
+      .rows = 3,
+      .h_position = 3,
+      .v_position = false,
+  };
+#endif
+
   settings->crc = calculate_settings_crc(settings);
 }
 

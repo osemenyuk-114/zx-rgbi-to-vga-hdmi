@@ -18,10 +18,6 @@ extern "C"
 #include "osd.h"
 #endif
 
-#ifdef OSD_MENU_ENABLE
-#include "osd_menu.h"
-#endif
-
 #ifdef OSD_FF_ENABLE
 #include "ff_osd.h"
 #endif

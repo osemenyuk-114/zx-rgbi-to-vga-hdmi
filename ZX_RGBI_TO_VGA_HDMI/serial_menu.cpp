@@ -78,7 +78,6 @@ void print_main_menu()
     Serial.println("  y   set video sync mode");
     Serial.println("  t   set capture delay and image position");
     Serial.println("  m   set pin inversion mask");
-
 #ifdef OSD_FF_ENABLE
     Serial.println("  g   configure FlashFloppy OSD");
 #endif
@@ -446,6 +445,9 @@ void print_ff_osd_menu()
     Serial.println("  r   change number of rows (2/4)");
     Serial.println("  a   increment number of columns");
     Serial.println("  z   decrement number of columns");
+    Serial.println("  j   shift horizontal position left");
+    Serial.println("  l   shift horizontal position right");
+    Serial.println("  k   change vertical position (top/bottom)\n");
 
     Serial.println("  p   show configuration");
     Serial.println("  h   show help (this menu)");
@@ -474,11 +476,32 @@ void print_ff_osd_cols()
     Serial.println(settings.ff_osd_config.cols, DEC);
 }
 
+void print_ff_osd_v_position()
+{
+    Serial.print("  Vertical position .......... ");
+
+    if (settings.ff_osd_config.v_position)
+        Serial.println("bottom");
+    else
+        Serial.println("top");
+}
+
+void print_ff_osd_h_position()
+{
+    const char *names[] = {"left", "left-center", "center", "center-right", "right"};
+    uint8_t hp = settings.ff_osd_config.h_position;
+    const char *name = (hp >= 1 && hp <= 5) ? names[hp - 1] : "center";
+    Serial.print("  Horizontal position ........ ");
+    Serial.println(name);
+}
+
 void print_ff_osd_config()
 {
     print_ff_osd_i2c_protocol();
     print_ff_osd_rows();
     print_ff_osd_cols();
+    print_ff_osd_h_position();
+    print_ff_osd_v_position();
 }
 #endif
 
@@ -1044,16 +1067,6 @@ void handle_serial_menu()
                     print_capture_delay();
                     break;
 
-                case 'i':
-                    settings.shY = set_capture_shY(settings.shY + 1);
-                    print_y_offset();
-                    break;
-
-                case 'k':
-                    settings.shY = set_capture_shY(settings.shY - 1);
-                    print_y_offset();
-                    break;
-
                 case 'j':
                     settings.shX = set_capture_shX(settings.shX + 1);
                     print_x_offset();
@@ -1062,6 +1075,16 @@ void handle_serial_menu()
                 case 'l':
                     settings.shX = set_capture_shX(settings.shX - 1);
                     print_x_offset();
+                    break;
+
+                case 'i':
+                    settings.shY = set_capture_shY(settings.shY + 1);
+                    print_y_offset();
+                    break;
+
+                case 'k':
+                    settings.shY = set_capture_shY(settings.shY - 1);
+                    print_y_offset();
                     break;
 
                 default:
@@ -1205,6 +1228,15 @@ void handle_serial_menu()
                 case 'i':
                     settings.ff_osd_config.i2c_protocol = !settings.ff_osd_config.i2c_protocol;
                     print_ff_osd_i2c_protocol();
+
+                    if (settings.ff_osd_config.i2c_protocol)
+                    {
+                        settings.ff_osd_config.cols = 40;
+                        settings.ff_osd_config.rows = 3;
+                    }
+                    else
+                        settings.ff_osd_config.rows = 2;
+
                     break;
 
                 case 'r':
@@ -1212,6 +1244,12 @@ void handle_serial_menu()
                     {
                         settings.ff_osd_config.rows = (settings.ff_osd_config.rows == 2) ? 4 : 2;
                         print_ff_osd_rows();
+
+                        if (settings.ff_osd_config.rows * settings.ff_osd_config.cols > 80)
+                        {
+                            settings.ff_osd_config.cols = 20; // Adjust columns to max allowed for 4 rows
+                            print_ff_osd_cols();
+                        }
                     }
 
                     break;
@@ -1220,6 +1258,13 @@ void handle_serial_menu()
                     if (!settings.ff_osd_config.i2c_protocol)
                     {
                         settings.ff_osd_config.cols = ff_osd_set_cols(settings.ff_osd_config.cols + 1);
+
+                        if (settings.ff_osd_config.rows * settings.ff_osd_config.cols > 80)
+                        {
+                            settings.ff_osd_config.rows = 2;
+                            print_ff_osd_rows();
+                        }
+
                         print_ff_osd_cols();
                     }
 
@@ -1231,11 +1276,30 @@ void handle_serial_menu()
                         settings.ff_osd_config.cols = ff_osd_set_cols(settings.ff_osd_config.cols - 1);
                         print_ff_osd_cols();
                     }
+
+                    break;
+
+                case 'j':
+                    settings.ff_osd_config.h_position = ff_osd_set_h_position(settings.ff_osd_config.h_position - 1);
+                    print_ff_osd_h_position();
+                    break;
+
+                case 'l':
+                    settings.ff_osd_config.h_position = ff_osd_set_h_position(settings.ff_osd_config.h_position + 1);
+                    print_ff_osd_h_position();
+                    break;
+
+                case 'k':
+                    settings.ff_osd_config.v_position = !settings.ff_osd_config.v_position;
+                    print_ff_osd_v_position();
                     break;
 
                 default:
                     break;
                 }
+
+                // Sync runtime config immediately
+                ff_osd_config = settings.ff_osd_config;
 
                 if (inchar == 'q')
                 {
@@ -1308,14 +1372,14 @@ void handle_serial_menu()
                     Serial.print("  Columns ..................... ");
                     Serial.println(ff_osd_display.cols, DEC);
 
-                    Serial.println("\n  Text content:\n");
+                    Serial.println("\n      Text content\n");
 
                     for (int row = 0; row < ff_osd_display.rows && row < 4; row++)
                     {
                         Serial.print("    Row ");
                         Serial.print(row, DEC);
-                        Serial.print(": Height bits: ");
-                        Serial.print((ff_osd_display.heights >> row) & 1, HEX);
+                        Serial.print(": Height: ");
+                        Serial.print((ff_osd_display.heights >> row) & 1, DEC);
                         Serial.print(" \"");
 
                         for (int col = 0; col < ff_osd_display.cols && col < 40; col++)
