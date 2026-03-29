@@ -891,7 +891,7 @@ static void render_about_menu()
 
     osd_text_print(OSD_MENU_START_ROW + 2, 2, "https://github.com/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
     osd_text_print(OSD_MENU_START_ROW + 3, 2, "osemenyuk-114/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
-    osd_text_print(OSD_MENU_START_ROW + 4, 2, "zx-rgbi-to-vga-hdmi-PICOSDK/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
+    osd_text_print(OSD_MENU_START_ROW + 4, 2, "zx-rgbi-to-vga-hdmi/", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
     osd_text_print(OSD_MENU_START_ROW + 5, 2, "tree/ff_osd", OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
 
     uint8_t fg_color, bg_color;
