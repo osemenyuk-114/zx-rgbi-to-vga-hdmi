@@ -12,8 +12,7 @@
 
 #define GIT_REPO_URL_1 "https://github.com/"
 #define GIT_REPO_URL_2 "osemenyuk-114/"
-#define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi/"
-#define GIT_REPO_URL_4 "tree/ff_osd"
+#define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi"
 
 #define BOARD_CODE_36LJU22
 // #define BOARD_CODE_09LJV23
