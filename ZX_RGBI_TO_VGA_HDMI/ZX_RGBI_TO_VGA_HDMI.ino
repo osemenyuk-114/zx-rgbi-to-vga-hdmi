@@ -14,6 +14,10 @@ extern "C"
 #include "v_buf.h"
 #include "video_output.h"
 
+#ifdef OSD_FF_ENABLE
+#include "ff_osd.h"
+#endif
+
 #ifdef OSD_ENABLE
 #include "osd.h"
 #endif
@@ -77,6 +81,11 @@ void setup1()
   while (!start_core0)
     sleep_ms(10);
 
+#ifdef OSD_FF_ENABLE
+  if (settings.ff_osd_config.enabled)
+    ff_osd_i2c_init();
+#endif
+
   start_capture();
 }
 
@@ -84,7 +93,27 @@ void __not_in_flash_func(loop1())
 {
   uint32_t frame_count_tmp1 = frame_count;
 
+#ifdef OSD_FF_ENABLE
+  if (ff_osd_needs_i2c_init)
+  {
+    ff_osd_i2c_init();
+    ff_osd_needs_i2c_init = false;
+  }
+
+  //  Call osd_process frequently to keep up with I2C data
+  if (settings.ff_osd_config.enabled)
+  {
+    for (int i = 0; i < 100; i++)
+    {
+      ff_osd_i2c_process();
+      sleep_ms(1);
+    }
+  }
+  else
+    sleep_ms(100);
+#else
   sleep_ms(100);
+#endif
 
   if (frame_count > 1)
   {

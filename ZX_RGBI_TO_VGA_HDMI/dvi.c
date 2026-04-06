@@ -19,8 +19,8 @@ static int dma_ch0;
 static int dma_ch1;
 static uint offset;
 
-static video_mode_t video_mode;
-static int16_t h_visible_area;
+extern video_mode_t video_mode;
+extern int16_t h_visible_area;
 
 static uint32_t *v_out_dma_buf[2];
 
@@ -149,24 +149,36 @@ static void __not_in_flash_func(dma_handler_dvi)()
 
       int x = 0;
 
-      while (x < osd_mode.start_x)
-      { // fast loop for pre-OSD area (no OSD checks) - optimized palette access
-        uint8_t c2 = *scr_line++;
-        uint8_t pixel1 = c2 & 0xf;
-        uint8_t pixel2 = c2 >> 4;
+      if (!osd_mode.full_width)
+        for (; x < osd_mode.start_x; x++)
+        { // fast loop for pre-OSD area (no OSD checks) - optimized palette access
+          uint8_t c2 = *scr_line++;
+          uint8_t pixel1 = c2 & 0xf;
+          uint8_t pixel2 = c2 >> 4;
 
-        uint64_t *palette_ptr = &palette[pixel1 << 1];
-        *line_buf++ = *palette_ptr++;
-        *line_buf++ = *palette_ptr;
+          uint64_t *palette_ptr = &palette[pixel1 << 1];
+          *line_buf++ = *palette_ptr++;
+          *line_buf++ = *palette_ptr;
 
-        palette_ptr = &palette[pixel2 << 1];
-        *line_buf++ = *palette_ptr++;
-        *line_buf++ = *palette_ptr;
+          palette_ptr = &palette[pixel2 << 1];
+          *line_buf++ = *palette_ptr++;
+          *line_buf++ = *palette_ptr;
+        }
+      else
+        for (; x < osd_mode.start_x; x++)
+        {
+          scr_line++;
 
-        x++;
-      }
+          uint64_t *palette_ptr = &palette[0];
+          *line_buf++ = *palette_ptr++;
+          *line_buf++ = *palette_ptr;
 
-      while (x < osd_mode.end_x)
+          palette_ptr = &palette[0];
+          *line_buf++ = *palette_ptr++;
+          *line_buf++ = *palette_ptr;
+        }
+
+      for (; x < osd_mode.end_x; x++)
       { // ultra-simplified OSD compositing - byte-aligned boundaries (2-pixel aligned)
         scr_line++;
         uint8_t o2 = *osd_line++;
@@ -180,26 +192,36 @@ static void __not_in_flash_func(dma_handler_dvi)()
         palette_ptr = &palette[pixel2 << 1];
         *line_buf++ = *palette_ptr++;
         *line_buf++ = *palette_ptr;
-
-        x++;
       }
 
-      while (x < h_visible_area)
-      { // fast loop for post-OSD area (no OSD checks) - optimized palette access
-        uint8_t c2 = *scr_line++;
-        uint8_t pixel1 = c2 & 0xf;
-        uint8_t pixel2 = c2 >> 4;
+      if (!osd_mode.full_width)
+        for (; x < h_visible_area; x++)
+        { // fast loop for post-OSD area (no OSD checks) - optimized palette access
+          uint8_t c2 = *scr_line++;
+          uint8_t pixel1 = c2 & 0xf;
+          uint8_t pixel2 = c2 >> 4;
 
-        uint64_t *palette_ptr = &palette[pixel1 << 1];
-        *line_buf++ = *palette_ptr++;
-        *line_buf++ = *palette_ptr;
+          uint64_t *palette_ptr = &palette[pixel1 << 1];
+          *line_buf++ = *palette_ptr++;
+          *line_buf++ = *palette_ptr;
 
-        palette_ptr = &palette[pixel2 << 1];
-        *line_buf++ = *palette_ptr++;
-        *line_buf++ = *palette_ptr;
+          palette_ptr = &palette[pixel2 << 1];
+          *line_buf++ = *palette_ptr++;
+          *line_buf++ = *palette_ptr;
+        }
+      else
+        for (; x < h_visible_area; x++)
+        {
+          scr_line++;
 
-        x++;
-      }
+          uint64_t *palette_ptr = &palette[0];
+          *line_buf++ = *palette_ptr++;
+          *line_buf++ = *palette_ptr;
+
+          palette_ptr = &palette[0];
+          *line_buf++ = *palette_ptr++;
+          *line_buf++ = *palette_ptr;
+        }
     }
     else
 #endif
@@ -239,21 +261,9 @@ static void __not_in_flash_func(dma_handler_dvi)()
   }
 }
 
-void start_dvi(video_mode_t v_mode)
+void start_dvi()
 {
-  video_mode = v_mode;
-
   int whole_line = video_mode.whole_line * video_mode.div;
-
-  h_visible_area = video_mode.h_visible_area / (2 * video_mode.div);
-
-#ifdef OSD_ENABLE
-  osd_mode.start_x = (h_visible_area - (OSD_WIDTH / 2)) / 2;
-  osd_mode.end_x = osd_mode.start_x + (OSD_WIDTH / 2);
-
-  osd_mode.start_y = (video_mode.v_visible_area / video_mode.div - OSD_HEIGHT) / 2;
-  osd_mode.end_y = osd_mode.start_y + OSD_HEIGHT;
-#endif
 
   set_sys_clock_khz(video_mode.sys_freq, true);
   sleep_ms(10);

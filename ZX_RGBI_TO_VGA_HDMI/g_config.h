@@ -7,8 +7,13 @@
 
 // FW_VERSION can be overridden at build time via -DFW_VERSION="..."
 #ifndef FW_VERSION
-#define FW_VERSION "v1.6.1"
+#define FW_VERSION "v1.7.0"
 #endif
+
+#define GIT_REPO_URL_1 "https://github.com/"
+#define GIT_REPO_URL_2 "osemenyuk-114/"
+#define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi/"
+#define GIT_REPO_URL_4 "tree/ff_osd"
 
 #define BOARD_CODE_36LJU22
 // #define BOARD_CODE_09LJV23
@@ -43,13 +48,30 @@ typedef enum cap_sync_mode_t
   SYNC_MODE_MAX = EXT,
 } cap_sync_mode_t;
 
+#ifdef OSD_FF_ENABLE
+typedef struct ff_osd_config_t
+{
+  bool enabled;
+  bool i2c_protocol; // false = LCD_HD44780, true = FlashFloppy
+  uint16_t cols;
+  uint16_t rows;
+  uint8_t h_position; // 1=left, 2=left-center, 3=center, 4=center-right, 5=right
+  bool v_position;    // false = at the top, true = at the bottom of the screen
+} ff_osd_config_t;
+
+#define FF_OSD_COLUMNS_MIN 16
+#define FF_OSD_COLUMNS_MAX 40
+#define FF_OSD_ROWS_MIN 2
+#define FF_OSD_ROWS_MAX 4
+#endif
+
 typedef struct settings_t
 {
   video_out_type_t video_out_type;
   video_out_mode_t video_out_mode;
-  bool scanlines_mode : 1;
-  bool buffering_mode : 1;
-  bool video_sync_mode : 1;
+  bool scanlines_mode;
+  bool buffering_mode;
+  bool video_sync_mode;
   cap_sync_mode_t cap_sync_mode;
   uint32_t frequency;
   int8_t ext_clk_divider;
@@ -57,6 +79,9 @@ typedef struct settings_t
   int16_t shX;
   int16_t shY;
   uint8_t pin_inversion_mask;
+#ifdef OSD_FF_ENABLE
+  ff_osd_config_t ff_osd_config;
+#endif
   uint32_t crc;
 } settings_t;
 
@@ -112,6 +137,10 @@ extern uint8_t g_v_buf[];
 
 // capture pins
 #define CAP_PIN_D0 0
+#define B_PIN CAP_PIN_D0
+#define G_PIN (CAP_PIN_D0 + 1)
+#define R_PIN (CAP_PIN_D0 + 2)
+#define I_PIN (CAP_PIN_D0 + 3)
 #define HS_PIN (CAP_PIN_D0 + 4)
 #define VS_PIN (CAP_PIN_D0 + 5)
 #define F_PIN (CAP_PIN_D0 + 6)
@@ -181,12 +210,3 @@ extern uint8_t g_v_buf[];
 // thin - show scanline once every four lines
 // thick - show scanline twice in four lines
 #define SCANLINES_USE_THIN
-
-/* handled in platformio.ini
-// enable OSD menu
-#define OSD_MENU_ENABLE
-
-#if defined(OSD_MENU_ENABLE)
-#define OSD_ENABLE
-#endif
-*/
