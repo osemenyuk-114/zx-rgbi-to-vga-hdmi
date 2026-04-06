@@ -5,7 +5,7 @@ on:
     branches: [ main ]
 
 env:
-  PIO_ENV: osd_menu
+  PIO_ENV: osd
 
 jobs:
   update-latest-tag:
