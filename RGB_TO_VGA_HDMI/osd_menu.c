@@ -460,9 +460,7 @@ void osd_menu_update()
 void osd_menu_toggle()
 {
     if (osd_state.menu_active)
-    {
         osd_menu_hide();
-    }
     else
     {
         osd_show();
@@ -527,6 +525,7 @@ static void render_output_menu()
             {
 #ifndef SCANLINES_ENABLE_LOW_RES
                 uint8_t div = video_modes[settings.video_out_mode]->div;
+
                 if (div != 4)
                     color = OSD_COLOR_DIMMED;
 #endif

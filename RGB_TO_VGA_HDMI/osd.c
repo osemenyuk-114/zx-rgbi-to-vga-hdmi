@@ -307,6 +307,7 @@ void osd_text_print_centered(uint8_t row, const char *str, uint8_t fg_color, uin
     uint8_t len = strlen(str);
     // Account for border columns only if borders are enabled
     uint8_t available_width = osd_mode.border_enabled ? (osd_mode.columns - 2) : osd_mode.columns;
+
     if (len > available_width)
         len = available_width;
 
@@ -382,7 +383,6 @@ void osd_draw_char(uint8_t *buffer, uint16_t buf_width, uint16_t x, uint16_t y,
 
                 if (buffer_offset >= osd_mode.buffer_size)
                     continue;
-
                 // Determine pixel color and write directly
                 buffer[buffer_offset] = (line & (0x80 >> col)) ? fg_color : bg_color;
             }
@@ -599,6 +599,7 @@ bool osd_buttons_apply_release_block()
     // First fully-released frame after a block: re-arm debounce so a
     // release-edge bounce cannot be interpreted as a fresh press.
     uint64_t current_time = time_us_64();
+
     for (int i = 0; i < 3; i++)
         osd_buttons.last_press_time[i] = current_time;
 
