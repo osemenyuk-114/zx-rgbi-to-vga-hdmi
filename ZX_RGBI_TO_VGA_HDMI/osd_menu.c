@@ -13,7 +13,6 @@
 #endif
 
 // Pin inversion mask bit positions for menu items
-// Bit mapping: F(6), SSI(4), KSI(5), I(3), R(2), G(1), B(0)
 static const uint8_t mask_bit_positions[] = {F_PIN, HS_PIN, VS_PIN, I_PIN, R_PIN, G_PIN, B_PIN};
 
 // Main menu item indices (FF OSD entries are conditionally included)
@@ -279,6 +278,7 @@ void osd_menu_update()
         {                          // SEL button for item selection
             osd_update_activity(); // Reset timeout on user interaction
             bool menu_changed = false;
+
             if (osd_menu.current_menu == MENU_TYPE_MAIN)
             {
                 // Main menu selection
@@ -581,6 +581,7 @@ void osd_menu_update()
         if (osd_menu.current_menu == MENU_TYPE_FF_OSD && settings.ff_osd_config.i2c_protocol)
         {
             static uint8_t last_ff_cols = 0;
+
             if (ff_osd_display.cols != last_ff_cols)
             {
                 last_ff_cols = ff_osd_display.cols;
@@ -609,9 +610,7 @@ void osd_menu_update()
 void osd_menu_toggle()
 {
     if (osd_state.menu_active)
-    {
         osd_menu_hide();
-    }
     else
     {
         osd_show();
@@ -1162,8 +1161,10 @@ void osd_adjust_ff_osd_parameter(uint8_t param_index, int8_t direction)
     {
     case 0: // Enable toggle
         settings.ff_osd_config.enabled = !settings.ff_osd_config.enabled;
+
         if (settings.ff_osd_config.enabled)
             ff_osd_needs_i2c_init = true;
+
         break;
 
     case 1: // Protocol toggle

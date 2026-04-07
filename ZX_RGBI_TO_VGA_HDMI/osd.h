@@ -3,13 +3,12 @@
 // OSD dimensions
 #define OSD_WIDTH 240
 #define OSD_HEIGHT 120
-#define OSD_BUFFER_SIZE (OSD_WIDTH * OSD_HEIGHT / 2) // 19200 bytes (2 pixels per byte)
-
+#define OSD_BUFFER_SIZE (OSD_WIDTH * OSD_HEIGHT / 2)
 #define OSD_FONT_WIDTH 8
 #define OSD_FONT_HEIGHT 8
-#define OSD_COLUMNS (OSD_WIDTH / OSD_FONT_WIDTH)      // 40 characters
-#define OSD_ROWS (OSD_HEIGHT / OSD_FONT_HEIGHT)       // 15 rows
-#define OSD_TEXT_BUFFER_SIZE (OSD_COLUMNS * OSD_ROWS) // 600 bytes
+#define OSD_COLUMNS (OSD_WIDTH / OSD_FONT_WIDTH)
+#define OSD_ROWS (OSD_HEIGHT / OSD_FONT_HEIGHT)
+#define OSD_TEXT_BUFFER_SIZE (OSD_COLUMNS * OSD_ROWS)
 
 #define OSD_COLOR_BACKGROUND 0x0 // Black
 #define OSD_COLOR_TEXT 0xB       // Bright cyan
