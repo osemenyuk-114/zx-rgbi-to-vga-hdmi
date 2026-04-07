@@ -16,20 +16,21 @@ Connect three push buttons to the Raspberry Pi Pico (pins 31-34):
 **Notes:**
 
 - All buttons use internal pull-up resistors (active LOW)
-- Press button to connect GPIO to GND
+- Press each button to connect its GPIO pin to GND
 - No external resistors required
 
 ## Button Layout
 
-- **UP** - Navigate up / Increase value / Open menu
-- **DOWN** - Navigate down / Decrease value / Open menu
+- **UP** - Navigate up / Increase value
+- **DOWN** - Navigate down / Decrease value
 - **SEL** - Select item / Toggle mode / Confirm
 
 ## Basic Navigation
 
 ### Opening the Menu
 
-- **Press UP or DOWN** - Opens the OSD menu
+- Press **UP**, **DOWN**, or **SEL** to open the OSD menu
+- When opened by a long hold, input is blocked until all buttons are released once
 
 ### Closing the Menu
 
@@ -161,14 +162,14 @@ Press SEL on BACK to return to main menu.
 - **White background** - Currently selected item (normal)
 - **Bright cyan background** - Selected item in tuning mode
 - **`>` indicator** - Tuning mode active (left side of line)
-- **Cyan text** - Dimmed/disabled items
+- **Cyan text** - Dimmed/unavailable items
 
 ### Menu Colors
 
 - **Bright cyan text** - Title text
 - **Bright white text** - Tuning mode highlight
 - **White text** - Border and normal items
-- **Cyan text** - Dimmed/unavailable options
+- **Cyan text** - Dimmed/unavailable items
 - **Black background** - Default background
 
 ## Saving Settings
@@ -185,7 +186,7 @@ To exit without saving, select **EXIT** instead.
 ## Tips
 
 - Menu has 10-second auto-timeout - any button press resets the timer
-- Dimmed items indicate unavailable options (e.g., SCANLINES on DVI or when not in DIV4 mode)
+- Dimmed items indicate unavailable settings (e.g., SCANLINES on DVI or when not in DIV4 mode)
 - Tuning mode allows real-time adjustment while viewing the image
 - Video mode changes only restart output if the resolution actually changed
 - Long SEL press (5s) for quick VGA/DVI toggle without opening menu

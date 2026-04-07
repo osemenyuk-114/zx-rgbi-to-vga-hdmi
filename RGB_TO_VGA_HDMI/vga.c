@@ -25,11 +25,11 @@ static int dma_ch0;
 static int dma_ch1;
 static uint offset;
 
-static video_mode_t video_mode;
-static int16_t h_visible_area;
-static int16_t h_margin;
-static int16_t v_visible_area;
-static int16_t v_margin;
+extern video_mode_t video_mode;
+extern int16_t h_visible_area;
+extern int16_t h_margin;
+extern int16_t v_visible_area;
+extern int16_t v_margin;
 
 static bool scanlines_mode = false;
 
@@ -196,76 +196,76 @@ void __not_in_flash_func(dma_handler_vga)()
 
     int x = 0;
 
-    while ((x + 4) <= osd_mode.start_x)
-    { // ultra-fast direct byte processing for pre-OSD area with loop unrolling
-      *line_buf++ = palette[*scr_line++][*scr_line++];
-      *line_buf++ = palette[*scr_line++][*scr_line++];
-      *line_buf++ = palette[*scr_line++][*scr_line++];
-      *line_buf++ = palette[*scr_line++][*scr_line++];
-
-      x += 4;
-    }
-
-    while (x < osd_mode.start_x)
+    if (!osd_mode.full_width)
     {
-      *line_buf++ = palette[*scr_line++][*scr_line++];
-      x++;
-    }
+      for (; (x + 4) <= osd_mode.start_x; x += 4)
+      { // ultra-fast direct byte processing for pre-OSD area with loop unrolling
+        *line_buf++ = palette[*scr_line++][*scr_line++];
+        *line_buf++ = palette[*scr_line++][*scr_line++];
+        *line_buf++ = palette[*scr_line++][*scr_line++];
+        *line_buf++ = palette[*scr_line++][*scr_line++];
+      }
 
-    while ((x + 4) <= osd_mode.end_x)
+      for (; x < osd_mode.start_x; x++)
+        *line_buf++ = palette[*scr_line++][*scr_line++];
+    }
+    else
+      for (; x < osd_mode.start_x; x++)
+      {
+        *line_buf++ = palette[0][0];
+        scr_line += 2;
+      }
+
+    for (; (x + 4) <= osd_mode.end_x; x += 4)
     { // ultra-simplified OSD compositing with optimized unrolling
       *line_buf++ = palette[*osd_line++][*osd_line++];
       *line_buf++ = palette[*osd_line++][*osd_line++];
       *line_buf++ = palette[*osd_line++][*osd_line++];
       *line_buf++ = palette[*osd_line++][*osd_line++];
-
-      x += 4;
       scr_line += 8;
     }
 
-    while (x < osd_mode.end_x)
+    for (; x < osd_mode.end_x; x++)
     { // handle remaining bytes
       *line_buf++ = palette[*osd_line++][*osd_line++];
-      x++;
       scr_line += 2;
     }
 
-    while ((x + 4) <= h_visible_area)
+    if (!osd_mode.full_width)
     {
-      *line_buf++ = palette[*scr_line++][*scr_line++];
-      *line_buf++ = palette[*scr_line++][*scr_line++];
-      *line_buf++ = palette[*scr_line++][*scr_line++];
-      *line_buf++ = palette[*scr_line++][*scr_line++];
+      for (; (x + 4) <= h_visible_area; x += 4)
+      {
+        *line_buf++ = palette[*scr_line++][*scr_line++];
+        *line_buf++ = palette[*scr_line++][*scr_line++];
+        *line_buf++ = palette[*scr_line++][*scr_line++];
+        *line_buf++ = palette[*scr_line++][*scr_line++];
+      }
 
-      x += 4;
+      for (; x < h_visible_area; x++)
+        *line_buf++ = palette[*scr_line++][*scr_line++];
     }
-
-    while (x < h_visible_area)
-    {
-      *line_buf++ = palette[*scr_line++][*scr_line++];
-      x++;
-    }
+    else
+      for (; x < h_visible_area; x++)
+      {
+        *line_buf++ = palette[0][0];
+        scr_line += 2;
+      }
   }
   else
   { // ultra-fast direct byte processing for non-OSD area with loop unrolling
 #endif
     int x = 0;
 
-    while ((x + 4) <= h_visible_area)
+    for (; (x + 4) <= h_visible_area; x += 4)
     {
       *line_buf++ = palette[*scr_line++][*scr_line++];
       *line_buf++ = palette[*scr_line++][*scr_line++];
       *line_buf++ = palette[*scr_line++][*scr_line++];
       *line_buf++ = palette[*scr_line++][*scr_line++];
-
-      x += 4;
     }
 
-    while (x < h_visible_area)
-    {
+    for (; x < h_visible_area; x++)
       *line_buf++ = palette[*scr_line++][*scr_line++];
-      x++;
-    }
 #ifdef OSD_ENABLE
   }
 #endif
@@ -282,35 +282,11 @@ void set_vga_scanlines_mode(bool sl_mode)
   scanlines_mode = sl_mode;
 }
 
-void start_vga(video_mode_t v_mode)
+void start_vga()
 {
-  video_mode = v_mode;
-
   int whole_line = video_mode.whole_line / video_mode.div;
   int h_sync_pulse_front = (video_mode.h_visible_area + video_mode.h_front_porch) / video_mode.div;
   int h_sync_pulse = video_mode.h_sync_pulse / video_mode.div;
-
-  h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 2;
-  h_margin = (h_visible_area - (uint8_t)(settings.frequency / 1000000) * (ACTIVE_VIDEO_TIME / 2)) / 2;
-
-  if (h_margin < 0)
-    h_margin = 0;
-
-  h_visible_area -= h_margin * 2;
-
-  v_visible_area = V_BUF_H * video_mode.div;
-  v_margin = ((int16_t)((video_mode.v_visible_area - v_visible_area) / (video_mode.div * 2) + 0.5)) * video_mode.div;
-
-  if (v_margin < 0)
-    v_margin = 0;
-
-#ifdef OSD_ENABLE
-  osd_mode.start_x = (h_visible_area - (OSD_WIDTH / 2)) / 2;
-  osd_mode.end_x = osd_mode.start_x + (OSD_WIDTH / 2);
-
-  osd_mode.start_y = ((video_mode.v_visible_area - 2 * v_margin) / video_mode.div - OSD_HEIGHT) / 2;
-  osd_mode.end_y = osd_mode.start_y + OSD_HEIGHT;
-#endif
 
   set_sys_clock_khz(video_mode.sys_freq, true);
   sleep_ms(10);

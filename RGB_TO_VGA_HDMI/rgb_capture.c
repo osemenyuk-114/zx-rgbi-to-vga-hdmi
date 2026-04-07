@@ -114,7 +114,7 @@ void __attribute__((hot)) __not_in_flash_func(dma_handler_capture())
 
   const int shX = settings.shX;
   const int shY = settings.shY;
-  const uint8_t sync_mask = 1u << HS_PIN;
+  const uint8_t sync_mask = 1u << CS_PIN;
 
   static uint8_t *cap_buf8_s = g_v_buf;
   uint8_t *cap_buf8 = cap_buf8_s;
@@ -231,7 +231,7 @@ void start_capture()
   set_capture_delay(settings.delay);
 
   sm_config_set_in_pins(&c, CAP_PIN_D0);
-  sm_config_set_jmp_pin(&c, HS_PIN);
+  sm_config_set_jmp_pin(&c, CS_PIN);
 
   sm_config_set_in_shift(&c, true, false, 32); // 32-bit push with direct byte-order DMA reads
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);

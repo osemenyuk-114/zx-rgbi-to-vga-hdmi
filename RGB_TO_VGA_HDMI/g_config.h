@@ -7,8 +7,13 @@
 
 // FW_VERSION can be overridden at build time via -DFW_VERSION="..."
 #ifndef FW_VERSION
-#define FW_VERSION "v1.6.1"
+#define FW_VERSION "v1.7.0"
 #endif
+
+#define GIT_REPO_URL_1 "https://github.com/"
+#define GIT_REPO_URL_2 "osemenyuk-114/"
+#define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi/"
+#define GIT_REPO_URL_4 "tree/6bit-color"
 
 #define BOARD_CODE_36LJU22
 // #define BOARD_CODE_09LJV23
@@ -36,7 +41,7 @@ typedef struct settings_t
 {
   video_out_type_t video_out_type;
   video_out_mode_t video_out_mode;
-  bool scanlines_mode : 1;
+  bool scanlines_mode;
   uint32_t frequency;
   int8_t delay;
   int16_t shX;
@@ -94,7 +99,13 @@ extern uint8_t g_v_buf[];
 
 // capture pins
 #define CAP_PIN_D0 0
-#define HS_PIN (CAP_PIN_D0 + 6)
+#define R1_PIN CAP_PIN_D0
+#define R0_PIN (CAP_PIN_D0 + 1)
+#define G1_PIN (CAP_PIN_D0 + 2)
+#define G0_PIN (CAP_PIN_D0 + 3)
+#define B1_PIN (CAP_PIN_D0 + 4)
+#define B0_PIN (CAP_PIN_D0 + 5)
+#define CS_PIN (CAP_PIN_D0 + 6)
 
 // PIO and SM for VGA
 #define PIO_VGA pio0
@@ -155,12 +166,3 @@ extern uint8_t g_v_buf[];
 // thin - show scanline once every four lines
 // thick - show scanline twice in four lines
 #define SCANLINES_USE_THIN
-
-/* handled in platformio.ini
-// enable OSD menu
-#define OSD_MENU_ENABLE
-
-#if defined(OSD_MENU_ENABLE)
-#define OSD_ENABLE
-#endif
-*/

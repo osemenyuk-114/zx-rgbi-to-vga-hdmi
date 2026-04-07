@@ -69,9 +69,9 @@ void print_main_menu()
 
     Serial.println("  f   set capture frequency");
     Serial.println("  t   set capture delay and image position");
-    Serial.println("  m   set pin inversion mask\n");
+    Serial.println("  m   set pin inversion mask");
 
-    Serial.println("  p   show configuration");
+    Serial.println("\n  p   show configuration");
     Serial.println("  h   show help (this menu)");
     Serial.println("  q   exit configuration mode");
     Serial.println("  w   save configuration");
@@ -175,9 +175,9 @@ void print_test_menu()
     Serial.println("  1   draw welcome image (vertical stripes)");
     Serial.println("  2   draw welcome image (horizontal stripes)");
     Serial.println("  3   draw \"NO SIGNAL\" screen");
-    Serial.println("  i   show captured frame count\n");
+    Serial.println("  i   show captured frame count");
 
-    Serial.println("  p   show configuration");
+    Serial.println("\n  p   show configuration");
     Serial.println("  h   show help (this menu)");
     Serial.println("  q   exit to main menu\n");
 }
@@ -667,16 +667,6 @@ void handle_serial_menu()
                     print_capture_delay();
                     break;
 
-                case 'i':
-                    settings.shY = set_capture_shY(settings.shY + 1);
-                    print_y_offset();
-                    break;
-
-                case 'k':
-                    settings.shY = set_capture_shY(settings.shY - 1);
-                    print_y_offset();
-                    break;
-
                 case 'j':
                     settings.shX = set_capture_shX(settings.shX + 1);
                     print_x_offset();
@@ -685,6 +675,16 @@ void handle_serial_menu()
                 case 'l':
                     settings.shX = set_capture_shX(settings.shX - 1);
                     print_x_offset();
+                    break;
+
+                case 'i':
+                    settings.shY = set_capture_shY(settings.shY + 1);
+                    print_y_offset();
+                    break;
+
+                case 'k':
+                    settings.shY = set_capture_shY(settings.shY - 1);
+                    print_y_offset();
                     break;
 
                 default:

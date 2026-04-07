@@ -1,6 +1,6 @@
 # Video timings
 
-## The following table contains the timing parameters for the standard VGA modes supported in this project
+## Standard VGA timing parameters
 
 | Mode                                  | 640 x 480     | 800 x 600     | 1280 x 1024   |
 |---------------------------------------|--------------:|--------------:|--------------:|
