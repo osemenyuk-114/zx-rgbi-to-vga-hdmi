@@ -37,6 +37,10 @@ void setup()
   Serial.begin(9600);
 
   load_settings(&settings);
+
+  settings.video_out_type = detect_video_output_type();
+  check_settings(&settings);
+
   draw_welcome_screen(*(video_modes[settings.video_out_mode]));
   set_scanlines_mode();
   start_video_output(settings.video_out_type);

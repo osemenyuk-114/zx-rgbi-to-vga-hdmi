@@ -1,5 +1,6 @@
 #pragma once
 
+video_out_type_t detect_video_output_type();
 void start_video_output(video_out_type_t);
 void stop_video_output();
 void set_scanlines_mode();

@@ -1,3 +1,5 @@
+#include "hardware/gpio.h"
+
 #include "g_config.h"
 #include "video_output.h"
 #include "dvi.h"
@@ -16,6 +18,58 @@ int16_t h_visible_area;
 int16_t h_margin;
 int16_t v_visible_area;
 int16_t v_margin;
+
+video_out_type_t detect_video_output_type()
+{
+  // VGA DAC per color channel:
+  //
+  //   D0 --- 820 Ohm ----+
+  //                      |
+  //   D1 --- 390 Ohm ----+--- 75 Ohm --- GND (monitor termination)
+  //
+  // Drive D0 (820 Ohm) LOW, read D1 (390 Ohm) with internal pull-up (~50KOhm).
+  //   VGA (no monitor):   D0-D1 path = 390 + 820 = 1210 Ohm    -> reads LOW
+  //   VGA (with monitor): D1-GND = 390 + (820||75) = ~459 Ohm  -> reads LOW
+  //   HDMI/DVI:           >1MOhm isolation, pull-up wins       -> reads HIGH
+
+  const uint pins_out[] = {VGA_PIN_D0, VGA_PIN_D0 + 2, VGA_PIN_D0 + 4};
+  const uint pins_in[] = {VGA_PIN_D0 + 1, VGA_PIN_D0 + 3, VGA_PIN_D0 + 5};
+
+  const int num_pairs = 3;
+
+  for (int i = 0; i < num_pairs; i++)
+  {
+    gpio_init(pins_out[i]);
+    gpio_set_dir(pins_out[i], GPIO_OUT);
+    gpio_put(pins_out[i], 0);
+
+    gpio_init(pins_in[i]);
+    gpio_set_dir(pins_in[i], GPIO_IN);
+    gpio_pull_up(pins_in[i]);
+  }
+
+  sleep_ms(2);
+
+  int high_count = 0;
+  for (int i = 0; i < num_pairs; i++)
+  {
+    if (gpio_get(pins_in[i]))
+      high_count++;
+  }
+
+  // clean up: disable pulls, set pins back to inputs
+  for (int i = 0; i < num_pairs; i++)
+  {
+    gpio_disable_pulls(pins_in[i]);
+    gpio_disable_pulls(pins_out[i]);
+    gpio_set_dir(pins_out[i], GPIO_IN);
+    gpio_deinit(pins_out[i]);
+    gpio_deinit(pins_in[i]);
+  }
+
+  // majority vote: if at least 2 of 3 pairs read HIGH -> HDMI/DVI
+  return (high_count >= 2) ? DVI : VGA;
+}
 
 void set_video_mode_params(video_mode_t v_mode)
 {
