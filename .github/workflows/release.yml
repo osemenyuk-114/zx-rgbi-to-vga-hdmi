@@ -77,6 +77,18 @@ jobs:
           git tag -f latest
           git push -f origin latest
       
+      - name: Delete previous firmware assets
+        run: |
+          # Get all assets from the 'latest' release and delete .uf2 files
+          gh release view latest --json assets --jq '.assets[].name' 2>/dev/null | \
+            grep '\.uf2$' | \
+            while read -r asset; do
+              echo "Deleting old asset: $asset"
+              gh release delete-asset latest "$asset" --yes
+            done
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Create or update GitHub Release
         uses: softprops/action-gh-release@v1
         with:
