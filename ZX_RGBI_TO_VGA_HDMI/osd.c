@@ -16,6 +16,8 @@
 #include "osd_menu.h"
 #endif
 
+#ifdef OSD_ENABLE // Compile OSD code only if enabled in g_config.h to make it compatible with Arduino IDE builds that include osd.c in all configurations
+
 #define DEBOUNCE_TIME_US 250000 // 250ms debounce (slower cursor movement)
 #define REPEAT_DELAY_US 500000  // 500ms initial repeat delay
 #define REPEAT_RATE_US 100000   // 100ms repeat rate
@@ -630,3 +632,5 @@ bool osd_buttons_apply_release_block()
     osd_clear_pressed_buttons();
     return true;
 }
+
+#endif

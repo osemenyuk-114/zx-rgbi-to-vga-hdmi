@@ -12,6 +12,8 @@
 #include "ff_osd.h"
 #endif
 
+#ifdef OSD_MENU_ENABLE // Compile OSD menu code only if enabled in g_config.h to make it compatible with Arduino IDE builds that include osd_menu.c in all configurations
+
 // Pin inversion mask bit positions for menu items
 static const uint8_t mask_bit_positions[] = {F_PIN, HS_PIN, VS_PIN, I_PIN, R_PIN, G_PIN, B_PIN};
 
@@ -1211,4 +1213,6 @@ void osd_adjust_ff_osd_parameter(uint8_t param_index, int8_t direction)
         break;
     }
 }
+#endif
+
 #endif

@@ -77,7 +77,7 @@ This version of the firmware:
 ### Development Experience
 
 - **PlatformIO Integration**: Full PlatformIO support with Arduino framework for easier development and dependency management.
-- **Arduino IDE builds**: The project can also be built using the Arduino IDE for those who prefer a simpler setup (requires: Optimization **-O3**, USB Stack - **Pico SDK**).
+- **Arduino IDE builds**: The project can also be built using the Arduino IDE (see [Arduino IDE Setup](#arduino-ide-setup) below).
 
 ### Code Quality
 
@@ -87,3 +87,34 @@ This version of the firmware:
 - **Memory Optimization**: Reduced unnecessary memory allocations and pointer complexity in video output modules.
 - **Architecture Refinements**: Better separation of concerns between video input capture and output generation systems.
 - **Maintainability**: Cleaner code structure while preserving critical hardware-specific requirements for reliable video processing.
+
+---
+
+## Arduino IDE Setup
+
+1. **Install the board package**  
+   Open **Tools → Board → Boards Manager**, search for **Raspberry Pi Pico/RP2040/RP2350** by Earle F. Philhower and install it.
+
+   > **Arduino IDE 1.x:** You must first add the package URL manually.  
+   > Open **File → Preferences** and add the following to **Additional Board Manager URLs**:  
+   > `https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json`
+
+2. **Select the board**  
+   Go to **Tools → Board → Raspberry Pi RP2040 Boards** and select **Raspberry Pi Pico**.
+
+3. **Configure build settings**  
+   In the **Tools** menu set:
+   - **Optimize** → `-O3`
+   - **USB Stack** → `Pico SDK`
+
+4. **Configure OSD features**  
+   OSD features are controlled by macros in `ZX_RGBI_TO_VGA_HDMI/g_config.h`.  
+   Comment or uncomment the following lines to enable/disable features before building:
+
+   ```c
+   #define OSD_MENU_ENABLE
+   #define OSD_FF_ENABLE
+   ```
+
+5. **Build and upload**  
+   Open `ZX_RGBI_TO_VGA_HDMI/ZX_RGBI_TO_VGA_HDMI.ino` and use **Sketch → Upload**.

@@ -14,8 +14,88 @@
 #define GIT_REPO_URL_2 "osemenyuk-114/"
 #define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi"
 
-#define BOARD_CODE_36LJU22
-// #define BOARD_CODE_09LJV23
+// For PlatformIO builds, OSD features are controlled via build_flags in platformio.ini.
+// For Arduino IDE builds, enable/disable by commenting/uncommenting below.
+#ifndef PLATFORMIO
+#define OSD_MENU_ENABLE
+#define OSD_FF_ENABLE
+#endif
+
+#if defined(OSD_MENU_ENABLE) || defined(OSD_FF_ENABLE)
+#define OSD_ENABLE
+#endif
+
+#define BOARD_36LJU22
+// #define BOARD_11XGA24
+// #define BOARD_09LJV23
+
+// board pin configurations
+#ifdef BOARD_36LJU22
+#define DVI_PIN_D0 8          /* first DVI pin */
+#define VGA_PIN_D0 DVI_PIN_D0 /* first VGA pin */
+#define CAP_PIN_D0 0          /* first capture pin */
+#define VIDEO_OUTPUT_AUTO_DETECT
+#if defined(OSD_ENABLE)
+#define OSD_BTN_UP 26
+#define OSD_BTN_DOWN 27
+#define OSD_BTN_SEL 28
+#endif
+#elif defined(BOARD_11XGA24)
+#define DVI_PIN_D0 0  /* first DVI pin */
+#define VGA_PIN_D0 8  /* first VGA pin */
+#define CAP_PIN_D0 16 /* first capture pin */
+#if defined(OSD_ENABLE)
+#define OSD_BTN_UP 26
+#define OSD_BTN_DOWN 27
+#define OSD_BTN_SEL 28
+#endif
+#if defined(OSD_FF_ENABLE)
+#undef OSD_FF_ENABLE
+#endif
+#else                         /* 09LJV23 and others */
+#define VGA_PIN_D0 7          /* first VGA pin */
+#define DVI_PIN_D0 VGA_PIN_D0 /* first DVI pin */
+#define CAP_PIN_D0 0          /* first capture pin */
+#define VIDEO_OUTPUT_AUTO_DETECT
+#if defined(OSD_ENABLE)
+#define OSD_BTN_UP 26
+#define OSD_BTN_DOWN 27
+#define OSD_BTN_SEL 28
+#endif
+#if defined(OSD_FF_ENABLE)
+#undef OSD_FF_ENABLE
+#endif
+#endif
+
+#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
+
+// DVI settings
+// #define DVI_PIN_invert_diffpairs
+// #define DVI_PIN_RGB_notBGR
+
+// capture pins
+#define B_PIN CAP_PIN_D0
+#define G_PIN (CAP_PIN_D0 + 1)
+#define R_PIN (CAP_PIN_D0 + 2)
+#define I_PIN (CAP_PIN_D0 + 3)
+#define HS_PIN (CAP_PIN_D0 + 4)
+#define VS_PIN (CAP_PIN_D0 + 5)
+#define F_PIN (CAP_PIN_D0 + 6)
+
+// PIO and SM for VGA
+#define PIO_VGA pio0
+#define DREQ_PIO_VGA DREQ_PIO0_TX0
+#define SM_VGA 0
+
+// PIO and SM for DVI
+#define PIO_DVI pio0
+#define DREQ_PIO_DVI DREQ_PIO0_TX0
+#define SM_DVI 0
+
+// capture PIO and SM
+#define PIO_CAP pio1
+#define DREQ_PIO_CAP DREQ_PIO1_RX0
+#define SM_CAP 0
 
 typedef enum video_out_type_t
 {
@@ -113,51 +193,6 @@ extern video_mode_t mode_1280x1024_60Hz_d4;
 extern video_mode_t *video_modes[];
 
 extern uint8_t g_v_buf[];
-
-// board pin configurations
-#ifdef BOARD_CODE_36LJU22
-// first VGA pin
-#define VGA_PIN_D0 8
-// DVI pins
-#define DVI_PIN_D0 VGA_PIN_D0
-#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
-#else
-// 09LJV23 and others
-// first VGA pin
-#define VGA_PIN_D0 7
-// DVI pins
-#define DVI_PIN_D0 VGA_PIN_D0
-#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
-#endif
-
-// DVI settings
-// #define DVI_PIN_invert_diffpairs
-// #define DVI_PIN_RGB_notBGR
-
-// capture pins
-#define CAP_PIN_D0 0
-#define B_PIN CAP_PIN_D0
-#define G_PIN (CAP_PIN_D0 + 1)
-#define R_PIN (CAP_PIN_D0 + 2)
-#define I_PIN (CAP_PIN_D0 + 3)
-#define HS_PIN (CAP_PIN_D0 + 4)
-#define VS_PIN (CAP_PIN_D0 + 5)
-#define F_PIN (CAP_PIN_D0 + 6)
-
-// PIO and SM for VGA
-#define PIO_VGA pio0
-#define DREQ_PIO_VGA DREQ_PIO0_TX0
-#define SM_VGA 0
-
-// PIO and SM for DVI
-#define PIO_DVI pio0
-#define DREQ_PIO_DVI DREQ_PIO0_TX0
-#define SM_DVI 0
-
-// capture PIO and SM
-#define PIO_CAP pio1
-#define DREQ_PIO_CAP DREQ_PIO1_RX0
-#define SM_CAP 0
 
 // settings MIN values
 #define VIDEO_OUT_TYPE_MIN OUTPUT_TYPE_MIN
