@@ -19,6 +19,8 @@ extern "C"
 #endif
 }
 
+#ifdef SERIAL_MENU_ENABLE // Compile serial menu code only if enabled in g_config.h
+
 // External variables that need to be accessed
 extern settings_t settings;
 extern video_out_type_t active_video_output;
@@ -541,7 +543,12 @@ void print_settings()
 
 void handle_serial_menu()
 {
-    char inchar = 'h';
+    char inchar = get_menu_input(100);
+
+    if (inchar == 0)
+        return;
+
+    inchar = 'h';
 
     Serial.println(" Entering the configuration mode\n");
 
@@ -1256,7 +1263,7 @@ void handle_serial_menu()
                     else
                         settings.ff_osd_config.rows = 2;
 
-                    ff_osd_set_address();
+                    ff_osd_needs_i2c_init = true;
                     break;
 
                 case 'r':
@@ -1270,6 +1277,9 @@ void handle_serial_menu()
                             settings.ff_osd_config.cols = 20; // Adjust columns to max allowed for 4 rows
                             print_ff_osd_cols();
                         }
+
+                        ff_osd_display.rows = settings.ff_osd_config.rows;
+                        ff_osd_display.cols = settings.ff_osd_config.cols;
                     }
 
                     break;
@@ -1285,6 +1295,8 @@ void handle_serial_menu()
                             print_ff_osd_rows();
                         }
 
+                        ff_osd_display.rows = settings.ff_osd_config.rows;
+                        ff_osd_display.cols = settings.ff_osd_config.cols;
                         print_ff_osd_cols();
                     }
 
@@ -1294,6 +1306,8 @@ void handle_serial_menu()
                     if (!settings.ff_osd_config.i2c_protocol)
                     {
                         settings.ff_osd_config.cols = ff_osd_set_cols(settings.ff_osd_config.cols - 1);
+                        ff_osd_display.rows = settings.ff_osd_config.rows;
+                        ff_osd_display.cols = settings.ff_osd_config.cols;
                         print_ff_osd_cols();
                     }
 
@@ -1458,3 +1472,5 @@ void handle_serial_menu()
         }
     }
 }
+
+#endif

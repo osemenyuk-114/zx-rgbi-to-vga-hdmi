@@ -1180,7 +1180,7 @@ void osd_adjust_ff_osd_parameter(uint8_t param_index, int8_t direction)
         else
             settings.ff_osd_config.rows = 2;
 
-        ff_osd_set_address();
+        ff_osd_needs_i2c_init = true;
         break;
 
     case 2: // Rows - toggle 2/4
@@ -1188,6 +1188,12 @@ void osd_adjust_ff_osd_parameter(uint8_t param_index, int8_t direction)
 
         if (settings.ff_osd_config.rows * settings.ff_osd_config.cols > 80)
             settings.ff_osd_config.cols = 20; // Adjust columns to max allowed for 4 rows
+
+        if (!settings.ff_osd_config.i2c_protocol)
+        {
+            ff_osd_display.rows = settings.ff_osd_config.rows;
+            ff_osd_display.cols = settings.ff_osd_config.cols;
+        }
 
         break;
 
@@ -1201,6 +1207,12 @@ void osd_adjust_ff_osd_parameter(uint8_t param_index, int8_t direction)
         }
         else
             settings.ff_osd_config.cols = ff_osd_set_cols(settings.ff_osd_config.cols - 1);
+
+        if (!settings.ff_osd_config.i2c_protocol)
+        {
+            ff_osd_display.rows = settings.ff_osd_config.rows;
+            ff_osd_display.cols = settings.ff_osd_config.cols;
+        }
 
         break;
 

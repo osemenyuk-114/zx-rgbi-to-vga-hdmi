@@ -3,3 +3,6 @@
 .vscode/launch.json
 docs/*/
 hardware/*/
+
+# Claude Code — local settings (machine-specific, not for sharing)
+.claude/settings.local.json

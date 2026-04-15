@@ -83,10 +83,49 @@ This version of the firmware:
 
 - **Settings Integrity**: CRC-32 validation on saved settings — corrupted or uninitialized flash data is detected on boot and automatically replaced with safe defaults.
 - **FF OSD Integration**: Added dedicated FlashFloppy/Gotek I2C OSD support, including protocol switching and separate documentation for setup and usage.
-- **FF OSD Runtime Control**: FF OSD can be enabled/disabled at runtime, with delayed I2C initialization when enabled after boot.
+- **FF OSD Runtime Control**: FF OSD can be enabled/disabled and the protocol switched at runtime; both operations trigger a full I2C re-initialization on the next Core 1 loop cycle.
 - **Memory Optimization**: Reduced unnecessary memory allocations and pointer complexity in video output modules.
 - **Architecture Refinements**: Better separation of concerns between video input capture and output generation systems.
 - **Maintainability**: Cleaner code structure while preserving critical hardware-specific requirements for reliable video processing.
+
+---
+
+## PlatformIO Setup
+
+1. **Install PlatformIO**  
+   Install the [PlatformIO IDE extension](https://platformio.org/install/ide?install=vscode) for VS Code, or use the PlatformIO CLI.
+
+2. **Select the build environment**  
+   Open `platformio.ini` and set `default_envs` in the `[platformio]` section to one of:
+
+   | Environment | `OSD_MENU_ENABLE` | `OSD_FF_ENABLE` |
+   |-------------|:-----------------:|:---------------:|
+   | `osd`       | ✓                 | ✓               |
+   | `osd_menu`  | ✓                 |                 |
+   | `ff_osd`    |                   | ✓               |
+   | `no_osd`    |                   |                 |
+
+   ```ini
+   [platformio]
+   default_envs = osd
+   ```
+
+3. **Select the board variant**  
+   In the `[env]` section, uncomment exactly one `BOARD_*` flag:
+
+   ```ini
+   build_flags =
+     -O3
+     -D PICO_STDIO_USB
+     -D BOARD_36LJU22 ; BOARD_11XGA24 ; BOARD_LEO_REV3 ; BOARD_09LJV23 ;
+   ```
+
+4. **Build and upload**  
+   Use **PlatformIO: Build** and **PlatformIO: Upload** from the VS Code toolbar, or run:
+
+   ```cmd
+   pio run --target upload
+   ```
 
 ---
 
@@ -107,13 +146,20 @@ This version of the firmware:
    - **Optimize** → `-O3`
    - **USB Stack** → `Pico SDK`
 
-4. **Configure OSD features**  
-   OSD features are controlled by macros in `ZX_RGBI_TO_VGA_HDMI/g_config.h`.  
-   Comment or uncomment the following lines to enable/disable features before building:
+4. **Configure OSD features and board variant**  
+   For Arduino IDE builds, these are controlled by the `#ifndef PLATFORMIO` block in `ZX_RGBI_TO_VGA_HDMI/g_config.h`.  
+   Comment or uncomment the following lines before building:
 
    ```c
+   // OSD features — enable or disable as needed:
    #define OSD_MENU_ENABLE
    #define OSD_FF_ENABLE
+
+   // Board variant — uncomment exactly one:
+   #define BOARD_36LJU22
+   // #define BOARD_11XGA24
+   // #define BOARD_LEO_REV3
+   // #define BOARD_09LJV23
    ```
 
 5. **Build and upload**  

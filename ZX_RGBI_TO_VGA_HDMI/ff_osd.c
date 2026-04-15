@@ -2,8 +2,8 @@
 #include <stddef.h>
 
 #include "pico/stdlib.h"
-
-#include "arduino_i2c_slave.h"
+#include "hardware/i2c.h"
+#include "i2c_slave.h"
 
 #include "g_config.h"
 #include "ff_osd.h"
@@ -16,7 +16,6 @@
 // Cross-core flag: set from core0 menus when FF OSD is enabled after being
 // disabled at startup. Core1 loop picks this up and calls ff_osd_i2c_init().
 volatile bool ff_osd_needs_i2c_init = false;
-static bool ff_osd_i2c_initialized = false;
 
 // Helper macros
 #define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
@@ -24,10 +23,8 @@ static bool ff_osd_i2c_initialized = false;
 
 #define barrier() asm volatile("" ::: "memory")
 
-// Use GP18/19 (I2C1), available on both WAVESHARE RP2040 ZERO and full size Raspberry Pi Pico boards.
-static const uint I2C_SLAVE_SDA_PIN = 18;
-static const uint I2C_SLAVE_SCL_PIN = 19;
-#define I2C_INST i2c1
+static const uint I2C_SLAVE_SDA_PIN = I2C_PIN_SDA;
+static const uint I2C_SLAVE_SCL_PIN = I2C_PIN_SCL;
 
 // 100 kHz: I2C Standard Mode, matching flashfloppy setting
 #define I2C_BAUDRATE 100000
@@ -131,6 +128,8 @@ static void lcd_display_update(void)
 
     ff_osd_display.rows = settings.ff_osd_config.rows;
     ff_osd_display.cols = settings.ff_osd_config.cols;
+    ff_osd_display.heights = 0;
+    memset(ff_osd_display.text, ' ', sizeof(ff_osd_display.text));
 }
 
 static void __not_in_flash_func(lcd_process_cmd)(uint8_t cmd)
@@ -346,51 +345,85 @@ static void __not_in_flash_func(ffosd_process)(void)
     t_cons = t_c;
 }
 
-static void __not_in_flash_func(ff_osd_i2c_rx_transaction)(const uint8_t *data, size_t len)
+static void __not_in_flash_func(i2c_slave_handler)(i2c_inst_t *i2c, i2c_slave_event_t event)
 {
-    if (len == 0)
-        return;
+    static uint8_t rp = 0;
+    static volatile bool addr_matched = false;
 
-    // Mark transaction start, then append all received bytes.
-    t_ring[MASK(t_ring, t_prod++)] = d_prod;
+    switch (event)
+    {
+    case I2C_SLAVE_RECEIVE: // master has written some data
+        // On address match (first RECEIVE after FINISH), mark transaction start
+        if (!addr_matched)
+        {
+            t_ring[MASK(t_ring, t_prod++)] = d_prod;
+            rp = 0;
+            addr_matched = true;
+        }
+        // Read incoming byte - ISR is called for each byte received
+        d_ring[MASK(d_ring, d_prod++)] = i2c_read_byte_raw(i2c);
+        break;
 
-    for (size_t i = 0; i < len; i++)
-        d_ring[MASK(d_ring, d_prod++)] = data[i];
-}
+    case I2C_SLAVE_REQUEST: // master is requesting data
+        // On address match for read operation, just reset read position
+        if (!addr_matched)
+        {
+            rp = 0;
+            addr_matched = true;
+        }
+        // Send response byte - ISR is called for each byte requested
+        uint8_t *info = (uint8_t *)&ff_osd_info;
+        i2c_write_byte_raw(i2c, (rp < sizeof(ff_osd_info)) ? info[rp++] : 0);
+        break;
 
-static size_t __not_in_flash_func(ff_osd_i2c_tx_response)(uint8_t *buffer, size_t max_len)
-{
-    size_t n = sizeof(ff_osd_info);
+    case I2C_SLAVE_FINISH: // master has signalled Stop / Restart
+        // Transaction complete - reset for next transaction
+        addr_matched = false;
+        break;
 
-    if (n > max_len)
-        n = max_len;
-
-    memcpy(buffer, &ff_osd_info, n);
-    return n;
+    default:
+        break;
+    }
 }
 
 void ff_osd_i2c_init()
 {
+    static bool ff_osd_i2c_initialized = false;
     if (ff_osd_i2c_initialized)
-        return;
+        i2c_slave_deinit(I2C_INST);
 
     // Apply config to display (important for LCD mode)
     lcd_display_update();
 
+    // Initialize GPIO pins for I2C
+    gpio_init(I2C_SLAVE_SDA_PIN);
+    gpio_set_function(I2C_SLAVE_SDA_PIN, GPIO_FUNC_I2C);
+    gpio_pull_up(I2C_SLAVE_SDA_PIN);
+
+    gpio_init(I2C_SLAVE_SCL_PIN);
+    gpio_set_function(I2C_SLAVE_SCL_PIN, GPIO_FUNC_I2C);
+    gpio_pull_up(I2C_SLAVE_SCL_PIN);
+
+    // Initialize I2C peripheral at 100kHz
+    i2c_init(I2C_INST, I2C_BAUDRATE);
+
+    // Initialize I2C slave mode with our address and handler
     uint8_t slave_addr = settings.ff_osd_config.i2c_protocol ? 0x10 : 0x27;
 
-    arduino_i2c_slave_begin(I2C_SLAVE_SDA_PIN,
-                            I2C_SLAVE_SCL_PIN,
-                            slave_addr,
-                            ff_osd_i2c_rx_transaction,
-                            ff_osd_i2c_tx_response);
+    i2c_slave_init(I2C_INST, slave_addr, &i2c_slave_handler);
+
+    // Raise I2C IRQ priority above DMA IRQ (default 0x80) so the I2C handler can
+    // preempt the capture DMA handler.  Without this, a ~160µs DMA ISR blocks the
+    // I2C ISR long enough that a STOP condition and the last RX byte(s) accumulate
+    // simultaneously, causing phantom transactions that corrupt ff_osd_display parameters.
+    irq_set_priority(I2C0_IRQ + i2c_hw_index(I2C_INST), PICO_HIGHEST_IRQ_PRIORITY);
 
     ff_osd_i2c_initialized = true;
 }
 
 void ff_osd_set_address()
 {
-    arduino_i2c_slave_set_address(settings.ff_osd_config.i2c_protocol ? 0x10 : 0x27);
+    I2C_INST->hw->sar = settings.ff_osd_config.i2c_protocol ? 0x10 : 0x27;
 }
 
 void ff_osd_i2c_process(void)
@@ -513,18 +546,12 @@ void ff_osd_update()
 
             osd_text_heights[osd_row] = is_double_height;
 
-            // Calculate starting column to center the text horizontally
-            uint8_t text_len = strnlen(ff_osd_display.text[row], ff_osd_display.cols);
-
-            if (text_len == 0)
-                continue; // Skip empty rows
-
             // Copy the text row and clean non-printable characters
             char row_text[41];
 
             uint8_t out_pos = 0;
 
-            for (uint8_t col = 0; col < text_len && col < ff_osd_display.cols && col < osd_mode.columns; col++)
+            for (uint8_t col = 0; col < ff_osd_display.cols && col < osd_mode.columns; col++)
             {
                 uint8_t glyph = (uint8_t)ff_osd_display.text[row][col];
 

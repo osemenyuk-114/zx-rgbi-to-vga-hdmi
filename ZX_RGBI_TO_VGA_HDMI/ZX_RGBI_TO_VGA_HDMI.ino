@@ -4,8 +4,6 @@
 #include "pico/time.h"
 #include "hardware/vreg.h"
 
-#include "serial_menu.h"
-
 extern "C"
 {
 #include "g_config.h"
@@ -14,14 +12,18 @@ extern "C"
 #include "v_buf.h"
 #include "video_output.h"
 
-#ifdef OSD_FF_ENABLE
-#include "ff_osd.h"
-#endif
-
 #ifdef OSD_ENABLE
 #include "osd.h"
 #endif
+
+#ifdef OSD_FF_ENABLE
+#include "ff_osd.h"
+#endif
 }
+
+#ifdef SERIAL_MENU_ENABLE
+#include "serial_menu.h"
+#endif
 
 settings_t settings;
 
@@ -38,7 +40,9 @@ void setup()
   vreg_set_voltage(VREG_VOLTAGE_1_25);
   sleep_ms(100);
 
+#ifdef SERIAL_MENU_ENABLE
   Serial.begin(9600);
+#endif
 
   load_settings(&settings);
 #ifdef VIDEO_OUTPUT_AUTO_DETECT
@@ -56,24 +60,22 @@ void setup()
 
   start_core0 = true;
 
+#ifdef SERIAL_MENU_ENABLE
   Serial.println("  Starting...\n");
+#endif
 }
 
 void loop()
 {
 #ifdef OSD_ENABLE
   osd_update();
-
-  if (!osd_state.visible)
-  {
 #endif
-    char c = get_menu_input(100);
 
-    if (c != 0)
-      handle_serial_menu();
-
+#ifdef SERIAL_MENU_ENABLE
 #ifdef OSD_ENABLE
-  }
+  if (!osd_state.visible)
+#endif
+    handle_serial_menu();
 #endif
 }
 

@@ -23,18 +23,18 @@ Long **SEL** hold is reserved for opening the local setup OSD menu.
 
 ### Pico I2C Pins
 
-The FF OSD interface uses `I2C1` on these Pico pins:
+The FF OSD interface uses `I2C0` on these Pico pins:
 
 | Signal | GPIO   | Pico Pin | Notes                    |
 |--------|--------|----------|--------------------------|
-| GND    | GND    | 23       | Common ground with Gotek |
-| SDA    | GPIO18 | 24       | I2C data                 |
-| SCL    | GPIO19 | 25       | I2C clock                |
+| SDA    | GPIO20 | 26       | I2C data                 |
+| SCL    | GPIO21 | 27       | I2C clock                |
+| GND    | GND    | 28       | Common ground with Gotek |
 
 ### Wiring Notes
 
-- Connect Pico **GPIO18** to the Gotek I2C **SDA** line
-- Connect Pico **GPIO19** to the Gotek I2C **SCL** line
+- Connect Pico **GPIO20** to the Gotek I2C **SDA** line
+- Connect Pico **GPIO21** to the Gotek I2C **SCL** line
 - Connect Pico **GND** to Gotek **GND**
 - The bus runs at **100 kHz**
 - SDA and SCL must be pulled up to **3.3V** with about **4.7k to 10k** resistors
@@ -101,7 +101,7 @@ V_POS     TOP/BOTTOM
 #### **PROTOCOL**
 
 - Toggles between native FlashFloppy mode and LCD compatibility mode
-- Changes the active I2C slave address immediately
+- Triggers a full I2C re-initialization on the next Core 1 loop cycle, applying the new slave address and resetting the display configuration
 
 #### **ROWS**
 
@@ -174,7 +174,8 @@ In this mode, the Pico behaves like a PCF8574 LCD backpack, and the visible layo
 - Horizontal placement uses five fixed presets rather than pixel-by-pixel movement
 - Vertical placement is only **TOP** or **BOTTOM**
 - When FF OSD is **disabled**, I2C processing is suspended and no overlay is drawn; button state is cleared so the host does not receive stale inputs
-- When FF OSD is **enabled** after being disabled at startup, the I2C peripheral is initialized on the next core1 loop cycle
+- When FF OSD is **enabled** after being disabled at startup, the I2C peripheral is initialized on the next Core 1 loop cycle
+- When the **protocol is changed** at runtime, the I2C peripheral is fully re-initialized with the new slave address and display configuration on the next Core 1 loop cycle
 
 ## Defaults
 
@@ -201,7 +202,7 @@ Factory defaults for FF OSD settings are:
 
 - Use `0x10` for native FlashFloppy protocol
 - Use `0x27` for LCD HD44780 compatibility mode
-- After changing protocol in the menu, the Pico switches address immediately
+- After changing protocol in the menu, the Pico re-initializes I2C with the new address on the next Core 1 loop cycle
 
 ### Rows or columns cannot be changed
 
