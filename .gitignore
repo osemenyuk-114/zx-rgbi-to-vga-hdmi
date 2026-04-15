@@ -4,5 +4,5 @@
 docs/*/
 hardware/*/
 
-# Claude Code — local settings (machine-specific, not for sharing)
-.claude/settings.local.json
+# Claude Code — local settings and notes (machine-specific, not for sharing)
+.claude/
