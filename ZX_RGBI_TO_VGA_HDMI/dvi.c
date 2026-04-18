@@ -25,7 +25,8 @@ extern int16_t h_visible_area;
 static uint32_t *v_out_dma_buf[2];
 
 static uint64_t sync_data[4];
-static uint64_t palette[32];
+// 2KB-aligned palette for better cache performance (compile-time alignment)
+static uint64_t palette[32] __attribute__((aligned(2048)));
 
 static void __not_in_flash_func(memset64)(uint64_t *dst, const uint64_t data, uint32_t size)
 {

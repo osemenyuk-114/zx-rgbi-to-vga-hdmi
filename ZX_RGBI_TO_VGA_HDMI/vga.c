@@ -34,7 +34,8 @@ extern int16_t v_margin;
 static bool scanlines_mode = false;
 
 static uint32_t *v_out_dma_buf[4];
-static uint16_t palette[256];
+// 2KB-aligned palette for better cache performance (compile-time alignment)
+static uint16_t palette[256] __attribute__((aligned(2048)));
 
 void __not_in_flash_func(memset32)(uint32_t *dst, const uint32_t data, uint32_t size);
 
