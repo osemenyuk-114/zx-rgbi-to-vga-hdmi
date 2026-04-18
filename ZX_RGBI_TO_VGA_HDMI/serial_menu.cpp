@@ -480,7 +480,7 @@ void print_ff_osd_i2c_protocol()
 void print_ff_osd_rows()
 {
     Serial.print("  Rows ....................... ");
-    Serial.println(settings.ff_osd_config.rows, DEC);
+    Serial.println(settings.ff_osd_config.i2c_protocol ? ff_osd_display.rows : settings.ff_osd_config.rows, DEC);
 }
 
 void print_ff_osd_cols()

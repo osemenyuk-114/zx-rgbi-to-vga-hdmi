@@ -145,3 +145,22 @@ There is no automated test suite. Validation is hardware-in-the-loop:
 2. Connect ZX Spectrum RGBI output to board input.
 3. Verify VGA/DVI output on a monitor.
 4. Exercise OSD menu and serial menu manually.
+
+---
+
+## Recent Changes
+
+### v1.7.1 — FF OSD I2C Re-initialization Refactor
+
+**ff_osd.c:**
+- `ff_osd_i2c_init()` now uses function-local `static bool ff_osd_i2c_initialized` guard.
+- Supports full re-initialization: on re-call, runs `i2c_slave_deinit()` then complete reinit.
+- Uses `i2c_read_byte_raw` / `i2c_write_byte_raw` from `hardware/i2c.h` (Pico SDK).
+- The bundled `i2c_fifo.h` variants are no longer used anywhere in the codebase.
+
+**osd_menu.c / serial_menu.cpp:**
+- Protocol toggle operations now set `ff_osd_needs_i2c_init = true` instead of calling `ff_osd_set_address()`.
+- This flag triggers proper I2C re-initialization in Core 1 `loop1()`.
+- Ensures `lcd_display_update()` is called and full hardware re-init occurs.
+
+**Rule:** Always use `ff_osd_needs_i2c_init = true` to trigger re-init. Never call `ff_osd_set_address()` for protocol/enable changes.

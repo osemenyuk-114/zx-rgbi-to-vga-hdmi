@@ -915,7 +915,7 @@ static void render_ff_osd_menu()
         else if (i == 1)
             osd_text_printf(row, 2, fg_color, bg_color, 0, "%-9s %s", "PROTOCOL", settings.ff_osd_config.i2c_protocol ? "FLASHFLOPPY" : "LCD HD44780");
         else if (i == 2)
-            osd_text_printf(row, 2, fg_color, bg_color, 0, "%-9s %d", "ROWS", settings.ff_osd_config.rows);
+            osd_text_printf(row, 2, fg_color, bg_color, 0, "%-9s %d", "ROWS", settings.ff_osd_config.i2c_protocol ? ff_osd_display.rows : settings.ff_osd_config.rows);
         else if (i == 3)
             osd_text_printf(row, 2, fg_color, bg_color, 0, "%-9s %d", "COLUMNS", settings.ff_osd_config.i2c_protocol ? ff_osd_display.cols : settings.ff_osd_config.cols);
         else if (i == 4)
