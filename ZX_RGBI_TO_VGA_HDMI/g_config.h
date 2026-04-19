@@ -14,12 +14,11 @@
 #define GIT_REPO_URL_2 "osemenyuk-114/"
 #define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi"
 
-// Serial menu is enabled by default
-#define SERIAL_MENU_ENABLE
-
 // For PlatformIO builds, OSD features are controlled via build_flags in platformio.ini.
 // For Arduino IDE builds, enable/disable by commenting/uncommenting below.
 #ifndef PLATFORMIO
+// Serial menu is enabled by default
+#define SERIAL_MENU_ENABLE
 // OSD features — enable or disable as needed:
 #define OSD_MENU_ENABLE
 #define OSD_FF_ENABLE
@@ -61,7 +60,6 @@
 #define I2C_PIN_SDA 20
 #define I2C_PIN_SCL 21
 #define I2C_INST i2c0
-// #undef SERIAL_MENU_ENABLE
 #define PS2_KBD_ENABLE
 #define PS2_PIN_DATA 1
 #define PS2_PIN_CLK 0
@@ -95,7 +93,6 @@
 #define I2C_PIN_SDA 20
 #define I2C_PIN_SCL 21
 #define I2C_INST i2c0
-// #undef SERIAL_MENU_ENABLE
 #define PS2_KBD_ENABLE
 #define PS2_PIN_DATA 29
 #define PS2_PIN_CLK 28
