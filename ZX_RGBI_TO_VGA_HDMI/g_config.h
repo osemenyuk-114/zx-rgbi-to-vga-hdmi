@@ -26,56 +26,89 @@
 
 // Board variant — uncomment exactly one:
 #define BOARD_36LJU22
+// #define BOARD_38LJE24
 // #define BOARD_11XGA24
-// #define BOARD_LEO_REV3
+// #define BOARD_25LEO25
 // #define BOARD_09LJV23
 #endif
 
 // board pin configurations
 #ifdef BOARD_36LJU22
-#define DVI_PIN_D0 8          /* first DVI pin */
-#define VGA_PIN_D0 DVI_PIN_D0 /* first VGA pin */
-#define CAP_PIN_D0 0          /* first capture pin */
+#define HW_VERSION "36LJU22"
 #define VIDEO_OUTPUT_AUTO_DETECT
+#define DVI_PIN_D0 8
+#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
+#define VGA_PIN_D0 DVI_PIN_D0
+#define CAP_PIN_D0 0
 #define OSD_BTN_UP 26
 #define OSD_BTN_DOWN 27
 #define OSD_BTN_SEL 28
 #define I2C_PIN_SDA 20
 #define I2C_PIN_SCL 21
 #define I2C_INST i2c0
+#elif defined(BOARD_38LJE24)
+#define HW_VERSION "38LJE24"
+#define VIDEO_OUTPUT_AUTO_DETECT
+#define DVI_PINS_REVERSED // DVI pins are in reverse order (D0 is the last pin, D5 is the first)
+#define DVI_PIN_D0 14
+#define DVI_PIN_CLK0 12
+#define VGA_PINS_SWAPPED // VGA R and B pins are swapped
+#define VGA_PIN_D0 DVI_PIN_CLK0
+#define CAP_PIN_D0 5
+#define OSD_BTN_UP 26
+#define OSD_BTN_DOWN 27
+#define OSD_BTN_SEL 28
+#define I2C_PIN_SDA 20
+#define I2C_PIN_SCL 21
+#define I2C_INST i2c0
+// #undef SERIAL_MENU_ENABLE
+#define PS2_KBD_ENABLE
+#define PS2_PIN_DATA 1
+#define PS2_PIN_CLK 0
+#define CH446Q_PIN_DATA 2
+#define CH446Q_PIN_CLK 3
+#define CH446Q_PIN_STB 4
 #elif defined(BOARD_11XGA24)
-#define DVI_PIN_D0 0  /* first DVI pin */
-#define VGA_PIN_D0 8  /* first VGA pin */
-#define CAP_PIN_D0 16 /* first capture pin */
+#define HW_VERSION "11XGA24"
+#define DVI_PINS_REVERSED // DVI pins are in reverse order (D0 is the last pin, D5 is the first)
+#define DVI_PIN_D0 2
+#define DVI_PIN_CLK0 0
+#define VGA_PINS_SWAPPED // VGA R and B pins are swapped
+#define VGA_PIN_D0 8
+#define CAP_PIN_D0 16
 #define OSD_BTN_UP 26
 #define OSD_BTN_DOWN 27
 #define OSD_BTN_SEL 28
 #if defined(OSD_FF_ENABLE)
 #undef OSD_FF_ENABLE
 #endif
-#elif defined(BOARD_LEO_REV3)
-#define DVI_PIN_D0 8          /* first DVI pin */
-#define VGA_PIN_D0 DVI_PIN_D0 /* first VGA pin */
-#define CAP_PIN_D0 0          /* first capture pin */
+#elif defined(BOARD_25LEO25)
+#define HW_VERSION "25LEO25"
 #define VIDEO_OUTPUT_AUTO_DETECT
-// #undef SERIAL_MENU_ENABLE
-#define PS2_KBD_ENABLE
-#define PS2_PIN_DATA 29
-#define PS2_PIN_CLK 28
-#define CH446Q_PIN_DATA 27
-#define CH446Q_PIN_CLK 26
-#define CH446Q_PIN_STB 7
-#define OSD_BTN_UP 18
-#define OSD_BTN_DOWN 19
+#define DVI_PIN_D0 8
+#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
+#define VGA_PIN_D0 DVI_PIN_D0
+#define CAP_PIN_D0 0
+#define OSD_BTN_UP 19
+#define OSD_BTN_DOWN 18
 #define OSD_BTN_SEL 17
 #define I2C_PIN_SDA 20
 #define I2C_PIN_SCL 21
 #define I2C_INST i2c0
-#else                         /* 09LJV23 and others */
-#define DVI_PIN_D0 7          /* first DVI pin */
-#define VGA_PIN_D0 DVI_PIN_D0 /* first VGA pin */
-#define CAP_PIN_D0 0          /* first capture pin */
+// #undef SERIAL_MENU_ENABLE
+#define PS2_KBD_ENABLE
+#define PS2_PIN_DATA 29
+#define PS2_PIN_CLK 28
+#define CH446Q_PIN_DATA 7
+#define CH446Q_PIN_CLK 26
+#define CH446Q_PIN_STB 27
+#else /* 09LJV23 */
+#define HW_VERSION "09LJV23"
 #define VIDEO_OUTPUT_AUTO_DETECT
+#define DVI_PIN_D0 7
+#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
+#define VGA_PIN_D0 DVI_PIN_D0
+#define CAP_PIN_D0 0
 #define OSD_BTN_UP 26
 #define OSD_BTN_DOWN 27
 #define OSD_BTN_SEL 28
@@ -83,11 +116,6 @@
 #define I2C_PIN_SCL 21
 #define I2C_INST i2c0
 #endif
-
-// DVI settings
-#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
-// #define DVI_PIN_invert_diffpairs
-// #define DVI_PIN_RGB_notBGR
 
 // capture pins
 #define B_PIN CAP_PIN_D0

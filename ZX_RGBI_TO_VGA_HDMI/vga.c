@@ -13,6 +13,23 @@
 #include "osd.h"
 #endif
 
+// RGB color patterns for different board variants
+#ifndef VGA_PINS_SWAPPED
+#define R_HIGH 0b00000011
+#define R_LOW 0b00000010
+#define G_HIGH 0b00001100
+#define G_LOW 0b00001000
+#define B_HIGH 0b00110000
+#define B_LOW 0b00100000
+#else
+#define R_HIGH 0b00110000
+#define R_LOW 0b00100000
+#define G_HIGH 0b00001100
+#define G_LOW 0b00001000
+#define B_HIGH 0b00000011
+#define B_LOW 0b00000010
+#endif
+
 // sync pulse patterns (positive polarity)
 #define NO_SYNC 0b00000000
 #define V_SYNC 0b10000000
@@ -301,16 +318,16 @@ void start_vga()
   for (int i = 0; i < 16; i++)
   {
     uint8_t Yi = (i >> 3) & 1;
-    uint8_t Ri = ((i >> 2) & 1) ? (Yi ? 0b00000011 : 0b00000010) : 0;
-    uint8_t Gi = ((i >> 1) & 1) ? (Yi ? 0b00001100 : 0b00001000) : 0;
-    uint8_t Bi = ((i >> 0) & 1) ? (Yi ? 0b00110000 : 0b00100000) : 0;
+    uint8_t Ri = ((i >> 2) & 1) ? (Yi ? R_HIGH : R_LOW) : 0;
+    uint8_t Gi = ((i >> 1) & 1) ? (Yi ? G_HIGH : G_LOW) : 0;
+    uint8_t Bi = ((i >> 0) & 1) ? (Yi ? B_HIGH : B_LOW) : 0;
 
     for (int j = 0; j < 16; j++)
     {
       uint8_t Yj = (j >> 3) & 1;
-      uint8_t Rj = ((j >> 2) & 1) ? (Yj ? 0b00000011 : 0b00000010) : 0;
-      uint8_t Gj = ((j >> 1) & 1) ? (Yj ? 0b00001100 : 0b00001000) : 0;
-      uint8_t Bj = ((j >> 0) & 1) ? (Yj ? 0b00110000 : 0b00100000) : 0;
+      uint8_t Rj = ((j >> 2) & 1) ? (Yj ? R_HIGH : R_LOW) : 0;
+      uint8_t Gj = ((j >> 1) & 1) ? (Yj ? G_HIGH : G_LOW) : 0;
+      uint8_t Bj = ((j >> 0) & 1) ? (Yj ? B_HIGH : B_LOW) : 0;
 
       palette[(i * 16) + j] = ((uint16_t)(Ri | Gi | Bi | (NO_SYNC ^ video_mode.sync_polarity)) << 8) | (Rj | Gj | Bj | (NO_SYNC ^ video_mode.sync_polarity));
     }

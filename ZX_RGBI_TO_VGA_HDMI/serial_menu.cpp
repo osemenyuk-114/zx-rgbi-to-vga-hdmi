@@ -65,6 +65,8 @@ void print_main_menu()
 {
     Serial.print("\n      * ZX RGB(I) to VGA/HDMI ");
     Serial.print(FW_VERSION);
+    Serial.print(" - ");
+    Serial.print(HW_VERSION);
     Serial.println(" *\n");
 
     Serial.println("  o   set video output type (DVI/VGA)");

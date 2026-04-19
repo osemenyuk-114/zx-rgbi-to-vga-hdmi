@@ -54,20 +54,18 @@ static uint64_t get_ser_diff_data(uint16_t dataR, uint16_t dataG, uint16_t dataB
     bG = (dataG >> (9 - i)) & 1;
     bB = (dataB >> (9 - i)) & 1;
 
-    bR |= (bR ^ 1) << 1;
-    bG |= (bG ^ 1) << 1;
-    bB |= (bB ^ 1) << 1;
+#ifndef DVI_PINS_REVERSED
+    bR = 2 - bR;
+    bG = 2 - bG;
+    bB = 2 - bB;
 
-#ifdef DVI_PIN_invert_diffpairs
-    bR ^= 0b11;
-    bG ^= 0b11;
-    bB ^= 0b11;
-#endif
-
-#ifdef DVI_PIN_RGB_notBGR
-    d6 = (bR << 4) | (bG << 2) | (bB << 0);
-#else
     d6 = (bB << 4) | (bG << 2) | (bR << 0);
+#else
+    bR = bR + 1;
+    bG = bG + 1;
+    bB = bB + 1;
+
+    d6 = (bR << 4) | (bG << 2) | (bB << 0);
 #endif
 
     out64 |= d6;
@@ -292,7 +290,14 @@ void start_dvi()
   }
 
   // set DVI pins
-  for (int i = DVI_PIN_D0; i < DVI_PIN_D0 + 8; i++)
+  for (int i = DVI_PIN_D0; i < DVI_PIN_D0 + 6; i++)
+  {
+    pio_gpio_init(PIO_DVI, i);
+    gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_12MA);
+    gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
+  }
+
+  for (int i = DVI_PIN_CLK0; i < DVI_PIN_CLK0 + 2; i++)
   {
     pio_gpio_init(PIO_DVI, i);
     gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_12MA);
