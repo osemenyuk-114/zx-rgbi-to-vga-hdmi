@@ -81,8 +81,9 @@ void loop()
 
 void setup1()
 {
-  pinMode(PIN_LED, OUTPUT);
-  digitalWrite(PIN_LED, LOW);
+  gpio_init(PIN_LED);
+  gpio_set_dir(PIN_LED, GPIO_OUT);
+  gpio_put(PIN_LED, 0);
 
   while (!start_core0)
     sleep_ms(10);
@@ -123,7 +124,7 @@ void __not_in_flash_func(loop1())
 
   if (frame_count > 1)
   {
-    digitalWrite(PIN_LED, (frame_count & 0x20) && capture_active);
+    gpio_put(PIN_LED, (frame_count & 0x20) && capture_active);
 
     if (frame_count == frame_count_tmp1)
     {
