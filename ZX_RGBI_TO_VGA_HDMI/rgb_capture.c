@@ -9,10 +9,10 @@
 #include "pio_programs.h"
 #include "v_buf.h"
 
+// Ring buffer configuration
 #define CAP_LINE_LENGTH 1024
-// the number of DMA buffers can be increased if there is image fluttering
-#define CAP_DMA_BUF_CNT 8
-#define CAP_DMA_BUF_SIZE (CAP_LINE_LENGTH * CAP_DMA_BUF_CNT)
+#define CAP_DMA_BUF_COUNT 16     // 16 line buffers for better granularity
+#define CAP_DMA_BUF_COUNT_LOG2 4 // log2(16) for ring wrapping
 
 extern settings_t settings;
 
@@ -27,8 +27,9 @@ static volatile uint8_t capture_sync_mask = (uint8_t)(1u << HS_PIN);
 
 volatile uint32_t frame_count = 0;
 
-static uint32_t cap_dma_buf[2][CAP_DMA_BUF_SIZE / 4];
-static uint32_t *cap_dma_buf_addr[2];
+// Ring buffer: 16 line buffers
+static uint8_t cap_dma_buf[CAP_DMA_BUF_COUNT][CAP_LINE_LENGTH];
+static uint8_t *cap_dma_buf_addr[CAP_DMA_BUF_COUNT] __attribute__((aligned(CAP_DMA_BUF_COUNT * 4)));
 
 void set_capture_frequency(uint32_t frequency)
 {
@@ -158,11 +159,10 @@ void __attribute__((hot)) __not_in_flash_func(dma_handler_capture())
 
   dma_hw->ints1 = 1u << dma_ch1;
 
-  uint32_t cur_buf_idx = active_buf_idx & 1u;
-  dma_channel_set_read_addr(dma_ch1, &cap_dma_buf_addr[cur_buf_idx], false);
+  uint32_t cur_buf_idx = active_buf_idx % CAP_DMA_BUF_COUNT;
 
-  uint8_t *buf8 = (uint8_t *)cap_dma_buf[cur_buf_idx];
-  uint8_t *const buf8_end = buf8 + CAP_DMA_BUF_SIZE;
+  uint8_t *buf8 = cap_dma_buf[cur_buf_idx];
+  uint8_t *const buf8_end = buf8 + CAP_LINE_LENGTH;
 
   active_buf_idx++;
 
@@ -253,9 +253,9 @@ void start_capture()
     pin_inversion_mask >>= 1;
   }
 
-  // Initialize buffer address array
-  cap_dma_buf_addr[0] = cap_dma_buf[0];
-  cap_dma_buf_addr[1] = cap_dma_buf[1];
+  // Initialize ring buffer address array
+  for (int i = 0; i < CAP_DMA_BUF_COUNT; i++)
+    cap_dma_buf_addr[i] = cap_dma_buf[i];
 
   // PIO initialization
   pio_sm_config c = pio_get_default_sm_config();
@@ -315,9 +315,9 @@ void start_capture()
   dma_channel_configure(
       dma_ch0,
       &c0,
-      &cap_dma_buf[0][0],    // write address
+      cap_dma_buf[0],       // write address (will be updated by control channel)
       &PIO_CAP->rxf[SM_CAP], // read address
-      CAP_DMA_BUF_SIZE / 4,  //
+      CAP_LINE_LENGTH / 4,   // transfer count in 32-bit words (1024 bytes / 4)
       false                  // don't start yet
   );
 
@@ -325,16 +325,17 @@ void start_capture()
   dma_channel_config c1 = dma_channel_get_default_config(dma_ch1);
 
   channel_config_set_transfer_data_size(&c1, DMA_SIZE_32);
-  channel_config_set_read_increment(&c1, false);
+  channel_config_set_read_increment(&c1, true);
   channel_config_set_write_increment(&c1, false);
-  channel_config_set_chain_to(&c1, dma_ch0); // chain to other channel
+  channel_config_set_ring(&c1, false, 2 + CAP_DMA_BUF_COUNT_LOG2); // ring on read address
+  channel_config_set_chain_to(&c1, dma_ch0);                        // chain to data channel
 
   dma_channel_configure(
       dma_ch1,
       &c1,
       &dma_hw->ch[dma_ch0].write_addr, // write address
-      &cap_dma_buf_addr[0],            // read address
-      1,                               //
+      cap_dma_buf_addr,               // read address (with ring wrapping)
+      1,                               // transfer 1 address pointer
       false                            // don't start yet
   );
 
@@ -365,8 +366,4 @@ void stop_capture()
   dma_channel_cleanup(dma_ch1);
   dma_channel_unclaim(dma_ch0);
   dma_channel_unclaim(dma_ch1);
-
-  // reset buffer pointers
-  cap_dma_buf_addr[0] = NULL;
-  cap_dma_buf_addr[1] = NULL;
 }
