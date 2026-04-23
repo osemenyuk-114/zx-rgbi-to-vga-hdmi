@@ -233,7 +233,7 @@ void __attribute__((hot)) __not_in_flash_func(dma_handler_capture())
 
 void start_capture()
 {
-  // Reset capture handler state and clear video buffers
+  // Reset capture handler state (video buffers cleared later at frame_count == 5)
   cap_x_s = 0;
   cap_y_s = 0;
   cap_CS_idx_s = 0;
@@ -242,7 +242,6 @@ void start_capture()
   cap_buf = NULL;
   cap_active_buf_idx = 0;
   frame_count = 0;
-  clear_video_buffers();
 
   uint8_t pin_inversion_mask = settings.pin_inversion_mask;
 

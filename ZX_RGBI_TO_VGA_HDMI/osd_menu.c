@@ -937,6 +937,9 @@ void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction)
     {
     case 0: // Frequency
     {
+        static const uint32_t freq_presets[] = {7000000, 7093800};
+        static const uint8_t freq_presets_count = sizeof(freq_presets) / sizeof(freq_presets[0]);
+
         uint32_t freq_step = 100; // Base step: 100Hz
         uint64_t current_time = time_us_64();
 
@@ -959,10 +962,49 @@ void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction)
                 freq_step = 100; // First second: 100Hz steps
         }
 
-        if (direction > 0 && settings.frequency <= FREQUENCY_MAX - freq_step)
-            settings.frequency += freq_step;
-        else if (direction < 0 && settings.frequency >= FREQUENCY_MIN + freq_step)
-            settings.frequency -= freq_step;
+        uint32_t new_freq = settings.frequency;
+
+        if (direction > 0 && new_freq <= FREQUENCY_MAX - freq_step)
+            new_freq += freq_step;
+        else if (direction < 0 && new_freq >= FREQUENCY_MIN + freq_step)
+            new_freq -= freq_step;
+
+        // Snap to the nearest preset in the direction of travel.
+        // When counting up, pick the lowest preset above current freq;
+        // when counting down, pick the highest preset below current freq.
+        {
+            uint32_t snap = 0;
+            bool found = false;
+            for (uint8_t i = 0; i < freq_presets_count; i++)
+            {
+                uint32_t preset = freq_presets[i];
+                if (settings.frequency == preset)
+                {
+                    found = false; // Already at preset, keep counting past it
+                    break;
+                }
+                if (direction > 0 && settings.frequency < preset && new_freq >= preset - freq_step)
+                {
+                    // Counting up: take the first (lowest) qualifying preset
+                    snap = preset;
+                    found = true;
+                    break;
+                }
+                if (direction < 0 && settings.frequency > preset && new_freq <= preset + freq_step)
+                {
+                    // Counting down: keep updating to find the highest qualifying preset
+                    snap = preset;
+                    found = true;
+                }
+            }
+            if (found)
+            {
+                new_freq = snap;
+                osd_block_buttons_until_release();
+            }
+        }
+
+        settings.frequency = new_freq;
         // Apply frequency change immediately
         set_capture_frequency(settings.frequency);
     }
