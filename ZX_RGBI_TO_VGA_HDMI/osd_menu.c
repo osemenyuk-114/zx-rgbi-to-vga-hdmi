@@ -937,7 +937,10 @@ void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction)
     {
     case 0: // Frequency
     {
-        static const uint32_t freq_presets[] = {7000000, 7093800};
+        static const uint32_t freq_presets[] = {
+            7000000,  // ZX Spectrum 16K/48K
+            7093800,  // ZX Spectrum 128/+2/+2A/+3
+        };
         static const uint8_t freq_presets_count = sizeof(freq_presets) / sizeof(freq_presets[0]);
 
         uint32_t freq_step = 100; // Base step: 100Hz

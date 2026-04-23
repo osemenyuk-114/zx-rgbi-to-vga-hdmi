@@ -108,6 +108,13 @@ MASK      >                  - Pin inversion mask submenu
 - After 2s: 10 kHz steps
 - After 5s: 100 kHz steps
 
+**FREQ Presets:**
+
+- **7,000,000 Hz** — ZX Spectrum 16K/48K
+- **7,093,800 Hz** — ZX Spectrum 128/+2/+2A/+3
+- While holding UP/DOWN, the value automatically snaps to the nearest preset when approaching it
+- After snapping, counting stops until the button is released
+
 **Toggle Parameters (MODE, SYNC):**
 
 - Press SEL to toggle between values
