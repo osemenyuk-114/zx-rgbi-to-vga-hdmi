@@ -160,6 +160,7 @@ RESET TO DEFAULTS
 
 ```text
 VERSION   [version number]
+BOARD     [board variant]
 
 https://github.com/
 osemenyuk-114/
@@ -171,6 +172,7 @@ zx-rgbi-to-vga-hdmi
 Displays:
 
 - Current firmware version
+- Board variant identifier
 - Project GitHub URL
 
 Press SEL on BACK to return to the main menu.
