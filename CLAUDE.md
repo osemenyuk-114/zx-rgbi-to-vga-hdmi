@@ -6,7 +6,13 @@
 
 - Upstream hardware reference: [ZX_RGBI2VGA-HDMI](https://github.com/AlexEkb4ever/ZX_RGBI2VGA-HDMI/)
 - Native Pico SDK variant: [zx-rgbi-to-vga-hdmi-PICOSDK](https://github.com/osemenyuk-114/zx-rgbi-to-vga-hdmi-PICOSDK)
-- Firmware version: `v1.7.1` (see `ZX_RGBI_TO_VGA_HDMI/g_config.h`)
+- Firmware version: `v1.7.2-dev` (see `ZX_RGBI_TO_VGA_HDMI/g_config.h`)
+
+### New in v1.7.2-dev
+- PS/2 keyboard support with PIO driver
+- ZX Spectrum keyboard emulation via CH446Q analog switch
+- Human-editable keyboard mapping table
+- Conditional compilation for keyboard features
 
 ---
 
@@ -37,6 +43,9 @@ docs/
   FF_OSD_GUIDE.md           # FlashFloppy I2C wiring and protocol
   OSD_MENU_GUIDE.md         # OSD button controls and menu tree
   VGA_TIMINGS.md            # Supported VGA/DVI timing tables
+  PS2_KEYBOARD_README.md    # PS/2 keyboard implementation guide
+  PS2_KEYBOARD_MAPPING.md   # Human-readable key mapping table
+  PS2_KEYBOARD_BUILD.md     # Build configuration examples
 hardware/                   # (files committed; subdirectory contents local-only, not committed)
 ```
 
@@ -92,6 +101,7 @@ pio run --target upload
 | `OSD_MENU_ENABLE`     | platformio.ini / g_config.h | Enable graphical OSD menu       |
 | `OSD_FF_ENABLE`       | platformio.ini / g_config.h | Enable FlashFloppy I2C OSD      |
 | `SERIAL_MENU_ENABLE`  | g_config.h (always on)     | Enable serial terminal menu     |
+| `PS2_KBD_ENABLE`      | g_config.h (board-dependent) | Enable PS/2 keyboard support   |
 | `VIDEO_OUTPUT_AUTO_DETECT` | g_config.h (board-dependent) | Auto-detect VGA vs DVI at boot |
 | `BOARD_*`             | platformio.ini / g_config.h | Selects pin mapping             |
 
@@ -131,7 +141,7 @@ pio run --target upload
 - Core 0 runs setup/loop (OSD, serial menu, settings). Core 1 runs video capture.
 - `stop_core1` / `core1_inactive` volatile flags coordinate safe shutdown of Core 1.
 - `BOARD_11XGA24` does **not** support `OSD_FF_ENABLE` (automatically undefined in g_config.h).
-- `BOARD_LEO_REV3` adds PS/2 keyboard (`PS2_KBD_ENABLE`) and CH446Q analog switch support.
+- `BOARD_38LJE24` and `BOARD_25LEO25` support PS/2 keyboard (`PS2_KBD_ENABLE`) and CH446Q analog switch.
 - The removed Z80 CLK external clock source feature should not be re-introduced; self-sync capture is preferred.
 - `ff_osd.c` uses `i2c_read_byte_raw` / `i2c_write_byte_raw` from `hardware/i2c.h` (Pico SDK).
   The bundled `i2c_fifo.h` (`i2c_read_byte` / `i2c_write_byte`) is equivalent but no longer used.
@@ -149,6 +159,31 @@ There is no automated test suite. Validation is hardware-in-the-loop:
 ---
 
 ## Recent Changes
+
+### v1.7.2-dev — PS/2 Keyboard Support (April 2026)
+
+**New Modules (C + Pico SDK):**
+- `kb_codes.c/h` — Universal keyboard code definitions and state management (128-bit state array).
+- `ps2_pio.c/h` — PIO-based PS/2 keyboard driver with DMA ring buffer and scancode decoder.
+- `zx_keyboard.c/h` — PS/2 to ZX Spectrum keyboard matrix mapping (8×5 matrix).
+- `ch446q_drv.c/h` — CH446Q 8×16 analog switch driver (3-wire serial interface).
+- `ps2_keyboard_test.c` — Example integration and test functions.
+
+**Documentation:**
+- `docs/PS2_KEYBOARD_README.md` — Architecture, integration guide, hardware requirements.
+- `docs/PS2_KEYBOARD_MAPPING.md` — Human-readable key mapping table (editable).
+- `docs/PS2_KEYBOARD_BUILD.md` — Build configuration examples and troubleshooting.
+
+**g_config.h:**
+- Added `PIO_PS2` and `PIN_PS2_DATA/CLK` definitions for boards with `PS2_KBD_ENABLE`.
+- Conditional compilation ensures PS/2 code only included when enabled.
+
+**Design Principles:**
+- Pure C implementation (no C++/Arduino libraries).
+- PIO + DMA for zero-overhead scancode reception.
+- Modular architecture with universal keyboard state layer.
+- Human-editable mapping table in Markdown.
+- Based on RGB_TO_VGA_HDMI_25 reference project.
 
 ### v1.7.1 — FF OSD I2C Re-initialization Refactor
 

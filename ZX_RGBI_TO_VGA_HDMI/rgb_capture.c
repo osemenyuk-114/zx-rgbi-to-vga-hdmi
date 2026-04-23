@@ -31,6 +31,15 @@ volatile uint32_t frame_count = 0;
 static uint8_t cap_dma_buf[CAP_DMA_BUF_COUNT][CAP_LINE_LENGTH];
 static uint8_t *cap_dma_buf_addr[CAP_DMA_BUF_COUNT] __attribute__((aligned(CAP_DMA_BUF_COUNT * 4)));
 
+// DMA handler persistent state (file-scope for reset_capture_state access)
+static int cap_x_s;
+static int cap_y_s;
+static uint cap_CS_idx_s;
+static uint8_t cap_pix8_s;
+static uint8_t *cap_buf8_s;
+static uint8_t *cap_buf;
+static uint32_t cap_active_buf_idx;
+
 void set_capture_frequency(uint32_t frequency)
 {
   uint16_t div_int;
@@ -134,37 +143,26 @@ void set_video_sync_mode(bool video_sync_mode)
 
 void __attribute__((hot)) __not_in_flash_func(dma_handler_capture())
 {
-  static int x_s;
-  int x = x_s;
-
-  static int y_s;
-  int y = y_s;
-
-  static uint CS_idx_s = 0;
-  uint CS_idx = CS_idx_s;
-
-  static uint8_t pix8_s;
-  uint8_t pix8 = pix8_s;
+  int x = cap_x_s;
+  int y = cap_y_s;
+  uint CS_idx = cap_CS_idx_s;
+  uint8_t pix8 = cap_pix8_s;
 
   const int shX = settings.shX;
   const int shY = settings.shY;
   const bool video_sync_mode = settings.video_sync_mode;
   const uint8_t sync_mask = capture_sync_mask;
 
-  static uint8_t *cap_buf8_s = g_v_buf;
   uint8_t *cap_buf8 = cap_buf8_s;
-
-  static uint8_t *cap_buf = NULL;
-  static uint32_t active_buf_idx = 0;
 
   dma_hw->ints1 = 1u << dma_ch1;
 
-  uint32_t cur_buf_idx = active_buf_idx % CAP_DMA_BUF_COUNT;
+  uint32_t cur_buf_idx = cap_active_buf_idx % CAP_DMA_BUF_COUNT;
 
   uint8_t *buf8 = cap_dma_buf[cur_buf_idx];
   uint8_t *const buf8_end = buf8 + CAP_LINE_LENGTH;
 
-  active_buf_idx++;
+  cap_active_buf_idx++;
 
   while (buf8 < buf8_end)
   {
@@ -226,15 +224,26 @@ void __attribute__((hot)) __not_in_flash_func(dma_handler_capture())
     y = -shY - 1;
   }
 
-  x_s = x;
-  y_s = y;
-  pix8_s = pix8;
+  cap_x_s = x;
+  cap_y_s = y;
+  cap_pix8_s = pix8;
   cap_buf8_s = cap_buf8;
-  CS_idx_s = CS_idx;
+  cap_CS_idx_s = CS_idx;
 }
 
 void start_capture()
 {
+  // Reset capture handler state and clear video buffers
+  cap_x_s = 0;
+  cap_y_s = 0;
+  cap_CS_idx_s = 0;
+  cap_pix8_s = 0;
+  cap_buf8_s = g_v_buf;
+  cap_buf = NULL;
+  cap_active_buf_idx = 0;
+  frame_count = 0;
+  clear_video_buffers();
+
   uint8_t pin_inversion_mask = settings.pin_inversion_mask;
 
   update_capture_sync_mask(settings.video_sync_mode);
@@ -315,7 +324,7 @@ void start_capture()
   dma_channel_configure(
       dma_ch0,
       &c0,
-      cap_dma_buf[0],       // write address (will be updated by control channel)
+      cap_dma_buf[0],        // write address (will be updated by control channel)
       &PIO_CAP->rxf[SM_CAP], // read address
       CAP_LINE_LENGTH / 4,   // transfer count in 32-bit words (1024 bytes / 4)
       false                  // don't start yet
@@ -328,13 +337,13 @@ void start_capture()
   channel_config_set_read_increment(&c1, true);
   channel_config_set_write_increment(&c1, false);
   channel_config_set_ring(&c1, false, 2 + CAP_DMA_BUF_COUNT_LOG2); // ring on read address
-  channel_config_set_chain_to(&c1, dma_ch0);                        // chain to data channel
+  channel_config_set_chain_to(&c1, dma_ch0);                       // chain to data channel
 
   dma_channel_configure(
       dma_ch1,
       &c1,
       &dma_hw->ch[dma_ch0].write_addr, // write address
-      cap_dma_buf_addr,               // read address (with ring wrapping)
+      cap_dma_buf_addr,                // read address (with ring wrapping)
       1,                               // transfer 1 address pointer
       false                            // don't start yet
   );
