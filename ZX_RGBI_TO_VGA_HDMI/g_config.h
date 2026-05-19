@@ -32,6 +32,8 @@
 #endif
 
 // board pin configurations
+#define LED_PIN 25 // On-board LED on the Raspberry Pi Pico connected to GPIO 25. On the RP2040-zero a series 470R resistor and external LED are required between this pin and GND.
+
 #ifdef BOARD_36LJU22
 #define HW_VERSION "36LJU22"
 #define VIDEO_OUTPUT_AUTO_DETECT
@@ -42,8 +44,8 @@
 #define OSD_BTN_UP 26
 #define OSD_BTN_DOWN 27
 #define OSD_BTN_SEL 28
-#define I2C_PIN_SDA 20
-#define I2C_PIN_SCL 21
+#define I2C_PIN_SDA 16
+#define I2C_PIN_SCL 17
 #define I2C_INST i2c0
 #elif defined(BOARD_38LJE24)
 #define HW_VERSION "38LJE24"

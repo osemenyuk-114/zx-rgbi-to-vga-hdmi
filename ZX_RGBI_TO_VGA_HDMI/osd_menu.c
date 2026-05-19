@@ -838,11 +838,11 @@ static void render_about_menu()
     osd_text_printf(OSD_MENU_START_ROW, 2, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0, "VERSION   %s", FW_VERSION);
     osd_text_printf(OSD_MENU_START_ROW + 1, 2, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0, "BOARD     %s", HW_VERSION);
 
-    osd_text_print(OSD_MENU_START_ROW + 3, 1, GIT_REPO_URL_1, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
-    osd_text_print(OSD_MENU_START_ROW + 4, 1, GIT_REPO_URL_2, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
-    osd_text_print(OSD_MENU_START_ROW + 5, 1, GIT_REPO_URL_3, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
+    osd_text_print(OSD_MENU_START_ROW + 3, 2, GIT_REPO_URL_1, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
+    osd_text_print(OSD_MENU_START_ROW + 4, 2, GIT_REPO_URL_2, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
+    osd_text_print(OSD_MENU_START_ROW + 5, 2, GIT_REPO_URL_3, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
 #ifdef GIT_REPO_URL_4
-    osd_text_print(OSD_MENU_START_ROW + 6, 1, GIT_REPO_URL_4, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
+    osd_text_print(OSD_MENU_START_ROW + 6, 2, GIT_REPO_URL_4, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
 #endif
 
     uint8_t fg_color, bg_color;
@@ -938,8 +938,8 @@ void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction)
     case 0: // Frequency
     {
         static const uint32_t freq_presets[] = {
-            7000000,  // ZX Spectrum 16K/48K
-            7093800,  // ZX Spectrum 128/+2/+2A/+3
+            7000000, // ZX Spectrum 16K/48K
+            7093800, // ZX Spectrum 128/+2/+2A/+3
         };
         static const uint8_t freq_presets_count = sizeof(freq_presets) / sizeof(freq_presets[0]);
 
@@ -1021,8 +1021,8 @@ void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction)
                 settings.ext_clk_divider++;
             else if (direction < 0 && settings.ext_clk_divider > EXT_CLK_DIVIDER_MIN)
                 settings.ext_clk_divider--;
-            // Restart capture with new divider
-            //// restart_capture = true;
+            // Set the new divider immediately
+            set_ext_clk_divider(settings.ext_clk_divider);
         }
 
         break;
