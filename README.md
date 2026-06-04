@@ -23,6 +23,7 @@ This version of the firmware:
 - [OSD Menu Guide](docs/OSD_MENU_GUIDE.md) - local button controls, menu tree, and tuning workflow.
 - [FF OSD Guide](docs/FF_OSD_GUIDE.md) - Gotek/FlashFloppy I2C wiring, protocol modes, and host configuration.
 - [VGA Timings](docs/VGA_TIMINGS.md) - supported VGA/DVI timing tables.
+- [Keyboard Guide](docs/KEYBOARD_GUIDE.md) - PS/2 and USB keyboard support, OSD and Gotek control, ZX Spectrum key mapping.
 
 ---
 
@@ -35,6 +36,13 @@ This version of the firmware:
   - HDMI (DVI) resolutions: 640×480 @60Hz and 720×576 @50Hz.
   - Optional scanline effect on the VGA output at higher resolutions for a retro look.
   - "NO SIGNAL" message when no input is detected.
+- **Keyboard Input:**
+  - PS/2 keyboard support (PIO-based, IRQ-driven).
+  - USB keyboard support (TinyUSB Host, boot protocol).
+  - Full ZX Spectrum keyboard emulation via CH446Q analog switch matrix.
+  - OSD menu control via keyboard (PrtScr, arrows, Enter, Esc).
+  - Gotek/FlashFloppy control via keyboard (ScrLk toggle, arrows, Enter).
+  - Visual indicator: FF OSD text turns Cyan when keyboard controls Gotek.
 - **On-Screen Display (OSD) Menu:**
   - Full-featured graphical menu system overlaid on video output.
   - Three-button control (UP, DOWN, SEL) with live tuning and save-to-flash support.
@@ -70,6 +78,27 @@ This version of the firmware:
 
 ## Recent Improvements
 
+### Keyboard Support
+
+- **PS/2 Keyboard**: PIO-based driver with IRQ-driven scancode decoding.
+- **USB Keyboard**: TinyUSB Host boot keyboard driver with O(1) HID→universal key mapping.
+- **ZX Spectrum Emulation**: Universal→ZX 8×5 matrix mapping via CH446Q analog switch.
+- **OSD Control**: PrtScr opens menu, arrows/Enter/Esc navigate. Controlled repeat (400ms delay, 80ms rate).
+- **Gotek Control**: ScrLk toggles keyboard→Gotek mode (arrows→LEFT/RIGHT, Enter→SELECT). Cyan text indicator.
+- See [Keyboard Guide](docs/KEYBOARD_GUIDE.md) for full details.
+
+### Video Output Stability
+
+- DMA IRQ priority set to highest (`PICO_HIGHEST_IRQ_PRIORITY`) in both VGA and DVI drivers.
+- Prevents USB Host ISR from blocking video output on Core 0.
+- USB keyboard task throttled to 500µs interval.
+
+### Project Structure
+
+- Source reorganized into subfolders: `video/`, `osd/`, `kbd/`, `usb/`, `i2c/`.
+- PlatformIO-only build (Arduino IDE support removed).
+- `build_src_filter` per environment for selective compilation.
+
 ### Performance Improvements
 
 - **Video Output Optimization**: Streamlined DMA handling for both VGA and DVI/HDMI output modes, resulting in more efficient memory usage and cleaner code structure.
@@ -78,7 +107,6 @@ This version of the firmware:
 ### Development Experience
 
 - **PlatformIO Integration**: Full PlatformIO support with Arduino framework for easier development and dependency management.
-- **Arduino IDE builds**: The project can also be built using the Arduino IDE (see [Arduino IDE Setup](#arduino-ide-setup) below).
 
 ### Code Quality
 
@@ -97,14 +125,14 @@ This version of the firmware:
    Install the [PlatformIO IDE extension](https://platformio.org/install/ide?install=vscode) for VS Code, or use the PlatformIO CLI.
 
 2. **Select the build environment**  
-   Open `platformio.ini` and set `default_envs` in the `[platformio]` section to one of:
+   Open `platformio.ini` and set `default_envs` in the `[platformio]` section to one or more of:
 
-   | Environment | `OSD_MENU_ENABLE` | `OSD_FF_ENABLE` |
-   |-------------|:-----------------:|:---------------:|
-   | `osd`       | ✓                 | ✓               |
-   | `osd_menu`  | ✓                 |                 |
-   | `ff_osd`    |                   | ✓               |
-   | `no_osd`    |                   |                 |
+   | Environment | OSD Menu | FF OSD | Keyboard | Source filter                           |
+   |-------------|:--------:|:------:|:--------:|-----------------------------------------|
+   | `osd`       | ✓        | ✓      | ✓        | all files                               |
+   | `osd-menu`  | ✓        |        | ✓        | excludes `ff_osd.c`, `i2c/`             |
+   | `ff-osd`    |          | ✓      | ✓        | excludes `osd_menu.c`                   |
+   | `no-osd`    |          |        |          | excludes `osd/`, `kbd/`, `usb/`, `i2c/` |
 
    ```ini
    [platformio]
@@ -116,53 +144,58 @@ This version of the firmware:
 
    ```ini
    build_flags =
-     -O3
-     -D PICO_STDIO_USB
      -D BOARD_36LJU22 ; BOARD_09LJV23 ; BOARD_25LEO25 ; BOARD_11XGA24 ; BOARD_38LJE24 ;
    ```
 
-4. **Build and upload**  
+4. **USB mode**  
+   By default, USB is configured for **Host mode** (USB keyboard). To use **Device mode** (Serial menu), change the flags:
+
+   ```ini
+   ; Host mode (keyboard):
+   -D USB_KBD_ENABLE
+   -D NO_USB
+
+   ; Device mode (serial):
+   ; -D USB_KBD_ENABLE
+   ; -D NO_USB
+   -D PICO_STDIO_USB
+   ```
+
+5. **Build and upload**  
    Use **PlatformIO: Build** and **PlatformIO: Upload** from the VS Code toolbar, or run:
 
    ```cmd
    pio run --target upload
    ```
 
----
+### Source Structure
 
-## Arduino IDE Setup
-
-1. **Install the board package**  
-   Open **Tools → Board → Boards Manager**, search for **Raspberry Pi Pico/RP2040/RP2350** by Earle F. Philhower and install it.
-
-   > **Arduino IDE 1.x:** You must first add the package URL manually.  
-   > Open **File → Preferences** and add the following to **Additional Board Manager URLs**:  
-   > `https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json`
-
-2. **Select the board**  
-   Go to **Tools → Board → Raspberry Pi RP2040 Boards** and select **Raspberry Pi Pico**.
-
-3. **Configure build settings**  
-   In the **Tools** menu set:
-   - **Optimize** → `-O3`
-   - **USB Stack** → `Pico SDK`
-
-4. **Configure OSD features and board variant**  
-   For Arduino IDE builds, these are controlled by the `#ifndef PLATFORMIO` block in `ZX_RGBI_TO_VGA_HDMI/g_config.h`.  
-   Comment or uncomment the following lines before building:
-
-   ```c
-   // OSD features — enable or disable as needed:
-   #define OSD_MENU_ENABLE
-   #define OSD_FF_ENABLE
-
-   // Board variant — uncomment exactly one:
-   #define BOARD_36LJU22
-   // #define BOARD_38LJE24
-   // #define BOARD_11XGA24
-   // #define BOARD_25LEO25
-   // #define BOARD_09LJV23
-   ```
-
-5. **Build and upload**  
-   Open `ZX_RGBI_TO_VGA_HDMI/ZX_RGBI_TO_VGA_HDMI.ino` and use **Sketch → Upload**.
+```text
+src/
+  main.cpp              Entry point (setup/loop, Core 0 + Core 1)
+  g_config.h/c          Global config: board variants, feature flags, pin maps
+  settings.h/c          Persistent settings (flash, CRC-32 validated)
+  serial_menu.h/cpp     Serial terminal menu
+  video/                Video subsystem
+    rgb_capture.c/h       PIO-based RGBI input capture
+    vga.c/h               VGA signal generation
+    dvi.c/h               DVI/HDMI signal generation
+    video_output.c/h      VGA/DVI output coordination
+    v_buf.c/h             Video buffer management
+    programs.pio          PIO assembly programs
+  osd/                  On-screen display
+    osd.c/h               OSD base layer
+    osd_menu.c/h          OSD graphical menu system
+    ff_osd.c/h            FlashFloppy/Gotek I2C OSD
+    font.h                OSD font data
+  kbd/                  Keyboard subsystem
+    kbd.c/h               Keyboard dispatcher (PS/2 + USB merge)
+    kbd_codes.c/h         Universal keyboard codes
+    kbd_osd.c/h           Keyboard↔OSD bridge
+    kbd_ps2.c/h           PS/2 keyboard driver (PIO + IRQ)
+    kbd_usb.c/h           USB HID keyboard driver (TinyUSB Host)
+    kbd_zx.c/h            ZX Spectrum 8×5 matrix mapping
+    kbd_ch446q.c/h        CH446Q analog switch driver
+  usb/                  TinyUSB host configuration
+  i2c/                  I2C slave driver
+```

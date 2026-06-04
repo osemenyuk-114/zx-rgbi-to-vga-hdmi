@@ -39,6 +39,15 @@ ZX_RGBI_TO_VGA_HDMI/        # Main firmware source
   font.h                    # OSD font data
   i2c_slave.h/.c            # I2C slave driver (MIT licensed, bundled)
   i2c_fifo.h                # I2C FIFO helpers (bundled; superseded by hardware/i2c.h _raw variants)
+  kbd.h/.c                  # Keyboard dispatcher: merges PS/2+USB state, routes to CH446Q
+  kbd_osd.h/.c              # Keyboard↔OSD bridge (Core 1 intercept + Core 0 inject)
+  kbd_codes.h               # Universal keyboard codes and 128-bit state management
+  kbd_ps2.h/.c              # PIO-based PS/2 keyboard driver (IRQ-driven)
+  kbd_usb.h/.c              # USB HID boot keyboard via TinyUSB Host
+  kbd_zx.h/.c               # Universal→ZX Spectrum 8×5 matrix mapping
+  kbd_ch446q.h/.c           # CH446Q analog switch driver (3-wire serial)
+  tusb_config_host.h        # TinyUSB dual-mode config (host when USB_KBD_ENABLE)
+  tinyusb_host*.c           # TinyUSB host source wrappers (usbh, hcd, hid)
 docs/
   FF_OSD_GUIDE.md           # FlashFloppy I2C wiring and protocol
   OSD_MENU_GUIDE.md         # OSD button controls and menu tree
@@ -101,7 +110,9 @@ pio run --target upload
 | `OSD_MENU_ENABLE`     | platformio.ini / g_config.h | Enable graphical OSD menu       |
 | `OSD_FF_ENABLE`       | platformio.ini / g_config.h | Enable FlashFloppy I2C OSD      |
 | `SERIAL_MENU_ENABLE`  | g_config.h (always on)     | Enable serial terminal menu     |
+| `KBD_ENABLE`          | g_config.h (auto-derived)  | Enable keyboard subsystem (auto from PS2/USB) |
 | `PS2_KBD_ENABLE`      | g_config.h (board-dependent) | Enable PS/2 keyboard support   |
+| `USB_KBD_ENABLE`      | g_config.h (board-dependent) | Enable USB keyboard support (future) |
 | `VIDEO_OUTPUT_AUTO_DETECT` | g_config.h (board-dependent) | Auto-detect VGA vs DVI at boot |
 | `BOARD_*`             | platformio.ini / g_config.h | Selects pin mapping             |
 
@@ -160,29 +171,64 @@ There is no automated test suite. Validation is hardware-in-the-loop:
 
 ## Recent Changes
 
+### v1.7.3-dev — USB Keyboard, Gotek Keyboard Control, Code Cleanup (June 2026)
+
+**USB HID Keyboard:**
+- `kbd_usb.c/h` — TinyUSB Host boot keyboard driver
+- `tuh_init(0)` for host mode (NOT `tusb_init()` which is device-mode from libpico.a)
+- `hid_to_universal[]` lookup table for O(1) HID→universal mapping
+- PS/2 + USB states OR-merged in `kbd_on_event()`
+- Single keyboard support (CFG_TUH_DEVICE_MAX=1)
+
+**Gotek Keyboard Control (ScrLk):**
+- `ff_osd_kbd_active` flag — independent of `ff_osd_display.on` (which is overwritten by I2C)
+- ScrLk toggles `ff_osd_kbd_active` via `osd_gotek_request`
+- When active: arrows→LEFT/RIGHT, Enter→SELECT sent to Gotek
+- Keyboard buttons read directly from `osd_virtual_held` (bypasses double osd_buttons_update)
+- Second ScrLk press deactivates and releases keyboard
+
+**kbd_osd.c — Keyboard↔OSD Bridge:**
+- Core 1 (`kbd_osd_intercept`): hotkeys + virtual button generation
+- Core 0 (`kbd_osd_apply_virtual`): injects SEL into osd_buttons, preserves BACK for osd_menu
+- ESC key: exits tuning → submenu → main menu → closes menu
+- Keyboard intercept condition: `menu_active || ff_osd_kbd_active` (NOT ff_osd_display.on)
+- Controlled repeat for arrows: 400ms delay, 80ms rate
+
+**Video Output Stability (DMA IRQ Priority):**
+- `irq_set_priority(DMA_IRQ_0, PICO_HIGHEST_IRQ_PRIORITY)` in both `vga.c` and `dvi.c`
+- Prevents USB Host ISR (USBCTRL_IRQ) from blocking video DMA handler on Core 0
+- `kbd_usb_task()` throttled to 500µs interval (was every loop iteration)
+
+**Gotek Keyboard Visual Indicator:**
+- FF OSD text color changes to Cyan (0x3) when `ff_osd_kbd_active` (keyboard controls Gotek)
+- Returns to white (7) when keyboard control is deactivated
+
+**Code Cleanup:**
+- Removed unused `kbd_output_apply_fn` typedef + function pointer indirection
+- Removed unused `kbd_get_state()`, `clear_kb_state()`
+- Removed duplicate includes, simplified release logic
+- OSD timing reduced 20%: debounce 200ms, repeat delay 400ms, rate 80ms
+
 ### v1.7.2-dev — PS/2 Keyboard Support (April 2026)
 
 **New Modules (C + Pico SDK):**
-- `kb_codes.c/h` — Universal keyboard code definitions and state management (128-bit state array).
-- `ps2_pio.c/h` — PIO-based PS/2 keyboard driver with DMA ring buffer and scancode decoder.
-- `zx_keyboard.c/h` — PS/2 to ZX Spectrum keyboard matrix mapping (8×5 matrix).
-- `ch446q_drv.c/h` — CH446Q 8×16 analog switch driver (3-wire serial interface).
-- `ps2_keyboard_test.c` — Example integration and test functions.
+- `kbd.c/h` — Keyboard dispatcher: merges PS/2+USB, routes to CH446Q via delta-apply.
+- `kbd_codes.h` — Universal keyboard codes and 128-bit state management.
+- `kbd_ps2.c/h` — PIO-based PS/2 keyboard driver (IRQ-driven scancode decoder).
+- `kbd_zx.c/h` — Universal→ZX Spectrum 8×5 matrix mapping with LUT.
+- `kbd_ch446q.c/h` — CH446Q analog switch driver (3-wire serial interface).
 
-**Documentation:**
-- `docs/PS2_KEYBOARD_README.md` — Architecture, integration guide, hardware requirements.
-- `docs/PS2_KEYBOARD_MAPPING.md` — Human-readable key mapping table (editable).
-- `docs/PS2_KEYBOARD_BUILD.md` — Build configuration examples and troubleshooting.
-
-**g_config.h:**
-- Added `PIO_PS2` and `PIN_PS2_DATA/CLK` definitions for boards with `PS2_KBD_ENABLE`.
-- Conditional compilation ensures PS/2 code only included when enabled.
+**kbd.c Architecture:**
+```
+PS/2 IRQ / USB callback  →  kbd_on_event()  →  OR-merge  →  kbd_osd_intercept  →  CH446Q delta-apply
+```
+- `KBD_ENABLE` meta-flag auto-derived from `PS2_KBD_ENABLE || USB_KBD_ENABLE`.
+- `kbd_osd_active` suppresses ZX output when OSD is driving.
 
 **Design Principles:**
 - Pure C implementation (no C++/Arduino libraries).
-- PIO + DMA for zero-overhead scancode reception.
+- PIO + IRQ for zero-overhead PS/2 scancode reception.
 - Modular architecture with universal keyboard state layer.
-- Human-editable mapping table in Markdown.
 - Based on RGB_TO_VGA_HDMI_25 reference project.
 
 ### v1.7.1 — FF OSD I2C Re-initialization Refactor

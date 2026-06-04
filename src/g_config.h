@@ -7,29 +7,15 @@
 
 // FW_VERSION can be overridden at build time via -DFW_VERSION="..."
 #ifndef FW_VERSION
-#define FW_VERSION "v1.7.1"
+#define FW_VERSION "v1.7.3"
 #endif
 
 #define GIT_REPO_URL_1 "https://github.com/"
 #define GIT_REPO_URL_2 "osemenyuk-114/"
 #define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi"
 
-// For PlatformIO builds, OSD features are controlled via build_flags in platformio.ini.
-// For Arduino IDE builds, enable/disable by commenting/uncommenting below.
-#ifndef PLATFORMIO
-// Serial menu is enabled by default
+// Serial menu is enabled by default (disabled automatically when USB_KBD_ENABLE is set)
 #define SERIAL_MENU_ENABLE
-// OSD features — enable or disable as needed:
-#define OSD_MENU_ENABLE
-#define OSD_FF_ENABLE
-
-// Board variant — uncomment exactly one:
-#define BOARD_36LJU22
-// #define BOARD_38LJE24
-// #define BOARD_11XGA24
-// #define BOARD_25LEO25
-// #define BOARD_09LJV23
-#endif
 
 // board pin configurations
 #define LED_PIN 25 // On-board LED on the Raspberry Pi Pico connected to GPIO 25. On the RP2040-zero a series 470R resistor and external LED are required between this pin and GND.
@@ -47,6 +33,12 @@
 #define I2C_PIN_SDA 16
 #define I2C_PIN_SCL 17
 #define I2C_INST i2c0
+#define PS2_KBD_ENABLE
+#define PS2_PIN_DATA 19
+#define PS2_PIN_CLK 18
+#define CH446Q_PIN_DATA 20
+#define CH446Q_PIN_CLK 21
+#define CH446Q_PIN_STB 22
 #elif defined(BOARD_38LJE24)
 #define HW_VERSION "38LJE24"
 #define VIDEO_OUTPUT_AUTO_DETECT
@@ -98,9 +90,9 @@
 #define PS2_KBD_ENABLE
 #define PS2_PIN_DATA 29
 #define PS2_PIN_CLK 28
-#define CH446Q_PIN_DATA 7
-#define CH446Q_PIN_CLK 26
-#define CH446Q_PIN_STB 27
+#define SPI_PIN_MOSI 7
+#define SPI_PIN_CLK 26
+#define SPI_PIN_CS 27
 #else /* 09LJV23 */
 #define HW_VERSION "09LJV23"
 #define VIDEO_OUTPUT_AUTO_DETECT
@@ -129,6 +121,7 @@
 #define PIO_DVI pio0
 #define DREQ_PIO_DVI DREQ_PIO0_TX0
 #define SM_DVI 0
+#define SM_DVI_CONV (SM_DVI + 1)
 
 // PIO and SM for VGA
 #define PIO_VGA pio0
@@ -139,6 +132,27 @@
 #define PIO_CAP pio1
 #define DREQ_PIO_CAP DREQ_PIO1_RX0
 #define SM_CAP 0
+
+// PS/2 keyboard PIO (only if PS2_KBD_ENABLE is defined)
+#ifdef PS2_KBD_ENABLE
+#define PIO_PS2 pio1
+#define SM_PS2 1
+#endif
+
+// USB keyboard uses native USB port in host mode (TinyUSB)
+// Defined per-board in BOARD_* sections above.
+// When USB_KBD_ENABLE is active, Serial menu is unavailable (USB port is host).
+// USB_KBD_ENABLE and NO_USB are set via build_flags in platformio.ini.
+#ifdef USB_KBD_ENABLE
+#ifdef SERIAL_MENU_ENABLE
+#undef SERIAL_MENU_ENABLE
+#endif
+#endif
+
+// Keyboard subsystem meta-flag: enabled if any keyboard backend is enabled
+#if defined(PS2_KBD_ENABLE) || defined(USB_KBD_ENABLE)
+#define KBD_ENABLE
+#endif
 
 typedef enum video_out_type_t
 {

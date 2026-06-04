@@ -9,6 +9,7 @@
 
 extern volatile bool stop_core1;
 extern volatile bool core1_inactive;
+extern volatile bool restart_capture;
 
 extern settings_t settings;
 
@@ -153,6 +154,9 @@ void save_settings(settings_t *settings)
   flash_range_program((PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE), (uint8_t *)settings, FLASH_PAGE_SIZE);
 
   restore_interrupts_from_disabled(ints);
+
+  // Force core 1 to re-enter the capture initialization path after flash save.
+  restart_capture = true;
 
   stop_core1 = false;
   core1_inactive = false;

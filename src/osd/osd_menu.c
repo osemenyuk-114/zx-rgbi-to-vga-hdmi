@@ -12,7 +12,9 @@
 #include "ff_osd.h"
 #endif
 
-#ifdef OSD_MENU_ENABLE // Compile OSD menu code only if enabled in g_config.h to make it compatible with Arduino IDE builds that include osd_menu.c in all configurations
+#ifdef KBD_ENABLE
+#include "kbd_osd.h"
+#endif
 
 // Pin inversion mask bit positions for menu items
 static const uint8_t mask_bit_positions[] = {F_PIN, HS_PIN, VS_PIN, I_PIN, R_PIN, G_PIN, B_PIN};
@@ -120,6 +122,12 @@ void osd_menu_update()
     // If menu is not active, only check for activation buttons
     if (!osd_state.menu_active)
     {
+#ifdef KBD_ENABLE
+        // Check cross-core menu open request (from keyboard)
+        bool kbd_open = osd_menu_request;
+        if (kbd_open)
+            osd_menu_request = false;
+#endif
         osd_buttons_update();
 
         if (osd_buttons_apply_release_block())
@@ -138,6 +146,9 @@ void osd_menu_update()
 #ifdef OSD_FF_ENABLE
         if (settings.ff_osd_config.enabled && settings.ff_osd_config.i2c_protocol)
             open_menu = opened_by_long_hold;
+#endif
+#ifdef KBD_ENABLE
+        open_menu |= kbd_open;
 #endif
 
         if (open_menu)
@@ -543,6 +554,29 @@ void osd_menu_update()
 
             osd_buttons.sel_pressed = false;
         }
+#ifdef KBD_ENABLE
+        // Handle BACK (ESC key via virtual buttons)
+        uint8_t virt = osd_virtual_buttons;
+
+        if (virt & OSD_VIRT_BACK)
+        {
+            osd_virtual_buttons &= ~OSD_VIRT_BACK;
+            osd_update_activity();
+
+            if (osd_menu_state.tuning_mode)
+            {
+                osd_menu_state.tuning_mode = false;
+                osd_state.needs_redraw = true;
+            }
+            else if (osd_menu.menu_depth > 0)
+            {
+                osd_menu_go_back();
+                osd_block_buttons_until_release();
+            }
+            else
+                osd_menu_hide();
+        }
+#endif
 
 #ifdef MAIN_ITEM_FF_OSD
         // Re-render when Gotek reports a new column count asynchronously (Core 1 update)
@@ -1144,6 +1178,4 @@ void osd_adjust_ff_osd_parameter(uint8_t param_index, int8_t direction)
         break;
     }
 }
-#endif
-
 #endif

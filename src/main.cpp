@@ -4,6 +4,10 @@
 #include "pico/time.h"
 #include "hardware/vreg.h"
 
+#ifdef USB_KBD_ENABLE
+#include "tusb.h"
+#endif
+
 extern "C"
 {
 #include "g_config.h"
@@ -18,6 +22,15 @@ extern "C"
 
 #ifdef OSD_FF_ENABLE
 #include "ff_osd.h"
+#endif
+
+#ifdef KBD_ENABLE
+#include "kbd.h"
+
+#ifdef USB_KBD_ENABLE
+#include "kbd_usb.h"
+#endif
+
 #endif
 }
 
@@ -41,7 +54,13 @@ void setup()
   sleep_ms(100);
 
 #ifdef SERIAL_MENU_ENABLE
-  Serial.begin(9600);
+  Serial.begin(115200);
+#endif
+
+#ifdef USB_KBD_ENABLE
+  // Initialize TinyUSB Host directly (not tusb_init() which comes from
+  // pre-compiled libpico.a and is device-mode only).
+  tuh_init(0);
 #endif
 
   load_settings(&settings);
@@ -59,10 +78,6 @@ void setup()
 #endif
 
   start_core0 = true;
-
-#ifdef SERIAL_MENU_ENABLE
-  Serial.println("  Starting...\n");
-#endif
 }
 
 void loop()
@@ -76,6 +91,17 @@ void loop()
   if (!osd_state.visible)
 #endif
     handle_serial_menu();
+#endif
+
+#ifdef USB_KBD_ENABLE
+  {
+    static uint32_t last_usb_us = 0;
+    uint32_t now_us = time_us_32();
+    if (now_us - last_usb_us >= 500) {
+      kbd_usb_task();
+      last_usb_us = now_us;
+    }
+  }
 #endif
 }
 
@@ -91,6 +117,10 @@ void setup1()
 #ifdef OSD_FF_ENABLE
   if (settings.ff_osd_config.enabled)
     ff_osd_i2c_init();
+#endif
+
+#ifdef KBD_ENABLE
+  kbd_init();
 #endif
 
   start_capture();
@@ -138,13 +168,6 @@ void __not_in_flash_func(loop1())
       capture_active = true;
   }
 
-  if (restart_capture)
-  {
-    stop_capture();
-    start_capture();
-    restart_capture = false;
-  }
-
   if (stop_core1)
   {
     core1_inactive = true;
@@ -155,5 +178,12 @@ void __not_in_flash_func(loop1())
       ;
 
     restore_interrupts_from_disabled(ints);
+  }
+
+  if (restart_capture)
+  {
+    stop_capture();
+    start_capture();
+    restart_capture = false;
   }
 }
