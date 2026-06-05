@@ -41,7 +41,7 @@ void setup()
   sleep_ms(100);
 
 #ifdef SERIAL_MENU_ENABLE
-  Serial.begin(9600);
+  Serial.begin(115200);
 #endif
 
   load_settings(&settings);
@@ -59,10 +59,6 @@ void setup()
 #endif
 
   start_core0 = true;
-
-#ifdef SERIAL_MENU_ENABLE
-  Serial.println("  Starting...\n");
-#endif
 }
 
 void loop()
@@ -138,13 +134,6 @@ void __not_in_flash_func(loop1())
       capture_active = true;
   }
 
-  if (restart_capture)
-  {
-    stop_capture();
-    start_capture();
-    restart_capture = false;
-  }
-
   if (stop_core1)
   {
     core1_inactive = true;
@@ -155,5 +144,12 @@ void __not_in_flash_func(loop1())
       ;
 
     restore_interrupts_from_disabled(ints);
+  }
+
+  if (restart_capture)
+  {
+    stop_capture();
+    start_capture();
+    restart_capture = false;
   }
 }

@@ -70,6 +70,16 @@ This version of the firmware:
 
 ## Recent Improvements
 
+### Video Output Stability
+
+- DMA IRQ priority set to highest (`PICO_HIGHEST_IRQ_PRIORITY`) in both VGA and DVI drivers.
+
+### Project Structure
+
+- Source reorganized into subfolders: `video/`, `osd/`, `i2c/`.
+- PlatformIO-only build (Arduino IDE support removed).
+- `build_src_filter` per environment for selective compilation.
+
 ### Performance Improvements
 
 - **Video Output Optimization**: Streamlined DMA handling for both VGA and DVI/HDMI output modes, resulting in more efficient memory usage and cleaner code structure.
@@ -78,7 +88,6 @@ This version of the firmware:
 ### Development Experience
 
 - **PlatformIO Integration**: Full PlatformIO support with Arduino framework for easier development and dependency management.
-- **Arduino IDE builds**: The project can also be built using the Arduino IDE (see [Arduino IDE Setup](#arduino-ide-setup) below).
 
 ### Code Quality
 
@@ -97,29 +106,48 @@ This version of the firmware:
    Install the [PlatformIO IDE extension](https://platformio.org/install/ide?install=vscode) for VS Code, or use the PlatformIO CLI.
 
 2. **Select the build environment**  
-   Open `platformio.ini` and set `default_envs` in the `[platformio]` section to one of:
+   Open `platformio.ini` and uncomment the desired environment in `default_envs` (one per line):
 
-   | Environment | `OSD_MENU_ENABLE` | `OSD_FF_ENABLE` |
-   |-------------|:-----------------:|:---------------:|
-   | `osd`       | ✓                 | ✓               |
-   | `osd_menu`  | ✓                 |                 |
-   | `ff_osd`    |                   | ✓               |
-   | `no_osd`    |                   |                 |
+   | Environment | OSD Menu | FF OSD | Serial Menu | Source filter                           |
+   |-------------|:--------:|:------:|:-----------:|-----------------------------------------|
+   | `osd`       | ✓        | ✓      | ✓¹          | all files                               |
+   | `osd-menu`  | ✓        |        | ✓¹          | excludes `ff_osd.c`, `i2c/`             |
+   | `ff-osd`    |          | ✓      | ✓¹          | excludes `osd_menu.c`                   |
+   | `no-osd`    |          |        | ✓           | excludes `osd/`, `i2c/`                 |
+
+   ¹ Serial menu and USB stdio for `osd`, `osd-menu`, `ff-osd` are controlled via the `[env_serial]` section — uncomment `-D SERIAL_MENU_ENABLE` and `-D PICO_STDIO_USB` there to enable.
+   For `no-osd`, serial menu is always enabled.
 
    ```ini
    [platformio]
-   default_envs = osd
+   default_envs =
+     osd
+     ; ff-osd
+     ; osd-menu
+     ; no-osd
    ```
 
 3. **Select the board variant**  
-   In the `[env]` section, uncomment exactly one `BOARD_*` flag:
+   In the `[env]` section `build_flags`, uncomment exactly one `-D BOARD_*` line:
+
+   | Board           | VGA/DVI Auto-detect | FF OSD support | Notes                                     |
+   |-----------------|:-------------------:|:--------------:|-------------------------------------------|
+   | `BOARD_36LJU22` | ✓                   | ✓              |                                           |
+   | `BOARD_38LJE24` | ✓                   | ✓              | DVI pins reversed, VGA R/B swapped        |
+   | `BOARD_11XGA24` |                     |                | FF OSD automatically disabled in firmware |
+   | `BOARD_25LEO25` | ✓                   | ✓              | Different OSD button pins                 |
+   | `BOARD_09LJV23` | ✓                   | ✓              |                                           |
 
    ```ini
    build_flags =
-     -O3
-     -D PICO_STDIO_USB
-     -D BOARD_36LJU22 ; BOARD_09LJV23 ; BOARD_25LEO25 ; BOARD_11XGA24 ; BOARD_38LJE24 ;
+     -D BOARD_36LJU22
+     ; -D BOARD_38LJE24
+     ; -D BOARD_11XGA24
+     ; -D BOARD_25LEO25
+     ; -D BOARD_09LJV23
    ```
+
+   > **Note:** `BOARD_11XGA24` does not have I2C pins and does not support FF OSD. If you select the `osd` or `ff-osd` environment with this board, `OSD_FF_ENABLE` will be automatically undefined by the firmware.
 
 4. **Build and upload**  
    Use **PlatformIO: Build** and **PlatformIO: Upload** from the VS Code toolbar, or run:
@@ -128,41 +156,25 @@ This version of the firmware:
    pio run --target upload
    ```
 
----
+### Source Structure
 
-## Arduino IDE Setup
-
-1. **Install the board package**  
-   Open **Tools → Board → Boards Manager**, search for **Raspberry Pi Pico/RP2040/RP2350** by Earle F. Philhower and install it.
-
-   > **Arduino IDE 1.x:** You must first add the package URL manually.  
-   > Open **File → Preferences** and add the following to **Additional Board Manager URLs**:  
-   > `https://github.com/earlephilhower/arduino-pico/releases/download/global/package_rp2040_index.json`
-
-2. **Select the board**  
-   Go to **Tools → Board → Raspberry Pi RP2040 Boards** and select **Raspberry Pi Pico**.
-
-3. **Configure build settings**  
-   In the **Tools** menu set:
-   - **Optimize** → `-O3`
-   - **USB Stack** → `Pico SDK`
-
-4. **Configure OSD features and board variant**  
-   For Arduino IDE builds, these are controlled by the `#ifndef PLATFORMIO` block in `ZX_RGBI_TO_VGA_HDMI/g_config.h`.  
-   Comment or uncomment the following lines before building:
-
-   ```c
-   // OSD features — enable or disable as needed:
-   #define OSD_MENU_ENABLE
-   #define OSD_FF_ENABLE
-
-   // Board variant — uncomment exactly one:
-   #define BOARD_36LJU22
-   // #define BOARD_38LJE24
-   // #define BOARD_11XGA24
-   // #define BOARD_25LEO25
-   // #define BOARD_09LJV23
-   ```
-
-5. **Build and upload**  
-   Open `ZX_RGBI_TO_VGA_HDMI/ZX_RGBI_TO_VGA_HDMI.ino` and use **Sketch → Upload**.
+```text
+src/
+  main.cpp              Entry point (setup/loop, Core 0 + Core 1)
+  g_config.h/c          Global config: board variants, feature flags, pin maps
+  settings.h/c          Persistent settings (flash, CRC-32 validated)
+  serial_menu.h/cpp     Serial terminal menu
+  video/                Video subsystem
+    rgb_capture.c/h       PIO-based RGBI input capture
+    vga.c/h               VGA signal generation
+    dvi.c/h               DVI/HDMI signal generation
+    video_output.c/h      VGA/DVI output coordination
+    v_buf.c/h             Video buffer management
+    programs.pio          PIO assembly programs
+  osd/                  On-screen display
+    osd.c/h               OSD base layer
+    osd_menu.c/h          OSD graphical menu system
+    ff_osd.c/h            FlashFloppy/Gotek I2C OSD
+    font.h                OSD font data
+  i2c/                  I2C slave driver
+```

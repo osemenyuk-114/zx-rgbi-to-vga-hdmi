@@ -58,14 +58,26 @@ l02:
 .program pio_dvi
 .wrap_target
 .side_set 2
-    out pins, 6   side 2
-    out pins, 6   side 2
-    out pins, 6   side 2
-    out pins, 6   side 2
-    out pins, 6   side 2
-    out pins, 6   side 1
-    out pins, 6   side 1
-    out pins, 6   side 1
-    out pins, 6   side 1
-    out pins, 6   side 1
+    out     pins, 6   side 2
+    out     pins, 6   side 2
+    out     pins, 6   side 2
+    out     pins, 6   side 2
+    out     pins, 6   side 2
+    out     pins, 6   side 1
+    out     pins, 6   side 1
+    out     pins, 6   side 1
+    out     pins, 6   side 1
+    out     pins, 6   side 1
+.wrap
+
+.program pio_dvi_conv
+.wrap_target
+    pull    block
+    in      osr, 8
+    in      x, 20
+    push    block
+    out     null, 8
+    in      osr, 8
+    in      x, 20
+    push    block
 .wrap

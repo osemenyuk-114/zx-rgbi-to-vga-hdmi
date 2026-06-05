@@ -19,7 +19,7 @@ extern "C"
 #endif
 }
 
-#ifdef SERIAL_MENU_ENABLE // Compile serial menu code only if enabled in g_config.h
+#ifdef SERIAL_MENU_ENABLE // Compile serial menu code only if enabled in the configuration
 
 // External variables that need to be accessed
 extern settings_t settings;
