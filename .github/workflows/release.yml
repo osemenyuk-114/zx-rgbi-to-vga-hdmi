@@ -47,8 +47,7 @@ jobs:
         id: fw_version
         run: |
           BASE_VERSION=$(grep -oP '#define FW_VER "\K[^"]+' src/g_config.h)
-          BUILD_ID=$(printf '%.7s' "${{ github.sha }}")
-          FULL_VERSION="${BASE_VERSION}-${BUILD_ID}"
+          FULL_VERSION="${BASE_VERSION}-ino"
           VERSION_NO_V="${FULL_VERSION#v}"
           echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
           echo "version_no_v=$VERSION_NO_V" >> $GITHUB_OUTPUT
@@ -86,8 +85,7 @@ jobs:
         id: fw_version
         run: |
           BASE_VERSION=$(grep -oP '#define FW_VER "\K[^"]+' src/g_config.h)
-          BUILD_ID=$(printf '%.7s' "${{ github.sha }}")
-          FULL_VERSION="${BASE_VERSION}-${BUILD_ID}"
+          FULL_VERSION="${BASE_VERSION}-ino"
           echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
           echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
 
