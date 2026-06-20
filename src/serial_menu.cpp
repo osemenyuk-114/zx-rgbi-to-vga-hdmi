@@ -503,7 +503,13 @@ void print_ff_osd_v_position()
 
 void print_ff_osd_h_position()
 {
-    const char *names[] = {"left", "left-center", "center", "center-right", "right"};
+    const char *names[] = {
+        "left",
+        "left-center",
+        "center",
+        "center-right",
+        "right",
+    };
     uint8_t hp = settings.ff_osd_config.h_position;
     const char *name = (hp >= 1 && hp <= 5) ? names[hp - 1] : "center";
     Serial.print("  Horizontal position ........ ");

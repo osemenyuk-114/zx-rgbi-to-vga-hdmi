@@ -12,8 +12,20 @@
 #include "ff_osd.h"
 #endif
 
+#ifdef KBD_ENABLE
+#include "osd_kbd.h"
+#endif
+
 // Pin inversion mask bit positions for menu items
-static const uint8_t mask_bit_positions[] = {F_PIN, HS_PIN, VS_PIN, I_PIN, R_PIN, G_PIN, B_PIN};
+static const uint8_t mask_bit_positions[] = {
+    CAP_F,
+    CAP_HS,
+    CAP_VS,
+    CAP_I,
+    CAP_R,
+    CAP_G,
+    CAP_B,
+};
 
 // Main menu item indices (FF OSD entries are conditionally included)
 #define MAIN_ITEM_OUTPUT 0
@@ -118,6 +130,12 @@ void osd_menu_update()
     // If menu is not active, only check for activation buttons
     if (!osd_state.menu_active)
     {
+#ifdef KBD_ENABLE
+        // Check cross-core menu open request (from keyboard)
+        bool kbd_open = osd_menu_request;
+        if (kbd_open)
+            osd_menu_request = false;
+#endif
         osd_buttons_update();
 
         if (osd_buttons_apply_release_block())
@@ -136,6 +154,9 @@ void osd_menu_update()
 #ifdef OSD_FF_ENABLE
         if (settings.ff_osd_config.enabled && settings.ff_osd_config.i2c_protocol)
             open_menu = opened_by_long_hold;
+#endif
+#ifdef KBD_ENABLE
+        open_menu |= kbd_open;
 #endif
 
         if (open_menu)
@@ -167,6 +188,17 @@ void osd_menu_update()
         }
         return;
     }
+
+#ifdef KBD_ENABLE
+    // F11 toggle: close menu if already active
+    if (osd_menu_request)
+    {
+        osd_menu_request = false;
+        osd_menu_hide();
+        osd_menu_init();
+        return;
+    }
+#endif
 
     // Menu is active from here
     // Update button states
@@ -541,6 +573,29 @@ void osd_menu_update()
 
             osd_buttons.sel_pressed = false;
         }
+#ifdef KBD_ENABLE
+        // Handle BACK (ESC key via virtual buttons)
+        uint8_t virt = osd_virtual_buttons;
+
+        if (virt & OSD_VIRT_BACK)
+        {
+            osd_virtual_buttons &= ~OSD_VIRT_BACK;
+            osd_update_activity();
+
+            if (osd_menu_state.tuning_mode)
+            {
+                osd_menu_state.tuning_mode = false;
+                osd_state.needs_redraw = true;
+            }
+            else if (osd_menu.menu_depth > 0)
+            {
+                osd_menu_go_back();
+                osd_block_buttons_until_release();
+            }
+            else
+                osd_menu_hide();
+        }
+#endif
 
 #ifdef MAIN_ITEM_FF_OSD
         // Re-render when Gotek reports a new column count asynchronously (Core 1 update)
@@ -650,10 +705,18 @@ static void render_output_menu()
 
         if (i == 0)
         {
-            const char *mode_names_dvi[] = {"640X480@60", "720X576@50"};
-            const char *mode_names_vga[] = {"640X480@60", "800X600@60",
-                                            "1024X768@60 DIV3", "1024X768@60 DIV4",
-                                            "1280X1024@60 DIV3", "1280X1024@60 DIV4"};
+            const char *mode_names_dvi[] = {
+                "640X480@60",
+                "720X576@50",
+            };
+            const char *mode_names_vga[] = {
+                "640X480@60",
+                "800X600@60",
+                "1024X768@60 DIV3",
+                "1024X768@60 DIV4",
+                "1280X1024@60 DIV3",
+                "1280X1024@60 DIV4",
+            };
             const char *current_mode_name = "UNKNOWN";
             if (settings.video_out_type == DVI)
             {
@@ -763,7 +826,8 @@ static void render_mask_menu()
         "I   (BRIGHT)",
         "R   (RED)",
         "G   (GREEN)",
-        "B   (BLUE)"};
+        "B   (BLUE)",
+    };
 
     for (int i = 0; i < 8; i++)
     {
@@ -787,7 +851,13 @@ static void render_ff_osd_menu()
 {
     osd_text_print_centered(OSD_SUBTITLE_ROW, "FF OSD CONFIG", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND, 0);
 
-    const char *h_pos_names[] = {"LEFT", "LEFT-CENTER", "CENTER", "CENTER-RIGHT", "RIGHT"};
+    const char *h_pos_names[] = {
+        "LEFT",
+        "LEFT-CENTER",
+        "CENTER",
+        "CENTER-RIGHT",
+        "RIGHT",
+    };
 
     for (int i = 0; i < 7; i++)
     {
@@ -1029,10 +1099,18 @@ void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction)
 
 void osd_adjust_video_mode(int8_t direction)
 {
-    video_out_mode_t modes_dvi[] = {MODE_640x480_60Hz, MODE_720x576_50Hz};
-    video_out_mode_t modes_vga[] = {MODE_640x480_60Hz, MODE_800x600_60Hz,
-                                    MODE_1024x768_60Hz_d3, MODE_1024x768_60Hz_d4,
-                                    MODE_1280x1024_60Hz_d3, MODE_1280x1024_60Hz_d4};
+    video_out_mode_t modes_dvi[] = {
+        MODE_640x480_60Hz,
+        MODE_720x576_50Hz,
+    };
+    video_out_mode_t modes_vga[] = {
+        MODE_640x480_60Hz,
+        MODE_800x600_60Hz,
+        MODE_1024x768_60Hz_d3,
+        MODE_1024x768_60Hz_d4,
+        MODE_1280x1024_60Hz_d3,
+        MODE_1280x1024_60Hz_d4,
+    };
 
     video_out_mode_t *modes;
     uint8_t mode_count;
@@ -1040,12 +1118,12 @@ void osd_adjust_video_mode(int8_t direction)
     if (settings.video_out_type == DVI)
     {
         modes = modes_dvi;
-        mode_count = 2;
+        mode_count = count_of(modes_dvi);
     }
     else
     {
         modes = modes_vga;
-        mode_count = 6;
+        mode_count = count_of(modes_vga);
     }
 
     // Find current mode index

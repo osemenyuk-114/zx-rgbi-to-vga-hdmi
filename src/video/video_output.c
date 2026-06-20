@@ -32,8 +32,16 @@ video_out_type_t detect_video_output_type()
   //   VGA (with monitor): D1-GND = 390 + (820||75) = ~459 Ohm  -> reads LOW
   //   HDMI/DVI:           >1MOhm isolation, pull-up wins       -> reads HIGH
 
-  const uint pins_out[] = {VGA_PIN_D0, VGA_PIN_D0 + 2, VGA_PIN_D0 + 4};
-  const uint pins_in[] = {VGA_PIN_D0 + 1, VGA_PIN_D0 + 3, VGA_PIN_D0 + 5};
+  const uint pins_out[] = {
+      VGA_PIN_D0,
+      VGA_PIN_D0 + 2,
+      VGA_PIN_D0 + 4,
+  };
+  const uint pins_in[] = {
+      VGA_PIN_D0 + 1,
+      VGA_PIN_D0 + 3,
+      VGA_PIN_D0 + 5,
+  };
 
   const int num_pairs = 3;
 
@@ -76,7 +84,7 @@ void set_video_mode_params(video_mode_t v_mode)
   video_mode = v_mode;
 
   h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 2;
-  h_margin = (h_visible_area - (uint8_t)(settings.frequency / 1000000) * (ACTIVE_VIDEO_TIME / 2)) / 2;
+  h_margin = (h_visible_area - (uint16_t)(settings.frequency / 1000000) * (ACTIVE_VIDEO_TIME / 2)) / 2;
 
   if (h_margin < 0)
     h_margin = 0;
@@ -141,7 +149,7 @@ void set_scanlines_mode()
 void draw_welcome_screen(video_mode_t video_mode)
 {
   int16_t h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 4;
-  int16_t h_margin = h_visible_area - (uint8_t)(settings.frequency / 1000000) * ACTIVE_VIDEO_TIME;
+  int16_t h_margin = h_visible_area - (uint16_t)(settings.frequency / 1000000) * ACTIVE_VIDEO_TIME;
 
   if (h_margin < 0)
     h_margin = 0;
@@ -216,7 +224,7 @@ void draw_no_signal(video_mode_t video_mode)
   uint8_t c2;
 
   int16_t h_visible_area = (uint16_t)(video_mode.h_visible_area / (video_mode.div * 4)) * 4;
-  int16_t h_margin = h_visible_area - (uint8_t)(settings.frequency / 1000000) * ACTIVE_VIDEO_TIME;
+  int16_t h_margin = h_visible_area - (uint16_t)(settings.frequency / 1000000) * ACTIVE_VIDEO_TIME;
 
   if (h_margin < 0)
     h_margin = 0;

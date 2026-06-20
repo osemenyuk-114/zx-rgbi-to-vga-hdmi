@@ -1,12 +1,11 @@
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
-#include "hardware/structs/pll.h"
-#include "hardware/structs/systick.h"
+#include "hardware/watchdog.h"
 
 #include "g_config.h"
 #include "dvi.h"
-#include "pio_programs.h"
+#include "video.pio.h"
 #include "v_buf.h"
 
 #ifdef OSD_ENABLE
@@ -30,6 +29,11 @@ static uint32_t *v_out_sync_hblank; // pre-filled H-blank line (NO_SYNC + H_SYNC
 static uint32_t *v_out_sync_vsync;  // pre-filled V-sync line (V_SYNC + VH_SYNC + V_SYNC)
 
 static uint32_t pixels[256];
+
+// ISR state (file-scope for reset in stop_dvi)
+static uint16_t y = 0;
+static uint8_t *scr_buffer = NULL;
+static uint32_t active_buf_idx = 0;
 
 // 4KB-aligned palette: 20 entries × 16 bytes (4 × uint32_t each)
 // Each entry: {normal_lo, normal_hi, inverted_lo, inverted_hi}
@@ -125,11 +129,6 @@ static void pio_set_x(PIO pio, int sm, uint32_t v)
 
 static void __not_in_flash_func(dma_handler_dvi)()
 {
-  static uint16_t y = 0;
-
-  static uint8_t *scr_buffer = NULL;
-  static uint32_t active_buf_idx = 0;
-
   dma_hw->ints0 = 1u << dma_ch1;
 
   y++;
@@ -138,108 +137,109 @@ static void __not_in_flash_func(dma_handler_dvi)()
   {
     y = 0;
     scr_buffer = get_v_buf_out();
+    active_buf_idx = 0;
   }
 
   if (y < video_mode.v_visible_area)
-  { // visible area — use ping-pong buffers (H sync pre-filled at init)
-    dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[active_buf_idx & 1], false);
+  { // visible area — render first, then set DMA to freshly rendered buffer
+    if (!(y & 1))
+    {
+      active_buf_idx++;
 
-    if (y & 1)
-      return;
+      uint32_t *active_buf = v_out_dma_buf[active_buf_idx & 1];
 
-    active_buf_idx++;
-
-    uint32_t *active_buf = v_out_dma_buf[active_buf_idx & 1];
-
-    if (scr_buffer == NULL)
-      return;
-
-    uint16_t scaled_y = y / video_mode.div;
-    uint8_t *scr_line = &scr_buffer[scaled_y * (V_BUF_W / 2)];
-    uint32_t *line_buf = active_buf;
+      if (scr_buffer != NULL)
+      {
+        uint16_t scaled_y = y / video_mode.div;
+        uint8_t *scr_line = &scr_buffer[scaled_y * (V_BUF_W / 2)];
+        uint32_t *line_buf = active_buf;
 
 #ifdef OSD_ENABLE
-    // check if OSD is visible and overlaps with current scaled scanline
-    bool osd_active = osd_state.visible && (scaled_y >= osd_mode.start_y && scaled_y < osd_mode.end_y);
+        // check if OSD is visible and overlaps with current scaled scanline
+        bool osd_active = osd_state.visible && (scaled_y >= osd_mode.start_y && scaled_y < osd_mode.end_y);
 
-    if (osd_active)
-    { // calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
-      uint8_t *osd_line = &osd_buffer[(scaled_y - osd_mode.start_y) * (osd_mode.width / 2)];
+        if (osd_active)
+        { // calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
+          uint8_t *osd_line = &osd_buffer[(scaled_y - osd_mode.start_y) * (osd_mode.width / 2)];
 
-      int x = 0;
+          int x = 0;
 
-      if (!osd_mode.full_width)
-      {
-        for (; (x + 4) <= osd_mode.start_x; x += 4)
-        {
-          *line_buf++ = pixels[*scr_line++];
-          *line_buf++ = pixels[*scr_line++];
-          *line_buf++ = pixels[*scr_line++];
-          *line_buf++ = pixels[*scr_line++];
+          if (!osd_mode.full_width)
+          {
+            for (; (x + 4) <= osd_mode.start_x; x += 4)
+            {
+              *line_buf++ = pixels[*scr_line++];
+              *line_buf++ = pixels[*scr_line++];
+              *line_buf++ = pixels[*scr_line++];
+              *line_buf++ = pixels[*scr_line++];
+            }
+
+            for (; x < osd_mode.start_x; x++)
+              *line_buf++ = pixels[*scr_line++];
+          }
+          else
+            for (; x < osd_mode.start_x; x++)
+            {
+              scr_line++;
+              *line_buf++ = pixels[0]; // black pixels
+            }
+
+          for (; (x + 4) <= osd_mode.end_x; x += 4)
+          {
+            scr_line += 4;
+
+            *line_buf++ = pixels[*osd_line++];
+            *line_buf++ = pixels[*osd_line++];
+            *line_buf++ = pixels[*osd_line++];
+            *line_buf++ = pixels[*osd_line++];
+          }
+
+          for (; x < osd_mode.end_x; x++)
+          {
+            scr_line++;
+            *line_buf++ = pixels[*osd_line++];
+          }
+
+          if (!osd_mode.full_width)
+          {
+            for (; (x + 4) <= h_visible_area; x += 4)
+            {
+              *line_buf++ = pixels[*scr_line++];
+              *line_buf++ = pixels[*scr_line++];
+              *line_buf++ = pixels[*scr_line++];
+              *line_buf++ = pixels[*scr_line++];
+            }
+
+            for (; x < h_visible_area; x++)
+              *line_buf++ = pixels[*scr_line++];
+          }
+          else
+            for (; x < h_visible_area; x++)
+            {
+              scr_line++;
+              *line_buf++ = pixels[0]; // black pixels
+            }
         }
-
-        for (; x < osd_mode.start_x; x++)
-          *line_buf++ = pixels[*scr_line++];
-      }
-      else
-        for (; x < osd_mode.start_x; x++)
-        {
-          scr_line++;
-          *line_buf++ = pixels[0]; // black pixels
-        }
-
-      for (; (x + 4) <= osd_mode.end_x; x += 4)
-      {
-        scr_line += 4;
-
-        *line_buf++ = pixels[*osd_line++];
-        *line_buf++ = pixels[*osd_line++];
-        *line_buf++ = pixels[*osd_line++];
-        *line_buf++ = pixels[*osd_line++];
-      }
-
-      for (; x < osd_mode.end_x; x++)
-      {
-        scr_line++;
-        *line_buf++ = pixels[*osd_line++];
-      }
-
-      if (!osd_mode.full_width)
-      {
-        for (; (x + 4) <= h_visible_area; x += 4)
-        {
-          *line_buf++ = pixels[*scr_line++];
-          *line_buf++ = pixels[*scr_line++];
-          *line_buf++ = pixels[*scr_line++];
-          *line_buf++ = pixels[*scr_line++];
-        }
-
-        for (; x < h_visible_area; x++)
-          *line_buf++ = pixels[*scr_line++];
-      }
-      else
-        for (; x < h_visible_area; x++)
-        {
-          scr_line++;
-          *line_buf++ = pixels[0]; // black pixels
-        }
-    }
-    else
+        else
 #endif
-    {
-      int x = 0;
+        {
+          int x = 0;
 
-      for (; (x + 4) <= h_visible_area; x += 4)
-      {
-        *line_buf++ = pixels[*scr_line++];
-        *line_buf++ = pixels[*scr_line++];
-        *line_buf++ = pixels[*scr_line++];
-        *line_buf++ = pixels[*scr_line++];
+          for (; (x + 4) <= h_visible_area; x += 4)
+          {
+            *line_buf++ = pixels[*scr_line++];
+            *line_buf++ = pixels[*scr_line++];
+            *line_buf++ = pixels[*scr_line++];
+            *line_buf++ = pixels[*scr_line++];
+          }
+
+          for (; x < h_visible_area; x++)
+            *line_buf++ = pixels[*scr_line++];
+        }
       }
-
-      for (; x < h_visible_area; x++)
-        *line_buf++ = pixels[*scr_line++];
     }
+
+    dma_channel_set_read_addr(dma_ch1, &v_out_dma_buf[active_buf_idx & 1], false);
   }
   else if (y >= (video_mode.v_visible_area + video_mode.v_front_porch) && y < (video_mode.v_visible_area + video_mode.v_front_porch + video_mode.v_sync_pulse))
   { // V sync — use pre-filled buffer
@@ -330,20 +330,28 @@ void start_dvi()
 
   // allocate sync line buffers (pre-filled, never modified)
   v_out_sync_hblank = calloc(whole_line, sizeof(uint8_t));
+  if (!v_out_sync_hblank)
+    watchdog_reboot(0, 0, 0);
   memset((uint8_t *)v_out_sync_hblank, NO_SYNC, video_mode.h_visible_area + video_mode.h_front_porch);
   memset((uint8_t *)v_out_sync_hblank + video_mode.h_visible_area + video_mode.h_front_porch, H_SYNC, video_mode.h_sync_pulse);
   memset((uint8_t *)v_out_sync_hblank + video_mode.h_visible_area + video_mode.h_front_porch + video_mode.h_sync_pulse, NO_SYNC, video_mode.h_back_porch);
 
   v_out_sync_vsync = calloc(whole_line, sizeof(uint8_t));
+  if (!v_out_sync_vsync)
+    watchdog_reboot(0, 0, 0);
   memset((uint8_t *)v_out_sync_vsync, V_SYNC, video_mode.h_visible_area + video_mode.h_front_porch);
   memset((uint8_t *)v_out_sync_vsync + video_mode.h_visible_area + video_mode.h_front_porch, VH_SYNC, video_mode.h_sync_pulse);
   memset((uint8_t *)v_out_sync_vsync + video_mode.h_visible_area + video_mode.h_front_porch + video_mode.h_sync_pulse, V_SYNC, video_mode.h_back_porch);
 
   // allocate image line buffers (ping-pong, pre-filled with H-blank sync pattern)
   v_out_dma_buf[0] = calloc(whole_line, sizeof(uint8_t));
+  if (!v_out_dma_buf[0])
+    watchdog_reboot(0, 0, 0);
   memcpy((uint8_t *)v_out_dma_buf[0], (uint8_t *)v_out_sync_hblank, whole_line);
 
   v_out_dma_buf[1] = calloc(whole_line, sizeof(uint8_t));
+  if (!v_out_dma_buf[1])
+    watchdog_reboot(0, 0, 0);
   memcpy((uint8_t *)v_out_dma_buf[1], (uint8_t *)v_out_sync_hblank, whole_line);
 
   // === Output PIO (SM0): TMDS serializer ===
@@ -473,6 +481,11 @@ void stop_dvi()
   // disable IRQ first to prevent handlers from running during cleanup
   irq_set_enabled(DMA_IRQ_0, false);
   irq_remove_handler(DMA_IRQ_0, dma_handler_dvi);
+
+  // reset ISR state for clean restart
+  y = 0;
+  scr_buffer = NULL;
+  active_buf_idx = 0;
 
   // stop output PIO (SM0)
   pio_sm_set_enabled(PIO_DVI, SM_DVI, false);

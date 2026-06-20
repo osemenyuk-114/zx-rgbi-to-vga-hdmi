@@ -16,6 +16,10 @@
 #include "osd_menu.h"
 #endif
 
+#ifdef KBD_ENABLE
+#include "osd_kbd.h"
+#endif
+
 #define DEBOUNCE_TIME_US 200000 // 200ms debounce
 #define REPEAT_DELAY_US 400000  // 400ms initial repeat delay
 #define REPEAT_RATE_US 80000    // 80ms repeat rate
@@ -549,6 +553,10 @@ void osd_buttons_update()
             osd_buttons.key_held[i] = false;
         }
     }
+
+#ifdef KBD_ENABLE
+    osd_kbd_apply_virtual();
+#endif
 }
 
 bool osd_button_pressed(uint8_t button)

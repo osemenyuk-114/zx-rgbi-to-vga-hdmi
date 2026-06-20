@@ -4,26 +4,31 @@ on:
   push:
     branches: [ main ]
 
-env:
-  PIO_ENV: osd
-
 jobs:
-  update-latest-tag:
+  build:
     runs-on: ubuntu-latest
-    permissions:
-      contents: write
-    
+    strategy:
+      fail-fast: false
+      matrix:
+        board:
+          - 36LJU22
+          - RP2040_ZERO
+          - 38LJE24
+          # - 11XGA24_1
+          # - 11XGA24_2
+          - LEOV3
+          - LEOV3_2040BT
+          # - 09LJV23
+
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-      
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: '3.x'
-      
+
       - name: Cache PlatformIO
         uses: actions/cache@v4
         with:
@@ -33,53 +38,78 @@ jobs:
           key: ${{ runner.os }}-platformio-${{ hashFiles('**/platformio.ini') }}
           restore-keys: |
             ${{ runner.os }}-platformio-
-      
+
       - name: Install PlatformIO
         run: |
           pip install platformio
-      
+
       - name: Extract firmware version
         id: fw_version
         run: |
-          # Extract base version from g_config.h
-          BASE_VERSION=$(grep -oP '#define FW_VERSION "\K[^"]+' src/g_config.h)
-          
-          # Build identifier: Short commit SHA (first 7 chars)
+          BASE_VERSION=$(grep -oP '#define FW_VER "\K[^"]+' src/g_config.h)
           BUILD_ID=$(printf '%.7s' "${{ github.sha }}")
-          
-          # Full version
           FULL_VERSION="${BASE_VERSION}-${BUILD_ID}"
-          
-          # Version for filename
-          FULL_VERSION_NO_V="${FULL_VERSION#v}"
-          
+          VERSION_NO_V="${FULL_VERSION#v}"
           echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
-          echo "version_no_v=$FULL_VERSION_NO_V" >> $GITHUB_OUTPUT
+          echo "version_no_v=$VERSION_NO_V" >> $GITHUB_OUTPUT
           echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
-          echo "Firmware Version: $FULL_VERSION"
-      
+
       - name: Build firmware
         run: |
-          # Build with custom version string using environment variable
-          export PLATFORMIO_BUILD_FLAGS='-DFW_VERSION="\"${{ steps.fw_version.outputs.version }}\""'
-          pio run --environment $PIO_ENV
-      
-      - name: Rename firmware file
+          export PLATFORMIO_BUILD_FLAGS='-DFW_VER="\"${{ steps.fw_version.outputs.version }}\""'
+          pio run --environment ${{ matrix.board }}
+
+      - name: Rename firmware for release
         run: |
-          FW_VERSION_NO_V="${{ steps.fw_version.outputs.version_no_v }}"
-          cp .pio/build/$PIO_ENV/firmware.uf2 ZX_RGBI_TO_VGA_HDMI.ino-${FW_VERSION_NO_V}.uf2
-          echo "Created: ZX_RGBI_TO_VGA_HDMI.ino-${FW_VERSION_NO_V}.uf2"
-      
+          VERSION_NO_V="${{ steps.fw_version.outputs.version_no_v }}"
+          mv .pio/build/${{ matrix.board }}/firmware.uf2 "ZX_RGBI_TO_VGA_HDMI-${{ matrix.board }}-${VERSION_NO_V}.uf2"
+
+      - name: Upload firmware artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: fw-${{ matrix.board }}
+          path: "*.uf2"
+          retention-days: 1
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Extract firmware version
+        id: fw_version
+        run: |
+          BASE_VERSION=$(grep -oP '#define FW_VER "\K[^"]+' src/g_config.h)
+          BUILD_ID=$(printf '%.7s' "${{ github.sha }}")
+          FULL_VERSION="${BASE_VERSION}-${BUILD_ID}"
+          echo "version=$FULL_VERSION" >> $GITHUB_OUTPUT
+          echo "base_version=$BASE_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Download all firmware artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: firmware
+          pattern: fw-*
+          merge-multiple: true
+
+      - name: List firmware files
+        run: ls -la firmware/
+
       - name: Update latest tag
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git tag -f latest
           git push -f origin latest
-      
+
       - name: Delete previous firmware assets
         run: |
-          # Get all assets from the 'latest' release and delete .uf2 files
           gh release view latest --json assets --jq '.assets[].name' 2>/dev/null | \
             grep '\.uf2$' | \
             while read -r asset; do
@@ -102,8 +132,12 @@ jobs:
             **Date:** ${{ github.event.head_commit.timestamp }}
             **Message:** ${{ github.event.head_commit.message }}
             
+            ### Board Variants
+            Each `.uf2` file is named `ZX_RGBI_TO_VGA_HDMI-<board>-<version>.uf2`.
+            Download the file matching your board revision.
+            
             ### Installation
-            1. Download the `.uf2` file below
+            1. Download the `.uf2` file for your board
             2. Hold the BOOTSEL button on your Raspberry Pi Pico while connecting USB
             3. Drag and drop the `.uf2` file onto the RPI-RP2 drive
             
@@ -113,7 +147,6 @@ jobs:
             ```
           draft: false
           prerelease: false
-          files: |
-            ZX_RGBI_TO_VGA_HDMI.ino-${{ steps.fw_version.outputs.version_no_v }}.uf2
+          files: firmware/*.uf2
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

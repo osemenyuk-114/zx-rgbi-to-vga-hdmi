@@ -5,21 +5,37 @@
 #include "pico.h"
 #include "pico/time.h"
 
-// FW_VERSION can be overridden at build time via -DFW_VERSION="..."
-#ifndef FW_VERSION
-#define FW_VERSION "v1.7.3"
+#define FW_VER "v1.8.0"
+
+#if PICO_RP2350
+#define FW_VERSION FW_VER " (PICO 2)"
+#else
+#define FW_VERSION FW_VER
 #endif
 
 #define GIT_REPO_URL_1 "https://github.com/"
 #define GIT_REPO_URL_2 "osemenyuk-114/"
-#define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi"
+#define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi-PICOSDK"
 
-// board pin configurations
-#define LED_PIN 25 // On-board LED on the Raspberry Pi Pico connected to GPIO 25. On the RP2040-zero a series 470R resistor and external LED are required between this pin and GND.
+#if defined(BOARD_36LJU22) || defined(BOARD_RP2040_ZERO)
+
+#define VIDEO_OUTPUT_AUTO_DETECT
 
 #ifdef BOARD_36LJU22
+
 #define HW_VERSION "36LJU22"
-#define VIDEO_OUTPUT_AUTO_DETECT
+#define I2C_PIN_SDA 16
+#define I2C_PIN_SCL 17
+
+#else
+
+#define HW_VERSION "RP2040 Zero"
+#define WS2812_LED_ENABLE
+#define I2C_PIN_SDA 20
+#define I2C_PIN_SCL 21
+
+#endif
+
 #define DVI_PIN_D0 8
 #define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
 #define VGA_PIN_D0 DVI_PIN_D0
@@ -27,10 +43,9 @@
 #define OSD_BTN_UP 26
 #define OSD_BTN_DOWN 27
 #define OSD_BTN_SEL 28
-#define I2C_PIN_SDA 16
-#define I2C_PIN_SCL 17
-#define I2C_INST i2c0
+
 #elif defined(BOARD_38LJE24)
+
 #define HW_VERSION "38LJE24"
 #define VIDEO_OUTPUT_AUTO_DETECT
 #define DVI_PINS_REVERSED // DVI pins are in reverse order (D0 is the last pin, D5 is the first)
@@ -44,35 +59,74 @@
 #define OSD_BTN_SEL 28
 #define I2C_PIN_SDA 20
 #define I2C_PIN_SCL 21
-#define I2C_INST i2c0
-#elif defined(BOARD_11XGA24)
+#define PS2_PIN_DATA 1
+#define PS2_PIN_CLK 0
+#define KBD_PIN_DATA 2
+#define KBD_PIN_CLK 3
+#define KBD_PIN_STB 4
+
+#elif defined(BOARD_11XGA24_1) || defined(BOARD_11XGA24_2)
+
 #define HW_VERSION "11XGA24"
 #define DVI_PINS_REVERSED // DVI pins are in reverse order (D0 is the last pin, D5 is the first)
+#define VGA_PINS_SWAPPED  // VGA R and B pins are swapped
+
+#ifdef BOARD_11XGA24_1
+
 #define DVI_PIN_D0 2
 #define DVI_PIN_CLK0 0
-#define VGA_PINS_SWAPPED // VGA R and B pins are swapped
 #define VGA_PIN_D0 8
+
+#else
+
+#define DVI_PIN_D0 10
+#define DVI_PIN_CLK0 8
+#define VGA_PIN_D0 0
+
+#endif
+
 #define CAP_PIN_D0 16
 #define OSD_BTN_UP 26
 #define OSD_BTN_DOWN 27
 #define OSD_BTN_SEL 28
-#if defined(OSD_FF_ENABLE)
-#undef OSD_FF_ENABLE
-#endif
-#elif defined(BOARD_25LEO25)
-#define HW_VERSION "25LEO25"
+
+#elif defined(BOARD_LEOV3) || defined(BOARD_LEOV3_2040BT)
+
 #define VIDEO_OUTPUT_AUTO_DETECT
-#define DVI_PIN_D0 8
-#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
-#define VGA_PIN_D0 DVI_PIN_D0
-#define CAP_PIN_D0 0
+#define SPI_KB_ENABLE
+
+#ifdef BOARD_LEOV3
+#define HW_VERSION "LEO v3.0"
+#define WS2812_LED_ENABLE
 #define OSD_BTN_UP 19
 #define OSD_BTN_DOWN 18
 #define OSD_BTN_SEL 17
 #define I2C_PIN_SDA 20
 #define I2C_PIN_SCL 21
-#define I2C_INST i2c0
-#else /* 09LJV23 */
+
+#else
+
+#define HW_VERSION "LEO v3.0.2040BT"
+#define OSD_BTN_UP 20
+#define OSD_BTN_DOWN 21
+#define OSD_BTN_SEL 22
+#define I2C_PIN_SDA 16
+#define I2C_PIN_SCL 17
+
+#endif
+
+#define DVI_PIN_D0 8
+#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
+#define VGA_PIN_D0 DVI_PIN_D0
+#define CAP_PIN_D0 0
+#define PS2_PIN_DATA 29
+#define PS2_PIN_CLK 28
+#define KBD_PIN_DATA 7
+#define KBD_PIN_CLK 26
+#define KBD_PIN_STB 27
+
+#elif defined(BOARD_09LJV23)
+
 #define HW_VERSION "09LJV23"
 #define VIDEO_OUTPUT_AUTO_DETECT
 #define DVI_PIN_D0 7
@@ -82,19 +136,28 @@
 #define OSD_BTN_UP 26
 #define OSD_BTN_DOWN 27
 #define OSD_BTN_SEL 28
-#define I2C_PIN_SDA 20
-#define I2C_PIN_SCL 21
-#define I2C_INST i2c0
+#define I2C_PIN_SDA 16
+#define I2C_PIN_SCL 17
+
+#else
+
+#error "Unsupported board variant. Please define the board variant in CMakeLists.txt."
+
 #endif
 
-// capture pins
-#define B_PIN CAP_PIN_D0
-#define G_PIN (CAP_PIN_D0 + 1)
-#define R_PIN (CAP_PIN_D0 + 2)
-#define I_PIN (CAP_PIN_D0 + 3)
-#define HS_PIN (CAP_PIN_D0 + 4)
-#define VS_PIN (CAP_PIN_D0 + 5)
-#define F_PIN (CAP_PIN_D0 + 6)
+// capture pins bit positions
+#define CAP_B 0
+#define CAP_G 1
+#define CAP_R 2
+#define CAP_I 3
+#define CAP_HS 4
+#define CAP_VS 5
+#define CAP_F 6
+
+// capture GPIO pin numbers
+#define CAP_HS_PIN (CAP_PIN_D0 + CAP_HS)
+#define CAP_VS_PIN (CAP_PIN_D0 + CAP_VS)
+#define CAP_F_PIN (CAP_PIN_D0 + CAP_F)
 
 // PIO and SM for DVI
 #define PIO_DVI pio0
@@ -111,6 +174,24 @@
 #define PIO_CAP pio1
 #define DREQ_PIO_CAP DREQ_PIO1_RX0
 #define SM_CAP 0
+
+// I2C instance
+#define I2C_INST i2c0
+
+#define PIO_PS2 pio1
+// Use IRQ index 1 (PIO1_IRQ_1) to avoid conflicts with capture SM
+#define PIO_PS2_IRQ PIO1_IRQ_1
+#define SM_PS2 1
+
+#define PIO_CH446Q pio1
+#define SM_CH446Q 2
+
+#define PIO_SPI pio1
+#define SM_SPI 2
+
+// PIO and SM for WS2812B RGB LED (on PIO0 to avoid PIO1 memory pressure)
+#define PIO_WS2812 pio0
+#define SM_WS2812 2
 
 typedef enum video_out_type_t
 {
@@ -263,4 +344,9 @@ extern uint8_t g_v_buf[];
 
 #if defined(OSD_MENU_ENABLE) || defined(OSD_FF_ENABLE)
 #define OSD_ENABLE
+#endif
+
+// Keyboard subsystem meta-flag: enabled if any keyboard backend is enabled
+#if defined(PS2_KBD_ENABLE) || defined(USB_KBD_ENABLE)
+#define KBD_ENABLE
 #endif

@@ -1,12 +1,11 @@
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
-#include "hardware/structs/pll.h"
-#include "hardware/structs/systick.h"
+#include "hardware/watchdog.h"
 
 #include "g_config.h"
 #include "vga.h"
-#include "pio_programs.h"
+#include "video.pio.h"
 #include "v_buf.h"
 
 #ifdef OSD_ENABLE
@@ -47,15 +46,15 @@ static bool scanlines_mode = false;
 static uint32_t *v_out_dma_buf[2];
 static uint32_t *v_out_sync_hblank; // pre-filled H-blank line (H sync only)
 static uint32_t *v_out_sync_vsync;  // pre-filled V-sync line (VH sync)
+
+// ISR state (file-scope for reset in stop_vga)
+static uint16_t y = 0;
+static uint8_t *scr_buffer = NULL;
 // 2KB-aligned palette for better cache performance (compile-time alignment)
 static uint16_t palette[256] __attribute__((aligned(2048)));
 
 static void __not_in_flash_func(dma_handler_vga)()
 {
-  static uint16_t y = 0;
-
-  static uint8_t *scr_buffer = NULL;
-
   dma_hw->ints0 = 1u << dma_ch1;
 
   y++;
@@ -347,18 +346,26 @@ void start_vga()
 
   // allocate sync line buffers (pre-filled, never modified)
   v_out_sync_hblank = calloc(whole_line, sizeof(uint8_t));
+  if (!v_out_sync_hblank)
+    watchdog_reboot(0, 0, 0);
   memset((uint8_t *)v_out_sync_hblank, (NO_SYNC ^ video_mode.sync_polarity), whole_line);
   memset((uint8_t *)v_out_sync_hblank + h_sync_pulse_front, (H_SYNC ^ video_mode.sync_polarity), h_sync_pulse);
 
   v_out_sync_vsync = calloc(whole_line, sizeof(uint8_t));
+  if (!v_out_sync_vsync)
+    watchdog_reboot(0, 0, 0);
   memset((uint8_t *)v_out_sync_vsync, (V_SYNC ^ video_mode.sync_polarity), whole_line);
   memset((uint8_t *)v_out_sync_vsync + h_sync_pulse_front, (VH_SYNC ^ video_mode.sync_polarity), h_sync_pulse);
 
   // allocate image line buffers (ping-pong, pre-filled with H-blank sync pattern)
   v_out_dma_buf[0] = calloc(whole_line, sizeof(uint8_t));
+  if (!v_out_dma_buf[0])
+    watchdog_reboot(0, 0, 0);
   memcpy((uint8_t *)v_out_dma_buf[0], (uint8_t *)v_out_sync_hblank, whole_line);
 
   v_out_dma_buf[1] = calloc(whole_line, sizeof(uint8_t));
+  if (!v_out_dma_buf[1])
+    watchdog_reboot(0, 0, 0);
   memcpy((uint8_t *)v_out_dma_buf[1], (uint8_t *)v_out_sync_hblank, whole_line);
 
   // PIO initialization
@@ -433,6 +440,10 @@ void stop_vga()
   // disable IRQ first to prevent handlers from running during cleanup
   irq_set_enabled(DMA_IRQ_0, false);
   irq_remove_handler(DMA_IRQ_0, dma_handler_vga);
+
+  // reset ISR state for clean restart
+  y = 0;
+  scr_buffer = NULL;
 
   // stop PIO
   pio_sm_set_enabled(PIO_VGA, SM_VGA, false);

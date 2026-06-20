@@ -19,6 +19,7 @@ typedef struct __attribute__((packed)) ff_osd_info_t
 extern ff_osd_display_t ff_osd_display;
 extern uint8_t ff_osd_buttons_rx;
 extern volatile bool ff_osd_needs_i2c_init;
+extern bool ff_osd_kbd_active; // F12 toggle: keyboard controls Gotek
 
 void ff_osd_update();
 void ff_osd_i2c_process();

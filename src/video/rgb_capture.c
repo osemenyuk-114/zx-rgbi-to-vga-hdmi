@@ -1,12 +1,10 @@
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
-#include "hardware/structs/pll.h"
-#include "hardware/structs/systick.h"
 
 #include "g_config.h"
 #include "rgb_capture.h"
-#include "pio_programs.h"
+#include "video.pio.h"
 #include "v_buf.h"
 
 // Ring buffer configuration
@@ -23,7 +21,7 @@ static const pio_program_t *program = NULL;
 
 static uint16_t h_sync_pulse_2;
 static uint16_t v_sync_pulse;
-static volatile uint8_t capture_sync_mask = (uint8_t)(1u << HS_PIN);
+static volatile uint8_t capture_sync_mask = (uint8_t)(1u << CAP_HS);
 
 volatile uint32_t frame_count = 0;
 
@@ -73,8 +71,8 @@ int8_t set_ext_clk_divider(int8_t divider)
 
   if (settings.cap_sync_mode == EXT)
   {
-    PIO_CAP->instr_mem[offset + pio_capture_1_offset_divider1] = set_opcode | (settings.ext_clk_divider - 1);
-    PIO_CAP->instr_mem[offset + pio_capture_1_offset_divider2] = set_opcode | (settings.ext_clk_divider - 1);
+    PIO_CAP->instr_mem[offset + pio_capture_1_offset_divider1] = pio_encode_set(pio_x, settings.ext_clk_divider - 1);
+    PIO_CAP->instr_mem[offset + pio_capture_1_offset_divider2] = pio_encode_set(pio_x, settings.ext_clk_divider - 1);
   }
 
   return settings.ext_clk_divider;
@@ -114,7 +112,7 @@ int8_t set_capture_delay(int8_t delay)
     settings.delay = delay;
 
   uint16_t pio_capture_offset_delay = settings.cap_sync_mode == SELF ? pio_capture_0_offset_delay : pio_capture_1_offset_delay;
-  PIO_CAP->instr_mem[offset + pio_capture_offset_delay] = nop_opcode | (settings.delay << 8);
+  PIO_CAP->instr_mem[offset + pio_capture_offset_delay] = pio_encode_nop() | pio_encode_delay(settings.delay);
 
   return settings.delay;
 }
@@ -132,7 +130,7 @@ void set_pin_inversion_mask(uint8_t pin_inversion_mask)
 
 static inline void update_capture_sync_mask(bool video_sync_mode)
 {
-  capture_sync_mask = video_sync_mode ? (uint8_t)((1u << HS_PIN) | (1u << VS_PIN)) : (uint8_t)(1u << HS_PIN);
+  capture_sync_mask = video_sync_mode ? (uint8_t)((1u << CAP_HS) | (1u << CAP_VS)) : (uint8_t)(1u << CAP_HS);
 }
 
 void set_video_sync_mode(bool video_sync_mode)
@@ -207,7 +205,7 @@ void __attribute__((hot)) __not_in_flash_func(dma_handler_capture())
       if (CS_idx < v_sync_pulse)
         continue;
     }
-    else if (val8 & (1u << VS_PIN))
+    else if (val8 & (1u << CAP_VS))
       continue;
 
     if (y >= 0)
@@ -248,8 +246,8 @@ void start_capture()
   update_capture_sync_mask(settings.video_sync_mode);
 
   // video timing variables measured in pixels
-  h_sync_pulse_2 = 3 * settings.frequency / 1000000; // 3 µs - 1/2 of the H_SYNC pulse
-  v_sync_pulse = 30 * settings.frequency / 1000000;  // 30 µs - V_SYNC pulse
+  h_sync_pulse_2 = 3 * (uint16_t)(settings.frequency / 1000000); // 3 µs - 1/2 of the H_SYNC pulse
+  v_sync_pulse = 30 * (uint16_t)(settings.frequency / 1000000);  // 30 µs - V_SYNC pulse
 
   // set capture pins
   for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)
@@ -290,8 +288,17 @@ void start_capture()
   set_capture_delay(settings.delay);
   set_ext_clk_divider(settings.ext_clk_divider);
 
+  // Patch CAP_F_PIN wait instructions in pio_capture_1 with actual pin from g_config.h
+  if (settings.cap_sync_mode == EXT)
+  {
+    PIO_CAP->instr_mem[offset + pio_capture_1_offset_wait_f_low_1] = pio_encode_wait_gpio(false, CAP_F_PIN);
+    PIO_CAP->instr_mem[offset + pio_capture_1_offset_wait_f_high_1] = pio_encode_wait_gpio(true, CAP_F_PIN);
+    PIO_CAP->instr_mem[offset + pio_capture_1_offset_wait_f_low_2] = pio_encode_wait_gpio(false, CAP_F_PIN);
+    PIO_CAP->instr_mem[offset + pio_capture_1_offset_wait_f_high_2] = pio_encode_wait_gpio(true, CAP_F_PIN);
+  }
+
   sm_config_set_in_pins(&c, CAP_PIN_D0);
-  sm_config_set_jmp_pin(&c, HS_PIN);
+  sm_config_set_jmp_pin(&c, CAP_HS_PIN);
 
   sm_config_set_in_shift(&c, true, false, 32); // 32-bit push with direct byte-order DMA reads
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);

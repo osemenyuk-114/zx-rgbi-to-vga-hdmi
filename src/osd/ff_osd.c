@@ -1,6 +1,3 @@
-#include <memory.h>
-#include <stddef.h>
-
 #include "pico/stdlib.h"
 #include "hardware/i2c.h"
 #include "i2c_slave.h"
@@ -10,6 +7,10 @@
 #include "font.h"
 #include "osd.h"
 #include "video_output.h"
+
+#ifdef KBD_ENABLE
+#include "osd_kbd.h"
+#endif
 
 #ifdef OSD_FF_ENABLE // Compile FF OSD code only if supported and enabled in config
 
@@ -64,7 +65,8 @@ ff_osd_display_t ff_osd_display = {
     .text = {},
 };
 
-uint8_t ff_osd_buttons_rx; // button state: Gotek -> OSD
+uint8_t ff_osd_buttons_rx;      // button state: Gotek -> OSD
+bool ff_osd_kbd_active = false; // F12 toggle: keyboard controls Gotek
 
 // SELECT forwarding state in FlashFloppy mode:
 // - short tap: forwarded on release as a brief pulse
@@ -447,6 +449,16 @@ void ff_osd_update()
     // Map OSD button presses to FF OSD button codes
     uint8_t buttons = 0;
 
+#ifdef KBD_ENABLE
+    // Check cross-core Gotek toggle request (from keyboard F12)
+    // F12 toggles keyboard control of Gotek without sending any button codes.
+    if (ff_osd_request)
+    {
+        ff_osd_request = false;
+        ff_osd_kbd_active = !ff_osd_kbd_active;
+    }
+#endif
+
     bool block_ff_buttons = osd_buttons_blocked();
 
     if (block_ff_buttons)
@@ -503,13 +515,30 @@ void ff_osd_update()
             buttons |= FF_OSD_BUTTON_RIGHT;
     }
 
+#ifdef KBD_ENABLE
+    // Merge keyboard held state directly for Gotek (bypasses double osd_buttons_update)
+    if (ff_osd_kbd_active)
+    {
+        uint8_t held = osd_virtual_held;
+
+        if (held & OSD_VIRT_UP)
+            buttons |= FF_OSD_BUTTON_LEFT;
+
+        if (held & OSD_VIRT_DOWN)
+            buttons |= FF_OSD_BUTTON_RIGHT;
+
+        if (held & OSD_VIRT_SEL)
+            buttons |= FF_OSD_BUTTON_SELECT;
+    }
+#endif
+
     ff_osd_set_buttons(buttons);
 
-    if (ff_osd_display.on)
+    if (ff_osd_display.on || ff_osd_kbd_active)
     {
         osd_font = osd_font_style_2;
 
-        const uint8_t fg_color = 7;
+        const uint8_t fg_color = ff_osd_kbd_active ? 0x3 : 7; // Cyan when keyboard controls Gotek
         const uint8_t bg_color = 0;
 
         osd_mode.x = settings.ff_osd_config.h_position;
@@ -573,7 +602,7 @@ void ff_osd_update()
 
     osd_render_text_to_buffer();
 
-    osd_state.visible = ff_osd_display.on;
+    osd_state.visible = ff_osd_display.on || ff_osd_kbd_active;
 }
 
 #endif // OSD_FF_ENABLE

@@ -23,18 +23,23 @@ Long **SEL** hold is reserved for opening the local setup OSD menu.
 
 ### Pico I2C Pins
 
-The FF OSD interface uses `I2C0` on these Pico pins:
+The FF OSD interface uses `I2C0`. Pin assignments depend on the board variant:
 
-| Signal | GPIO   | Pico Pin | Notes                    |
-|--------|--------|----------|--------------------------|
-| SDA    | GPIO20 | 26       | I2C data                 |
-| SCL    | GPIO21 | 27       | I2C clock                |
-| GND    | GND    | 28       | Common ground with Gotek |
+| Board          | SDA    | SCL    |
+|----------------|--------|--------|
+| 36LJU22        | GPIO16 | GPIO17 |
+| 38LJE24        | GPIO20 | GPIO21 |
+| RP2040_ZERO     | GPIO20 | GPIO21 |
+| LEO_V3         | GPIO20 | GPIO21 |
+| LEO_V3_2040BT  | GPIO16 | GPIO17 |
+| 09LJV23        | GPIO16 | GPIO17 |
+
+Boards `11XGA24_1` and `11XGA24_2` do not support FF OSD (no I2C pins assigned).
 
 ### Wiring Notes
 
-- Connect Pico **GPIO20** to the Gotek I2C **SDA** line
-- Connect Pico **GPIO21** to the Gotek I2C **SCL** line
+- Connect Pico **SDA** to the Gotek I2C **SDA** line (see pin table above)
+- Connect Pico **SCL** to the Gotek I2C **SCL** line
 - Connect Pico **GND** to Gotek **GND**
 - The bus runs at **100 kHz**
 - SDA and SCL must be pulled up to **3.3V** with about **4.7k to 10k** resistors

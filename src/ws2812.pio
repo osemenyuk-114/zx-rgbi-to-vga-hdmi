@@ -1,0 +1,25 @@
+; ── WS2812B RGB LED driver ─────────────────────────────────────────
+; Drives a WS2812B addressable LED via one GPIO pin (sideset).
+; Shifts 24 bits (RGB, MSB first) from TX FIFO with manual pull.
+; 10 PIO cycles per bit at ~8 MHz PIO clock (≈800 kHz bit rate).
+; T1=3 (initial high), T2=3 (conditional high/low), T3=4 (final low).
+; After 24 bits, holds pin low for ≥50µs reset gap via delay loop.
+; When FIFO is empty, SM stalls at `pull block` with pin low (= LED off).
+
+.program pio_ws2812
+.side_set 1
+.wrap_target
+l_reset:
+    set     x, 25                side 0        ; delay counter for reset gap
+l_delay:
+    jmp     x--, l_delay         side 0 [15]   ; 26 × 16 = 416 cycles ≈ 52µs low
+    pull    block                side 0        ; wait for data from FIFO
+    set     y, 23                side 0        ; 24-bit counter
+l_bit:
+    out     x, 1                 side 0 [3]    ; T3=4 cycles low, shift next bit
+    jmp     !x, l_zero           side 1 [2]    ; T1=3 cycles high, branch on bit
+    jmp     y--, l_bit           side 1 [2]    ; bit=1: T2=3 high, dec counter
+    jmp     l_reset              side 0 [2]    ; last bit was 1: frame done → reset
+l_zero:
+    jmp     y--, l_bit           side 0 [2]    ; bit=0: T2=3 low, dec counter
+    .wrap                                       ; last bit was 0: frame done → reset

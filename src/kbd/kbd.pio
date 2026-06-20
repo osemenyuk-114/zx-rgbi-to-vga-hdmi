@@ -1,0 +1,54 @@
+; ── PS/2 keyboard receiver ──────────────────────────────────────────
+; Receives 11-bit PS/2 frames (start + 8 data + parity + stop).
+; wait instructions are patched at runtime with the actual CLK pin.
+
+.program pio_ps2
+.define PS2_PIN_CLK 0              ; placeholder — patched at runtime
+    .wrap_target
+    set     x, 10                  ; 11 bits per frame
+l_ps2:
+PUBLIC wait_clk_low:
+    wait    0 gpio, PS2_PIN_CLK    ; patched at runtime
+    in      pins, 1                ; sample data on CLK falling edge
+PUBLIC wait_clk_high:
+    wait    1 gpio, PS2_PIN_CLK    ; patched at runtime
+    jmp     x--, l_ps2             ; loop until all bits read
+    .wrap
+
+
+; ── CH446Q analog crossbar switch ──────────────────────────────────
+; Shifts out 8 bits MSB-first: Y[2:0] X[3:0] STATE.
+; 7 address bits clocked on CLK rising edge, state latched on STB pulse.
+; Sideset: bit 0 = CLK, bit 1 = STB.
+
+.program pio_ch446q
+.side_set 2
+.wrap_target
+    pull    block       side 0b00  ; wait for TX data
+    set     x, 6        side 0b00  ; 7 address bits
+l_addr:
+    out     pins, 1     side 0b00  ; output bit, CLK low
+    jmp     x--, l_addr side 0b01  ; CLK rising edge latches bit
+    out     pins, 1     side 0b00  ; output state bit
+    nop                 side 0b10  ; STB pulse latches command
+.wrap
+
+
+; ── SPI keyboard matrix shifter ────────────────────────────────────
+; Shifts out two words (29 + 30 bits) with CLK + latch sideset.
+; Sideset: bit 0 = CLK, bit 1 = LATCH.
+
+.program pio_epm3256
+.side_set 2
+.wrap_target
+    pull    block       side 0b11  ; latch previous frame
+    set     x, 28       side 0b00  ; 29 bits (word 1)
+l_spi1:
+    out     pins, 1     side 0b00  ; output bit, CLK low
+    jmp     x--, l_spi1 side 0b01  ; CLK rising edge
+    pull    block       side 0b00  ; load word 2
+    set     x, 29       side 0b00  ; 30 bits (word 2)
+l_spi2:
+    out     pins, 1     side 0b00  ; output bit, CLK low
+    jmp     x--, l_spi2 side 0b01  ; CLK rising edge
+.wrap

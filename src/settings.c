@@ -2,7 +2,6 @@
 
 #include "hardware/flash.h"
 #include "hardware/sync.h"
-#include "hardware/watchdog.h"
 
 #include "g_config.h"
 #include "settings.h"
@@ -145,8 +144,10 @@ void save_settings(settings_t *settings)
 
   stop_core1 = true;
 
+  __dmb();
+
   while (!core1_inactive)
-    ;
+    __dmb();
 
   uint32_t ints = save_and_disable_interrupts();
 
@@ -157,6 +158,8 @@ void save_settings(settings_t *settings)
 
   // Force core 1 to re-enter the capture initialization path after flash save.
   restart_capture = true;
+
+  __dmb();
 
   stop_core1 = false;
   core1_inactive = false;

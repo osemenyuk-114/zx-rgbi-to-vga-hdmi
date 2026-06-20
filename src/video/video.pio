@@ -1,0 +1,115 @@
+; ── RGB capture, self-clocked ───────────────────────────────────────
+; Samples 8 pins per pixel at internal PIO clock rate.
+; H-sync detected via JMP PIN — sub-synchronises on sync pulse edges.
+; `delay` instruction is patched at runtime with the capture delay.
+
+.program pio_capture_0
+.wrap_target
+l_pixel:
+PUBLIC delay:
+    nop                            ; patched at runtime: capture delay
+l_active:
+    in      pins, 8                ; sample pixel
+    push    iffull block
+    nop     [8]
+    jmp     pin, l_active          ; continue while H-sync inactive
+l_sync:
+    in      pins, 8                ; keep sampling during sync
+    push    iffull block
+    jmp     pin, l_pixel           ; H-sync ended — restart with delay
+    jmp     pin, l_pixel
+    jmp     pin, l_pixel
+    jmp     pin, l_pixel
+    jmp     pin, l_pixel
+    jmp     pin, l_pixel
+    jmp     pin, l_pixel
+    jmp     pin, l_pixel
+    jmp     pin, l_pixel
+    jmp     l_sync                 ; still in sync — loop
+.wrap
+
+
+; ── RGB capture, external clock (active high) ─────────────────────
+; Samples 8 pins synchronised to external CAP_F_PIN clock.
+; Supports configurable clock divider (1–32 CAP_F_PIN edges per sample).
+; wait/set instructions are patched at runtime with actual pin/divider.
+; Two halves: active region (jmp pin → divider1) and sync region
+; (jmp pin → address 0 to re-check sync, then divider2 loop).
+
+.program pio_capture_1
+.define CAP_F_PIN 6                ; placeholder — patched at runtime
+.wrap_target
+PUBLIC delay:
+    nop                            ; patched at runtime: capture delay
+PUBLIC divider1:
+    set     x, 0                   ; patched at runtime: ext clock divider
+l_ext1:
+PUBLIC wait_f_low_1:
+    wait    0 gpio, CAP_F_PIN          ; patched at runtime
+    in      pins, 8                ; sample pixel on F falling edge
+PUBLIC wait_f_high_1:
+    wait    1 gpio, CAP_F_PIN          ; patched at runtime
+    jmp     x--, l_ext1            ; divider loop
+    push    iffull block
+    jmp     pin, divider1          ; H-sync inactive — continue capture
+PUBLIC divider2:
+    set     x, 0                   ; patched at runtime: ext clock divider
+l_ext2:
+PUBLIC wait_f_low_2:
+    wait    0 gpio, CAP_F_PIN          ; patched at runtime
+    jmp     pin, 0                 ; H-sync ended — restart from delay
+    in      pins, 8                ; sample during sync
+PUBLIC wait_f_high_2:
+    wait    1 gpio, CAP_F_PIN          ; patched at runtime
+    jmp     x--, l_ext2            ; divider loop
+    push    iffull block
+    jmp     divider2               ; still in sync — continue
+.wrap
+
+
+; ── VGA parallel output (8-bit) ───────────────────────────────────
+; Outputs 8 bits per pixel clock from TX FIFO via autopull.
+
+.program pio_vga
+.wrap_target
+    out     pins, 8
+.wrap
+
+
+; ── DVI/HDMI TMDS output (6-bit data + 2-bit clock sideset) ──────
+; Outputs 10 TMDS bits per pixel as 10 × 6-bit shifts.
+; Sideset: bit 0 = TMDS CLK−, bit 1 = TMDS CLK+.
+; 5 shifts with CLK high (side 0b10), 5 with CLK low (side 0b01).
+
+.program pio_dvi
+.side_set 2
+.wrap_target
+    out     pins, 6     side 0b10  ; CLK+  (bits 0–5)
+    out     pins, 6     side 0b10  ; CLK+  (bits 6–11)
+    out     pins, 6     side 0b10  ; CLK+  (bits 12–17)
+    out     pins, 6     side 0b10  ; CLK+  (bits 18–23)
+    out     pins, 6     side 0b10  ; CLK+  (bits 24–29)
+    out     pins, 6     side 0b01  ; CLK−  (bits 30–35)
+    out     pins, 6     side 0b01  ; CLK−  (bits 36–41)
+    out     pins, 6     side 0b01  ; CLK−  (bits 42–47)
+    out     pins, 6     side 0b01  ; CLK−  (bits 48–53)
+    out     pins, 6     side 0b01  ; CLK−  (bits 54–59)
+.wrap
+
+
+; ── DVI palette converter ─────────────────────────────────────────
+; Unpacks two 8-bit palette indices from a 32-bit word,
+; expands each to 28 bits (8-bit TMDS + 20-bit padding from X)
+; and pushes as two 28-bit entries for the DVI output SM.
+
+.program pio_dvi_conv
+.wrap_target
+    pull    block                  ; load 32-bit word (2 × palette index)
+    in      osr, 8                 ; extract high byte (pixel 1)
+    in      x, 20                  ; pad with 20 bits from X
+    push    block                  ; push 28-bit TMDS entry
+    out     null, 8                ; discard high byte
+    in      osr, 8                 ; extract low byte (pixel 2)
+    in      x, 20                  ; pad with 20 bits from X
+    push    block                  ; push 28-bit TMDS entry
+.wrap
