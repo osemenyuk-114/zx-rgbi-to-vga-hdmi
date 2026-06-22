@@ -15,7 +15,7 @@
 
 #define GIT_REPO_URL_1 "https://github.com/"
 #define GIT_REPO_URL_2 "osemenyuk-114/"
-#define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi-PICOSDK"
+#define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi"
 
 #if defined(BOARD_36LJU22) || defined(BOARD_RP2040_ZERO)
 
