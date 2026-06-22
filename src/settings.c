@@ -24,7 +24,7 @@ settings_t default_settings = {
     .shX = shX_DEF,
     .shY = shY_DEF,
 
-#if defined(BOARD_LEOV3) || defined(BOARD_LEOV3_2040BT)
+#if defined(BOARD_LEO_V3) || defined(BOARD_LEO_V3_2040BT)
     .video_sync_mode = true,
     .pin_inversion_mask = (1 << CAP_VS) | PIN_INVERSION_MASK_DEF,
 #else
@@ -35,7 +35,7 @@ settings_t default_settings = {
 #ifdef OSD_FF_ENABLE
     .ff_osd_config = {
 
-#if defined(BOARD_LEOV3) || defined(BOARD_LEOV3_2040BT)
+#if defined(BOARD_LEO_V3) || defined(BOARD_LEO_V3_2040BT)
         .enabled = true,
 #else
         .enabled = false,

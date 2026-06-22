@@ -90,12 +90,12 @@
 #define OSD_BTN_DOWN 27
 #define OSD_BTN_SEL 28
 
-#elif defined(BOARD_LEOV3) || defined(BOARD_LEOV3_2040BT)
+#elif defined(BOARD_LEO_V3) || defined(BOARD_LEO_V3_2040BT)
 
 #define VIDEO_OUTPUT_AUTO_DETECT
 #define SPI_KB_ENABLE
 
-#ifdef BOARD_LEOV3
+#ifdef BOARD_LEO_V3
 #define HW_VERSION "LEO v3.0"
 #define WS2812_LED_ENABLE
 #define OSD_BTN_UP 19

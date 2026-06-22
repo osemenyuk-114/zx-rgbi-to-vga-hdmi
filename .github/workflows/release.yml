@@ -16,8 +16,8 @@ jobs:
           - 38LJE24
           # - 11XGA24_1
           # - 11XGA24_2
-          - LEOV3
-          - LEOV3_2040BT
+          - LEO_V3
+          - LEO_V3_2040BT
           # - 09LJV23
 
     steps:

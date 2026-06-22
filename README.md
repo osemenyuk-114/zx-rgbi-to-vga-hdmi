@@ -130,16 +130,16 @@ This version of the firmware:
 2. **Select the board environment**  
    Open `platformio.ini` and uncomment the desired board in `default_envs`. Each board environment automatically includes the correct feature flags, pin mappings, and source filters:
 
-   | Environment    | OSD Menu | FF OSD | PS/2 Kbd | USB Kbd | Serial¹ | VGA/DVI Auto | Notes                                  |
-   |----------------|:--------:|:------:|:--------:|:-------:|:-------:|:------------:|----------------------------------------|
-   | `36LJU22`      | ✓        | ✓      |          |         | ✓       | ✓            |                                        |
-   | `RP2040_ZERO`  | ✓        | ✓      |          |         | ✓       | ✓            | WS2812 LED                             |
-   | `38LJE24`      | ✓        | ✓      | ✓        | ✓       |         | ✓            | DVI pins reversed, VGA R/B swapped     |
-   | `11XGA24_1`    | ✓        |        |          |         | ✓       |              | No I2C, no FF OSD                      |
-   | `11XGA24_2`    | ✓        |        |          |         | ✓       |              | No I2C, no FF OSD (alt pin config)     |
-   | `LEOV3`        | ✓        | ✓      | ✓        | ✓       |         | ✓            | SPI keyboard (EPM3256), WS2812 LED     |
-   | `LEOV3_2040BT` | ✓        | ✓      | ✓        | ✓       |         | ✓            | SPI keyboard (EPM3256)                 |
-   | `09LJV23`      | ✓        | ✓      |          |         | ✓       | ✓            |                                        |
+   | Environment     | OSD Menu | FF OSD | PS/2 Kbd | USB Kbd | Serial¹ | VGA/DVI Auto | Notes                                  |
+   |-----------------|:--------:|:------:|:--------:|:-------:|:-------:|:------------:|----------------------------------------|
+   | `36LJU22`       | ✓        | ✓      |          |         | ✓       | ✓            |                                        |
+   | `RP2040_ZERO`   | ✓        | ✓      |          |         | ✓       | ✓            | WS2812 LED                             |
+   | `38LJE24`       | ✓        | ✓      | ✓        | ✓       |         | ✓            | DVI pins reversed, VGA R/B swapped     |
+   | `11XGA24_1`     | ✓        |        |          |         | ✓       |              | No I2C, no FF OSD                      |
+   | `11XGA24_2`     | ✓        |        |          |         | ✓       |              | No I2C, no FF OSD (alt pin config)     |
+   | `LEO_V3`        | ✓        | ✓      | ✓        | ✓       |         | ✓            | SPI keyboard (EPM3256), WS2812 LED     |
+   | `LEO_V3_2040BT` | ✓        | ✓      | ✓        | ✓       |         | ✓            | SPI keyboard (EPM3256)                 |
+   | `09LJV23`       | ✓        | ✓      |          |         | ✓       | ✓            |                                        |
 
    ¹ Serial menu (`SERIAL_MENU_ENABLE` + `PICO_STDIO_USB`) is controlled via the `[env_serial]` section. Boards with keyboard support use USB Host mode by default; enable serial by editing the `[env_usb_kbd]` section.
 
@@ -151,13 +151,13 @@ This version of the firmware:
      38LJE24
      ; 11XGA24_1
      ; 11XGA24_2
-     ; LEOV3
-     ; LEOV3_2040BT
+     ; LEO_V3
+     ; LEO_V3_2040BT
      ; 09LJV23
    ```
 
 3. **USB mode**  
-   Boards with keyboard support (`38LJE24`, `LEOV3`, `LEOV3_2040BT`) default to **Host mode** (USB keyboard). To switch to **Device mode** (Serial menu), edit the `[env_usb_kbd]` section:
+   Boards with keyboard support (`38LJE24`, `LEO_V3`, `LEO_V3_2040BT`) default to **Host mode** (USB keyboard). To switch to **Device mode** (Serial menu), edit the `[env_usb_kbd]` section:
 
    ```ini
    [env_usb_kbd]
