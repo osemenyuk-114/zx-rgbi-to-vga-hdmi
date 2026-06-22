@@ -12,6 +12,46 @@ extern volatile bool restart_capture;
 
 extern settings_t settings;
 
+settings_t default_settings = {
+    .video_out_type = VIDEO_OUT_TYPE_DEF,
+    .video_out_mode = VIDEO_OUT_MODE_DEF,
+    .scanlines_mode = false,
+    .buffering_mode = false,
+    .cap_sync_mode = CAP_SYNC_MODE_DEF,
+    .frequency = FREQUENCY_DEF,
+    .ext_clk_divider = EXT_CLK_DIVIDER_DEF,
+    .delay = DELAY_DEF,
+    .shX = shX_DEF,
+    .shY = shY_DEF,
+
+#if defined(BOARD_LEOV3) || defined(BOARD_LEOV3_2040BT)
+    .video_sync_mode = true,
+    .pin_inversion_mask = (1 << CAP_VS) | PIN_INVERSION_MASK_DEF,
+#else
+    .video_sync_mode = false,
+    .pin_inversion_mask = PIN_INVERSION_MASK_DEF,
+#endif
+
+#ifdef OSD_FF_ENABLE
+    .ff_osd_config = {
+
+#if defined(BOARD_LEOV3) || defined(BOARD_LEOV3_2040BT)
+        .enabled = true,
+#else
+        .enabled = false,
+#endif
+
+        .i2c_protocol = true,
+        .cols = FF_OSD_COLUMNS_MAX,
+        .rows = 3,
+        .h_position = 3,
+        .v_position = false,
+    },
+#endif
+
+    .crc = 0,
+};
+
 void check_settings(settings_t *settings)
 {
   if (settings->video_out_type > VIDEO_OUT_TYPE_MAX ||
@@ -80,29 +120,7 @@ void check_settings(settings_t *settings)
 
 void reset_settings_to_defaults(settings_t *settings)
 {
-  settings->video_out_type = VIDEO_OUT_TYPE_DEF;
-  settings->video_out_mode = VIDEO_OUT_MODE_DEF;
-  settings->cap_sync_mode = CAP_SYNC_MODE_DEF;
-  settings->frequency = FREQUENCY_DEF;
-  settings->ext_clk_divider = EXT_CLK_DIVIDER_DEF;
-  settings->delay = DELAY_DEF;
-  settings->shX = shX_DEF;
-  settings->shY = shY_DEF;
-  settings->pin_inversion_mask = PIN_INVERSION_MASK_DEF;
-  settings->scanlines_mode = false;
-  settings->buffering_mode = false;
-  settings->video_sync_mode = false;
-#ifdef OSD_FF_ENABLE
-  settings->ff_osd_config = (ff_osd_config_t){
-      .enabled = false,
-      .i2c_protocol = true,
-      .cols = FF_OSD_COLUMNS_MAX,
-      .rows = 3,
-      .h_position = 3,
-      .v_position = false,
-  };
-#endif
-
+  memcpy(settings, &default_settings, sizeof(settings_t));
   settings->crc = calculate_settings_crc(settings);
 }
 
