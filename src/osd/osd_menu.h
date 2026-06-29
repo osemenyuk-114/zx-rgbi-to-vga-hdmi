@@ -15,6 +15,7 @@
 #define MENU_TYPE_MASK 4
 #define MENU_TYPE_ABOUT 5
 #define MENU_TYPE_FF_OSD 6
+#define MENU_TYPE_HARDWARE 7
 
 // Menu-specific OSD state extension
 typedef struct
@@ -46,3 +47,4 @@ void osd_adjust_image_parameter(uint8_t param_index, int8_t direction);
 void osd_adjust_video_mode(int8_t direction);
 void osd_adjust_capture_parameter(uint8_t param_index, int8_t direction);
 void osd_adjust_ff_osd_parameter(uint8_t param_index, int8_t direction);
+void osd_adjust_hardware_parameter(uint8_t param_index, int8_t direction);

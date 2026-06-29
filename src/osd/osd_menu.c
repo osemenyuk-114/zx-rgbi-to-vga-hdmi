@@ -16,6 +16,10 @@
 #include "osd_kbd.h"
 #endif
 
+#ifdef HW_CONFIG_ENABLE
+#include "hw_config.h"
+#endif
+
 // Pin inversion mask bit positions for menu items
 static const uint8_t mask_bit_positions[] = {
     CAP_F,
@@ -27,22 +31,30 @@ static const uint8_t mask_bit_positions[] = {
     CAP_B,
 };
 
-// Main menu item indices (FF OSD entries are conditionally included)
+// Main menu item indices (FF OSD and HARDWARE entries are conditionally included)
 #define MAIN_ITEM_OUTPUT 0
 #define MAIN_ITEM_CAPTURE 1
 #define MAIN_ITEM_IMAGE_ADJ 2
+
+// Compute subsequent indices based on which optional items are enabled
 #ifdef OSD_FF_ENABLE
 #define MAIN_ITEM_FF_OSD 3
-#define MAIN_ITEM_ABOUT 4
-#define MAIN_ITEM_SAVE 5
-#define MAIN_ITEM_EXIT 6
-#define MAIN_ITEM_COUNT 7
+#define _NEXT_AFTER_FF 4
 #else
-#define MAIN_ITEM_ABOUT 3
-#define MAIN_ITEM_SAVE 4
-#define MAIN_ITEM_EXIT 5
-#define MAIN_ITEM_COUNT 6
+#define _NEXT_AFTER_FF 3
 #endif
+
+#ifdef HW_CONFIG_ENABLE
+#define MAIN_ITEM_HARDWARE _NEXT_AFTER_FF
+#define _NEXT_AFTER_HW (_NEXT_AFTER_FF + 1)
+#else
+#define _NEXT_AFTER_HW _NEXT_AFTER_FF
+#endif
+
+#define MAIN_ITEM_ABOUT _NEXT_AFTER_HW
+#define MAIN_ITEM_SAVE (_NEXT_AFTER_HW + 1)
+#define MAIN_ITEM_EXIT (_NEXT_AFTER_HW + 2)
+#define MAIN_ITEM_COUNT (_NEXT_AFTER_HW + 3)
 
 extern settings_t settings;
 extern video_out_type_t active_video_output;
@@ -183,14 +195,20 @@ void osd_menu_update()
             if (settings.ff_osd_config.enabled && settings.ff_osd_config.i2c_protocol)
                 ff_osd_set_buttons(0);
 #endif
-            // Don't process the button press that opened the menu
+            // Don't process the button press that opened the menu.
+            // Also clear any virtual button events (e.g. BACK/ESC) that were
+            // queued before the menu opened — otherwise a stale BACK would
+            // fire after the release block and immediately close the menu.
             osd_clear_pressed_buttons();
+#ifdef KBD_ENABLE
+            osd_virtual_buttons = 0;
+#endif
         }
         return;
     }
 
 #ifdef KBD_ENABLE
-    // F11 toggle: close menu if already active
+    // F9 (OSD_HOTKEY_MENU) toggle: close menu if already active
     if (osd_menu_request)
     {
         osd_menu_request = false;
@@ -245,6 +263,10 @@ void osd_menu_update()
         else if (osd_menu.current_menu == MENU_TYPE_FF_OSD)
             max_items = 6; // FF OSD menu: 0-6 (7 items: ENABLE, PROTOCOL, ROWS, COLUMNS, H_POS, V_POS, BACK)
 #endif
+#ifdef MAIN_ITEM_HARDWARE
+        else if (osd_menu.current_menu == MENU_TYPE_HARDWARE)
+            max_items = 3; // Hardware menu: 0-3 (4 items: ROM BANK, RAM SIZE, GOTEK DRIVE, BACK)
+#endif
         else
             max_items = 0;
 
@@ -271,6 +293,13 @@ void osd_menu_update()
             else if (osd_menu.current_menu == MENU_TYPE_FF_OSD && osd_menu_state.tuning_mode && (osd_menu_state.selected_item == 3 || osd_menu_state.selected_item == 4))
             { // FF OSD columns or H_POS cycling up
                 osd_adjust_ff_osd_parameter(osd_menu_state.selected_item, 1);
+                osd_state.needs_redraw = true;
+            }
+#endif
+#ifdef MAIN_ITEM_HARDWARE
+            else if (osd_menu.current_menu == MENU_TYPE_HARDWARE && osd_menu_state.tuning_mode)
+            {
+                osd_adjust_hardware_parameter(osd_menu_state.selected_item, 1);
                 osd_state.needs_redraw = true;
             }
 #endif
@@ -307,6 +336,13 @@ void osd_menu_update()
             else if (osd_menu.current_menu == MENU_TYPE_FF_OSD && osd_menu_state.tuning_mode && (osd_menu_state.selected_item == 3 || osd_menu_state.selected_item == 4))
             { // FF OSD columns or H_POS cycling down
                 osd_adjust_ff_osd_parameter(osd_menu_state.selected_item, -1);
+                osd_state.needs_redraw = true;
+            }
+#endif
+#ifdef MAIN_ITEM_HARDWARE
+            else if (osd_menu.current_menu == MENU_TYPE_HARDWARE && osd_menu_state.tuning_mode)
+            {
+                osd_adjust_hardware_parameter(osd_menu_state.selected_item, -1);
                 osd_state.needs_redraw = true;
             }
 #endif
@@ -347,6 +383,12 @@ void osd_menu_update()
                 else if (osd_menu_state.selected_item == MAIN_ITEM_FF_OSD)
                 { // FF OSD Config
                     menu_changed = osd_menu_enter_submenu(MENU_TYPE_FF_OSD);
+                }
+#endif
+#ifdef MAIN_ITEM_HARDWARE
+                else if (osd_menu_state.selected_item == MAIN_ITEM_HARDWARE)
+                { // Hardware Config
+                    menu_changed = osd_menu_enter_submenu(MENU_TYPE_HARDWARE);
                 }
 #endif
                 else if (osd_menu_state.selected_item == MAIN_ITEM_ABOUT)
@@ -555,6 +597,28 @@ void osd_menu_update()
                 }
             }
 #endif
+#ifdef MAIN_ITEM_HARDWARE
+            else if (osd_menu.current_menu == MENU_TYPE_HARDWARE)
+            {                                // Hardware submenu selection
+                uint8_t back_item_index = 3; // 4 items: ROM BANK, RAM SIZE, GOTEK DRIVE, BACK
+
+                if (osd_menu_state.selected_item == back_item_index)
+                { // Back to Main
+                    menu_changed = osd_menu_go_back();
+                }
+                else if (osd_menu_state.selected_item == 1)
+                { // RAM SIZE - toggle directly
+                    settings.hw_config.ram_size = !settings.hw_config.ram_size;
+                    hw_set_ram_size(settings.hw_config.ram_size);
+                    osd_state.needs_redraw = true;
+                }
+                else
+                { // ROM BANK / GOTEK DRIVE - enter/exit tuning mode
+                    osd_menu_state.tuning_mode = !osd_menu_state.tuning_mode;
+                    osd_state.needs_redraw = true;
+                }
+            }
+#endif
             else if (osd_menu.current_menu == MENU_TYPE_ABOUT)
             { // About submenu - only BACK button
                 if (osd_menu_state.selected_item == 0)
@@ -569,7 +633,14 @@ void osd_menu_update()
             }
 
             if (menu_changed)
+            {
                 osd_block_buttons_until_release();
+#ifdef KBD_ENABLE
+                // Discard any BACK/SEL events that arrived during the action
+                // so they don't fire unexpectedly after the block clears.
+                osd_virtual_buttons = 0;
+#endif
+            }
 
             osd_buttons.sel_pressed = false;
         }
@@ -658,6 +729,9 @@ static void render_main_menu()
         "IMAGE ADJUST",
 #ifdef MAIN_ITEM_FF_OSD
         "FF OSD CONFIG",
+#endif
+#ifdef MAIN_ITEM_HARDWARE
+        "HARDWARE CONFIG",
 #endif
         "ABOUT",
         "SAVE",
@@ -800,7 +874,7 @@ static void render_image_adjust_menu()
         menu_item_colors(i == osd_menu_state.selected_item, i < 3 && osd_menu_state.tuning_mode, color, &fg_color, &bg_color);
 
         if (i == 0)
-            osd_text_printf(row, 2, fg_color, bg_color, 0, "%-9s %d", "H_POS", settings.shX);
+            osd_text_printf(row, 2, fg_color, bg_color, 0, "%-9s %d", "H_POS", shX_MAX - settings.shX);
         else if (i == 1)
             osd_text_printf(row, 2, fg_color, bg_color, 0, "%-9s %d", "V_POS", settings.shY);
         else if (i == 2)
@@ -899,6 +973,42 @@ static void render_ff_osd_menu()
 }
 #endif
 
+#ifdef MAIN_ITEM_HARDWARE
+static void render_hardware_menu()
+{
+    const char *drive_names[] = {
+        "OFF",
+        "A",
+        "B",
+    };
+
+    osd_text_print_centered(OSD_SUBTITLE_ROW, "HARDWARE CONFIG", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND, 0);
+
+    for (int i = 0; i < 4; i++)
+    {
+        uint8_t row = OSD_MENU_START_ROW + i;
+        uint8_t color = OSD_COLOR_TEXT;
+        uint8_t fg_color, bg_color;
+
+        // item 1 (RAM SIZE) is a direct toggle — never enters tuning mode
+        bool item_in_tuning = (i != 1) && osd_menu_state.tuning_mode;
+        menu_item_colors(i == osd_menu_state.selected_item, item_in_tuning, color, &fg_color, &bg_color);
+
+        if (i == 0)
+            osd_text_printf(row, 2, fg_color, bg_color, 0, "%-12s %d", "ROM BANK", settings.hw_config.rom_bank);
+        else if (i == 1)
+            osd_text_printf(row, 2, fg_color, bg_color, 0, "%-12s %d", "RAM (KB)", settings.hw_config.ram_size ? 1024 : 128);
+        else if (i == 2)
+            osd_text_printf(row, 2, fg_color, bg_color, 0, "%-12s %s", "GOTEK DRIVE", drive_names[settings.hw_config.gotek_drive]);
+        else if (i == 3)
+            osd_text_print(row, 2, "< BACK TO MAIN", fg_color, bg_color, 0);
+
+        if (item_in_tuning && i == osd_menu_state.selected_item)
+            osd_text_set_char(row, 1, '>', fg_color, bg_color);
+    }
+}
+#endif
+
 static void render_about_menu()
 {
     osd_text_print_centered(OSD_SUBTITLE_ROW, "ABOUT", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND, 0);
@@ -924,7 +1034,12 @@ void osd_update_text_buffer()
     osd_clear_text_buffer();
 
     // Draw header
+#if defined(BOARD_LEO_V2) || defined(BOARD_LEO_V3) || defined(BOARD_LEO_V3_2040BT)
+    const char *title = "ZX PENTAGON LEO 1024K";
+#else
     const char *title = settings.video_out_type == VGA ? "ZX RGBI TO VGA CONVERTER" : "ZX RGBI TO HDMI CONVERTER";
+#endif
+
     osd_text_print_centered(OSD_TITLE_ROW, title, OSD_COLOR_TEXT, OSD_COLOR_BACKGROUND, 0);
     osd_text_print_centered(OSD_SUBTITLE_ROW, "SETUP MENU", OSD_COLOR_SELECTED, OSD_COLOR_BACKGROUND, 0);
 
@@ -960,6 +1075,12 @@ void osd_update_text_buffer()
         render_ff_osd_menu();
         break;
 #endif
+
+#ifdef MAIN_ITEM_HARDWARE
+    case MENU_TYPE_HARDWARE:
+        render_hardware_menu();
+        break;
+#endif
     }
 }
 
@@ -968,10 +1089,10 @@ void osd_adjust_image_parameter(uint8_t param_index, int8_t direction)
     switch (param_index)
     {
     case 0: // Horizontal Position (shX)
-        if (direction > 0 && settings.shX < shX_MAX)
-            set_capture_shX(settings.shX + 1);
-        else if (direction < 0 && settings.shX > shX_MIN)
+        if (direction > 0 && settings.shX > shX_MIN)
             set_capture_shX(settings.shX - 1);
+        else if (direction < 0 && settings.shX < shX_MAX)
+            set_capture_shX(settings.shX + 1);
 
         break;
 
@@ -1217,6 +1338,32 @@ void osd_adjust_ff_osd_parameter(uint8_t param_index, int8_t direction)
 
     case 5: // V_POS - toggle top/bottom
         settings.ff_osd_config.v_position = !settings.ff_osd_config.v_position;
+        break;
+    }
+}
+#endif
+
+#ifdef MAIN_ITEM_HARDWARE
+void osd_adjust_hardware_parameter(uint8_t param_index, int8_t direction)
+{
+    switch (param_index)
+    {
+    case 0: // ROM BANK - adjust with tuning mode
+        if (direction > 0 && settings.hw_config.rom_bank < HW_ROM_BANK_MAX)
+            settings.hw_config.rom_bank++;
+        else if (direction < 0 && settings.hw_config.rom_bank > HW_ROM_BANK_MIN)
+            settings.hw_config.rom_bank--;
+
+        hw_set_rom_bank(settings.hw_config.rom_bank);
+        break;
+
+    case 2: // GOTEK DRIVE - adjust with tuning mode
+        if (direction > 0 && settings.hw_config.gotek_drive < HW_GOTEK_DRIVE_MAX)
+            settings.hw_config.gotek_drive++;
+        else if (direction < 0 && settings.hw_config.gotek_drive > HW_GOTEK_DRIVE_MIN)
+            settings.hw_config.gotek_drive--;
+
+        hw_set_gotek_drive(settings.hw_config.gotek_drive);
         break;
     }
 }

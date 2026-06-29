@@ -368,7 +368,7 @@ void print_capture_delay()
 void print_x_offset()
 {
     Serial.print("  X offset .................... ");
-    Serial.println(settings.shX, DEC);
+    Serial.println(shX_MAX - settings.shX, DEC);
 }
 
 void print_y_offset()

@@ -35,20 +35,22 @@ l_addr:
 
 
 ; ── SPI keyboard matrix shifter ────────────────────────────────────
-; Shifts out two words (29 + 30 bits) with CLK + latch sideset.
+; Shifts out two words (31 + 30 bits) with CLK + latch sideset.
 ; Sideset: bit 0 = CLK, bit 1 = LATCH.
 
 .program pio_epm3256
+.define WORD0_BITS 30
+.define WORD1_BITS 29
 .side_set 2
 .wrap_target
-    pull    block       side 0b11  ; latch previous frame
-    set     x, 28       side 0b00  ; 29 bits (word 1)
+    pull    block           side 0b11  ; latch previous frame
+    set     x, WORD0_BITS   side 0b00  ; 31 bits (word 0)
 l_spi1:
-    out     pins, 1     side 0b00  ; output bit, CLK low
-    jmp     x--, l_spi1 side 0b01  ; CLK rising edge
-    pull    block       side 0b00  ; load word 2
-    set     x, 29       side 0b00  ; 30 bits (word 2)
+    out     pins, 1         side 0b00  ; output bit, CLK low
+    jmp     x--, l_spi1     side 0b01  ; CLK rising edge
+    pull    block           side 0b00  ; load word 1
+    set     x, WORD1_BITS   side 0b00  ; 30 bits (word 1)
 l_spi2:
-    out     pins, 1     side 0b00  ; output bit, CLK low
-    jmp     x--, l_spi2 side 0b01  ; CLK rising edge
+    out     pins, 1         side 0b00  ; output bit, CLK low
+    jmp     x--, l_spi2     side 0b01  ; CLK rising edge
 .wrap

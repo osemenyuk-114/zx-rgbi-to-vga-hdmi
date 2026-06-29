@@ -1,6 +1,6 @@
-# Video timings
+# Video Timings
 
-## Standard VGA timing parameters
+## Standard VGA Timing Parameters
 
 | Mode                                  | 640 x 480     | 800 x 600     | 1024 x 768    | 1280 x 1024   |
 |---------------------------------------|--------------:|--------------:|--------------:|--------------:|
@@ -26,7 +26,7 @@
 | **Back porch**                        | 33            | 23            | 29            | 38            |
 | **Whole frame**                       | 525           | 628           | 806           | 1066          |
 
-## Extended timing parameters for DVI video modes supported by the system
+## Extended Timing Parameters for Supported DVI Video Modes
 
 | Mode                                  | 640 x 480     | 720 x 576     |
 |---------------------------------------|--------------:|--------------:|

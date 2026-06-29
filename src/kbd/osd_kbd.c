@@ -41,8 +41,8 @@ bool osd_kbd_active = false;
 
 // ── Edge-detection state (Core 1 only) ─────────────────────────────────────
 
-static bool prev_osd_menu = false;
-static bool prev_ff_osd = false;
+static bool prev_hotkey_menu = false;
+static bool prev_hotkey_gotek = false;
 static bool prev_enter = false;
 static bool prev_esc = false;
 
@@ -56,24 +56,24 @@ static uint64_t osd_kbd_last_repeat[3] = {0}; // Last repeat fire time
 
 void __not_in_flash_func(osd_kbd_intercept)(kbd_state_t *state)
 {
-    // F11 → toggle OSD menu (edge-triggered)
-    bool osd_menu = GET_STATE_KEY(*state, KEY_F11);
-    if (osd_menu && !prev_osd_menu)
+    // OSD_HOTKEY_MENU → toggle OSD menu (edge-triggered)
+    bool hotkey_menu = GET_STATE_KEY(*state, OSD_HOTKEY_MENU);
+    if (hotkey_menu && !prev_hotkey_menu)
     {
         osd_menu_request = true;
         osd_kbd_active = true;
     }
 
-    prev_osd_menu = osd_menu;
+    prev_hotkey_menu = hotkey_menu;
 
 #ifdef OSD_FF_ENABLE
-    // F12 → toggle Gotek OSD (edge-triggered, blocked while settings menu is open)
-    bool ff_osd = GET_STATE_KEY(*state, KEY_F12);
+    // OSD_HOTKEY_GOTEK → toggle Gotek OSD (edge-triggered, blocked while settings menu is open)
+    bool hotkey_gotek = GET_STATE_KEY(*state, OSD_HOTKEY_GOTEK);
 
-    if (ff_osd && !prev_ff_osd && !osd_state.menu_active && settings.ff_osd_config.enabled)
+    if (hotkey_gotek && !prev_hotkey_gotek && !osd_state.menu_active && settings.ff_osd_config.enabled)
         ff_osd_request = true;
 
-    prev_ff_osd = ff_osd;
+    prev_hotkey_gotek = hotkey_gotek;
 
     bool osd_active = osd_state.menu_active || ff_osd_kbd_active;
 #else
@@ -86,10 +86,16 @@ void __not_in_flash_func(osd_kbd_intercept)(kbd_state_t *state)
 
         // Track held state for arrows (Core 0 handles repeat timing)
         uint8_t held = 0;
-        if (GET_STATE_KEY(*state, KEY_UP) || GET_STATE_KEY(*state, KEY_LEFT))
+#ifdef OSD_MENU_ENABLE
+        bool nav_mode = osd_state.menu_active && !osd_menu_state.tuning_mode;
+#else
+        bool nav_mode = false;
+#endif
+
+        if (GET_STATE_KEY(*state, KEY_UP) || GET_STATE_KEY(*state, nav_mode ? KEY_LEFT : KEY_RIGHT))
             held |= OSD_VIRT_UP;
 
-        if (GET_STATE_KEY(*state, KEY_DOWN) || GET_STATE_KEY(*state, KEY_RIGHT))
+        if (GET_STATE_KEY(*state, KEY_DOWN) || GET_STATE_KEY(*state, nav_mode ? KEY_RIGHT : KEY_LEFT))
             held |= OSD_VIRT_DOWN;
 
         if (GET_STATE_KEY(*state, KEY_ENTER))

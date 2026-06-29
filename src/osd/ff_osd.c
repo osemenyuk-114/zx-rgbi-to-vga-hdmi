@@ -52,6 +52,8 @@ static const uint I2C_SLAVE_SCL_PIN = I2C_PIN_SCL;
 
 #define FF_OSD_BUTTON_PULSE_FRAMES 6
 
+#define FF_OSD_KBD_TIMEOUT_US 10000000 // 10 seconds — same as OSD menu timeout
+
 extern settings_t settings;
 
 const char ff_osd_fw_ver[] = FF_OSD_FW_VER;
@@ -73,6 +75,7 @@ bool ff_osd_kbd_active = false; // F12 toggle: keyboard controls Gotek
 // - long hold: reserved for opening local OSD menu, not forwarded to Gotek
 static bool ff_btn_prev_held = false;
 static uint8_t ff_btn_pulse_frames = 0;
+static bool ff_osd_display_was_on = false; // Track display on→off transition
 
 // state: OSD -> Gotek
 ff_osd_info_t ff_osd_info = {
@@ -456,7 +459,25 @@ void ff_osd_update()
     {
         ff_osd_request = false;
         ff_osd_kbd_active = !ff_osd_kbd_active;
+
+        if (ff_osd_kbd_active)
+            osd_update_activity(); // Reset timeout on activation
     }
+
+    // Deactivate keyboard control on host display on→off transition
+    if (ff_osd_kbd_active && ff_osd_display_was_on && !ff_osd_display.on)
+        ff_osd_kbd_active = false;
+
+    // Timeout: deactivate keyboard control after inactivity
+    if (ff_osd_kbd_active)
+    {
+        uint64_t current_time = time_us_64();
+
+        if ((current_time - osd_state.last_activity_time) > FF_OSD_KBD_TIMEOUT_US)
+            ff_osd_kbd_active = false;
+    }
+
+    ff_osd_display_was_on = ff_osd_display.on;
 #endif
 
     bool block_ff_buttons = osd_buttons_blocked();
@@ -508,11 +529,11 @@ void ff_osd_update()
 
     if (!block_ff_buttons)
     {
-        if (osd_button_pressed(0)) // UP -> LEFT
-            buttons |= FF_OSD_BUTTON_LEFT;
-
-        if (osd_button_pressed(1)) // DOWN -> RIGHT
+        if (osd_button_pressed(0)) // UP -> RIGHT
             buttons |= FF_OSD_BUTTON_RIGHT;
+
+        if (osd_button_pressed(1)) // DOWN -> LEFT
+            buttons |= FF_OSD_BUTTON_LEFT;
     }
 
 #ifdef KBD_ENABLE
@@ -522,13 +543,16 @@ void ff_osd_update()
         uint8_t held = osd_virtual_held;
 
         if (held & OSD_VIRT_UP)
-            buttons |= FF_OSD_BUTTON_LEFT;
+            buttons |= FF_OSD_BUTTON_RIGHT;
 
         if (held & OSD_VIRT_DOWN)
-            buttons |= FF_OSD_BUTTON_RIGHT;
+            buttons |= FF_OSD_BUTTON_LEFT;
 
         if (held & OSD_VIRT_SEL)
             buttons |= FF_OSD_BUTTON_SELECT;
+
+        if (held)
+            osd_update_activity(); // Reset timeout on keyboard interaction
     }
 #endif
 

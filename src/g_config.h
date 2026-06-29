@@ -5,7 +5,7 @@
 #include "pico.h"
 #include "pico/time.h"
 
-#define FW_VER "v1.8.0"
+#define FW_VER "v1.8.1"
 
 #if PICO_RP2350
 #define FW_VERSION FW_VER " (PICO 2)"
@@ -17,7 +17,7 @@
 #define GIT_REPO_URL_2 "osemenyuk-114/"
 #define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi"
 
-#if defined(BOARD_36LJU22) || defined(BOARD_RP2040_ZERO)
+#if defined(BOARD_36LJU22) || defined(BOARD_RP2040_ZERO) || defined(BOARD_LEO_V2)
 
 #define VIDEO_OUTPUT_AUTO_DETECT
 
@@ -26,13 +26,20 @@
 #define HW_VERSION "36LJU22"
 #define I2C_PIN_SDA 16
 #define I2C_PIN_SCL 17
+#define I2C_INST i2c0
 
 #else
 
+#ifdef BOARD_RP2040_ZERO
 #define HW_VERSION "RP2040 Zero"
+#else
+#define HW_VERSION "LEO v2"
+#endif
+
 #define WS2812_LED_ENABLE
-#define I2C_PIN_SDA 20
-#define I2C_PIN_SCL 21
+#define I2C_PIN_SDA 18
+#define I2C_PIN_SCL 19
+#define I2C_INST i2c1
 
 #endif
 
@@ -59,6 +66,7 @@
 #define OSD_BTN_SEL 28
 #define I2C_PIN_SDA 20
 #define I2C_PIN_SCL 21
+#define I2C_INST i2c0
 #define PS2_PIN_DATA 1
 #define PS2_PIN_CLK 0
 #define KBD_PIN_DATA 2
@@ -94,24 +102,25 @@
 
 #define VIDEO_OUTPUT_AUTO_DETECT
 #define SPI_KB_ENABLE
+#define HW_CONFIG_ENABLE
 
 #ifdef BOARD_LEO_V3
+
 #define HW_VERSION "LEO v3.0"
 #define WS2812_LED_ENABLE
-#define OSD_BTN_UP 19
-#define OSD_BTN_DOWN 18
-#define OSD_BTN_SEL 17
-#define I2C_PIN_SDA 20
-#define I2C_PIN_SCL 21
+#define I2C_PIN_SDA 18
+#define I2C_PIN_SCL 19
+#define I2C_INST i2c1
 
 #else
 
 #define HW_VERSION "LEO v3.0.2040BT"
-#define OSD_BTN_UP 20
-#define OSD_BTN_DOWN 21
-#define OSD_BTN_SEL 22
 #define I2C_PIN_SDA 16
 #define I2C_PIN_SCL 17
+#define I2C_INST i2c0
+// Not used in this board variant, but defined and pulled up to avoid Gotek menu navigation issues
+#define HW_GOTEK_BTN_L 18
+#define HW_GOTEK_BTN_R 19
 
 #endif
 
@@ -119,11 +128,24 @@
 #define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
 #define VGA_PIN_D0 DVI_PIN_D0
 #define CAP_PIN_D0 0
+
+// Buttons are not connected to GPIOs on LEO v3.0, so use the same GPIOs as the ROM bank pins for OSD buttons
+// Inputs are internally overriden and are read as HIGH to avoid OSD menu navigation issues
+#define OSD_BTN_UP 20
+#define OSD_BTN_DOWN 21
+#define OSD_BTN_SEL 22
+
 #define PS2_PIN_DATA 29
 #define PS2_PIN_CLK 28
 #define KBD_PIN_DATA 7
 #define KBD_PIN_CLK 26
 #define KBD_PIN_STB 27
+#define HW_PIN_ROM_BANK_D0 20
+#define HW_PIN_ROM_BANK_D1 21
+#define HW_PIN_ROM_BANK_D2 22
+#define HW_PIN_GOTEK_DRIVE_D0 23
+#define HW_PIN_GOTEK_DRIVE_D1 24
+#define HW_PIN_RAM_SIZE 25
 
 #elif defined(BOARD_09LJV23)
 
@@ -138,6 +160,7 @@
 #define OSD_BTN_SEL 28
 #define I2C_PIN_SDA 16
 #define I2C_PIN_SCL 17
+#define I2C_INST i2c0
 
 #else
 
@@ -174,9 +197,6 @@
 #define PIO_CAP pio1
 #define DREQ_PIO_CAP DREQ_PIO1_RX0
 #define SM_CAP 0
-
-// I2C instance
-#define I2C_INST i2c0
 
 #define PIO_PS2 pio1
 // Use IRQ index 1 (PIO1_IRQ_1) to avoid conflicts with capture SM
@@ -241,6 +261,25 @@ typedef struct ff_osd_config_t
 
 #endif
 
+#if defined(BOARD_LEO_V3) || defined(BOARD_LEO_V3_2040BT)
+typedef struct hw_config_t
+{
+  uint8_t rom_bank;    // 1-8
+  bool ram_size;       // false = 128KB, true = 1024KB
+  uint8_t gotek_drive; // 0 = OFF, 1 = A, 2 = B
+} hw_config_t;
+
+#define HW_ROM_BANK_MIN 1
+#define HW_GOTEK_DRIVE_MIN 0
+
+#define HW_ROM_BANK_MAX 8
+#define HW_GOTEK_DRIVE_MAX 2
+
+#define HW_ROM_BANK_DEF 1
+#define HW_RAM_SIZE_DEF true
+#define HW_GOTEK_DRIVE_DEF 1
+#endif
+
 typedef struct settings_t
 {
   video_out_type_t video_out_type;
@@ -257,6 +296,9 @@ typedef struct settings_t
   uint8_t pin_inversion_mask;
 #ifdef OSD_FF_ENABLE
   ff_osd_config_t ff_osd_config;
+#endif
+#if defined(BOARD_LEO_V3) || defined(BOARD_LEO_V3_2040BT)
+  hw_config_t hw_config;
 #endif
   uint32_t crc;
 } settings_t;
@@ -308,8 +350,8 @@ extern uint8_t g_v_buf[];
 #define FREQUENCY_MAX 8000000
 #define EXT_CLK_DIVIDER_MAX 5
 #define DELAY_MAX 31
-#define shX_MAX 200
-#define shY_MAX 200
+#define shX_MAX 100
+#define shY_MAX 100
 #define PIN_INVERSION_MASK 0x7f
 
 // settings DEFAULT values

@@ -363,6 +363,7 @@ void usb_kbd_init(void)
 {
     memset(&usb_kbd_state, 0, sizeof(usb_kbd_state));
     memset(&usb_mouse_state, 0, sizeof(usb_mouse_state));
+    usb_mouse_state.buttons = 0xFF; // all buttons released (active-low)
     usb_keyboard_mounted = false;
     usb_dev_addr = 0;
     usb_hid_idx = 0;

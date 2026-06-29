@@ -429,6 +429,7 @@ void osd_update()
 
 void osd_buttons_init()
 {
+#ifndef HW_CONFIG_ENABLE
     // Configure button pins as inputs with pull-up
     gpio_init(OSD_BTN_UP);
     gpio_set_dir(OSD_BTN_UP, GPIO_IN);
@@ -441,6 +442,12 @@ void osd_buttons_init()
     gpio_init(OSD_BTN_SEL);
     gpio_set_dir(OSD_BTN_SEL, GPIO_IN);
     gpio_pull_up(OSD_BTN_SEL);
+#else
+    // Set GPIO override for OSD buttons to HIGH (inactive state)
+    gpio_set_inover(OSD_BTN_UP, GPIO_OVERRIDE_HIGH);
+    gpio_set_inover(OSD_BTN_DOWN, GPIO_OVERRIDE_HIGH);
+    gpio_set_inover(OSD_BTN_SEL, GPIO_OVERRIDE_HIGH);
+#endif
 
     // Initialize timing
     uint64_t current_time = time_us_64();

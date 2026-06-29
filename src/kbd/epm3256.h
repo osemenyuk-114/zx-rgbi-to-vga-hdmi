@@ -14,7 +14,8 @@
 #include "zx_kbd.h"
 
 void epm3256_init(void);
-void __not_in_flash_func(epm3256_send)(uint8_t mouse_keys,
+void __not_in_flash_func(epm3256_send)(uint8_t special_keys,
+                                       uint8_t mouse_keys,
                                        uint8_t mouse_x,
                                        uint8_t mouse_y,
                                        zx_kbd_state_t *zx_keys_matrix);

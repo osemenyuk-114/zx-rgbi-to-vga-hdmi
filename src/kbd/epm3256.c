@@ -5,10 +5,8 @@
  * 32-bit words and shifts them out via PIO with sideset CLK+latch.
  *
  * Data format (MSB first):
- *   Word 0 (29 data bits + 3 pad): mouse_keys[3] | mouse_x[8] | mouse_y[8] |
- *                                   row7[5] | row6[5]
- *   Word 1 (30 data bits + 2 pad): row5[5] | row4[5] | row3[5] | row2[5] |
- *                                   row1[5] | row0[5]
+ *   Word 0 (31 data bits + 1 pad): keyboard_activity[1] | special_keys[2] | mouse_keys[2] | mouse_x[8] | mouse_y[8] | row7[5] | row6[5]
+ *   Word 1 (30 data bits + 2 pad):  row5[5] | row4[5] | row3[5] | row2[5] | row1[5] | row0[5]
  */
 
 #include "hardware/clocks.h"
@@ -21,7 +19,7 @@
 
 void epm3256_init(void)
 {
-    // Load at fixed offset right after PS2 program (static — never unloaded)
+    // Load at fixed offset right after PS2 program (static â€” never unloaded)
     uint offset = pio_ps2_wrap + 1;
     pio_add_program_at_offset(PIO_SPI, &pio_epm3256_program, offset);
     pio_sm_config c = pio_get_default_sm_config();
@@ -53,13 +51,15 @@ void epm3256_init(void)
     pio_sm_set_enabled(PIO_SPI, SM_SPI, true);
 }
 
-void __not_in_flash_func(epm3256_send)(uint8_t mouse_keys, uint8_t mouse_x,
+void __not_in_flash_func(epm3256_send)(uint8_t special_keys, uint8_t mouse_keys, uint8_t mouse_x,
                                        uint8_t mouse_y,
                                        zx_kbd_state_t *zx_keys_matrix)
 {
-    // Word 0: mouse_keys[3] | mouse_x[8] | mouse_y[8] | row7[5] | row6[5] | pad[3]
+    // Word 0: keyboard_activity[1] | special_keys[2] | mouse_keys[2] | mouse_x[8] | mouse_y[8] | row7[5] | row6[5] | pad[1]
     uint32_t data0 = 0;
-    data0 |= mouse_keys & 0x07;
+    data0 |= special_keys & 0x03;
+    data0 <<= 2;
+    data0 |= mouse_keys & 0x03;
     data0 <<= 8;
     data0 |= mouse_x;
     data0 <<= 8;
@@ -68,7 +68,7 @@ void __not_in_flash_func(epm3256_send)(uint8_t mouse_keys, uint8_t mouse_x,
     data0 |= zx_keys_matrix->a[7] & 0x1F;
     data0 <<= 5;
     data0 |= zx_keys_matrix->a[6] & 0x1F;
-    data0 <<= 3; // pad
+    data0 <<= 1; // pad
 
     // Word 1: row5[5] | row4[5] | row3[5] | row2[5] | row1[5] | row0[5] | pad[2]
     uint32_t data1 = 0;
@@ -84,6 +84,9 @@ void __not_in_flash_func(epm3256_send)(uint8_t mouse_keys, uint8_t mouse_x,
     data1 <<= 5;
     data1 |= zx_keys_matrix->a[0] & 0x1F;
     data1 <<= 2; // pad
+
+    if ((data0 & 0x000007FE) || (data1 & 0xFFFFFFFC)) // keyboard activity (except pad bits)
+        data0 |= (1u << 31);
 
     // Wait for FIFO space and send
     while (PIO_SPI->fstat & (1u << (PIO_FSTAT_TXFULL_LSB + SM_SPI)))

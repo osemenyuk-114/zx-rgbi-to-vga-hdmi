@@ -1,9 +1,8 @@
 /**
- * tusb_config_host.h - TinyUSB configuration (dual-mode)
+ * tusb_config_host.h - TinyUSB configuration
  *
- * Replaces the default Arduino tusb_config.h.
  * - When USB_KBD_ENABLE is defined: USB Host mode for HID keyboard
- * - Otherwise: USB Device mode (standard Arduino CDC Serial)
+ * - Otherwise: USB Device mode (CDC Serial)
  */
 
 #pragma once
@@ -22,10 +21,10 @@ extern "C"
 #endif
 
 #ifdef USB_KBD_ENABLE
-// USB Host mode on rhport0
+// USB Host mode
 #define CFG_TUSB_RHPORT0_MODE OPT_MODE_HOST
 #else
-// USB Device mode on rhport0 (standard Arduino)
+// USB Device mode (CDC serial)
 #define CFG_TUSB_RHPORT0_MODE OPT_MODE_DEVICE
 #endif
 
@@ -83,7 +82,7 @@ extern "C"
 #else // !USB_KBD_ENABLE
 
 //--------------------------------------------------------------------
-// --- DEVICE MODE (Arduino default) ---
+// --- DEVICE MODE ---
 //--------------------------------------------------------------------
 
 #ifndef CFG_TUD_ENDPOINT0_SIZE
@@ -92,29 +91,13 @@ extern "C"
 
 #define CFG_TUD_HID (2)
 #define CFG_TUD_CDC (1)
-#define CFG_TUD_MSC (1)
-#define CFG_TUD_MIDI (1)
+#define CFG_TUD_MSC (0)
+#define CFG_TUD_MIDI (0)
 #define CFG_TUD_VENDOR (0)
-#define CFG_TUD_NCM (1)
+#define CFG_TUD_NCM (0)
 
 #define CFG_TUD_CDC_RX_BUFSIZE (256)
 #define CFG_TUD_CDC_TX_BUFSIZE (256)
-#define CFG_TUD_MSC_EP_BUFSIZE (64)
-#define CFG_TUD_HID_EP_BUFSIZE (64)
-#define CFG_TUD_MIDI_RX_BUFSIZE (64)
-#define CFG_TUD_MIDI_TX_BUFSIZE (64)
-
-#include "lwipopts.h"
-#define CFG_TUD_NCM_IN_NTB_MAX_SIZE (2 * TCP_MSS + 100)
-#define CFG_TUD_NCM_OUT_NTB_MAX_SIZE (2 * TCP_MSS + 100)
-
-#ifndef CFG_TUD_NCM_OUT_NTB_N
-#define CFG_TUD_NCM_OUT_NTB_N 1
-#endif
-
-#ifndef CFG_TUD_NCM_IN_NTB_N
-#define CFG_TUD_NCM_IN_NTB_N 1
-#endif
 
 #endif // USB_KBD_ENABLE
 

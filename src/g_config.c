@@ -2,7 +2,7 @@
 
 video_mode_t mode_640x480_60Hz = {
     .sys_freq = 252000,
-    .pixel_freq = 25175000.0,
+    .pixel_freq = 25200000.0, // 25175000.0,
     .h_visible_area = 640,
     .v_visible_area = 480,
     .whole_line = 800,

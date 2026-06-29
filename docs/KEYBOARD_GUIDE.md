@@ -17,14 +17,15 @@ Both PS/2 and USB can work simultaneously — key states are OR-merged.
 
 | Key        | Action                                            |
 |------------|---------------------------------------------------|
-| **F11**    | Open / toggle OSD setup menu                      |
-| **↑ / ←**  | Navigate up / adjust value up                     |
-| **↓ / →**  | Navigate down / adjust value down                 |
+| **F9**     | Open / toggle OSD setup menu                      |
+| **↑ / ←**  | Navigate up                                       |
+| **↓ / →**  | Navigate down                                     |
 | **Enter**  | Select item / enter tuning mode                   |
 | **Esc**    | Exit tuning → back to submenu → main menu → close |
 
 Arrow keys have controlled repeat: 400ms initial delay, then 80ms rate.
 Hold duration enables progressive acceleration for frequency adjustment.
+In tuning mode, parameter direction is `↑/→` increase and `↓/←` decrease.
 
 ---
 
@@ -32,16 +33,48 @@ Hold duration enables progressive acceleration for frequency adjustment.
 
 | Key       | Action                              |
 |-----------|-------------------------------------|
-| **F12**   | Toggle Gotek keyboard mode (on/off) |
-| **← / ↑** | Gotek LEFT (previous file)          |
-| **→ / ↓** | Gotek RIGHT (next file)             |
+| **F10**   | Toggle Gotek keyboard mode (on/off) |
+| **← / ↓** | Gotek LEFT (previous file)          |
+| **→ / ↑** | Gotek RIGHT (next file)             |
 | **Enter** | Gotek SELECT (load file)            |
 
 When Gotek mode is active:
 
 - Arrow keys and Enter are routed to Gotek via I2C (not to ZX Spectrum).
-- Gotek OSD is displayed on screen regardless of Gotek backlight state.
-- Press **F12** again to deactivate and release the keyboard.
+- Gotek OSD is displayed on-screen regardless of Gotek backlight state.
+- Press **F10** again to deactivate and release the keyboard.
+
+---
+
+## NMI / RESET
+
+Behavior depends on the output hardware variant:
+
+| Key     | CH446Q                         | EPM3256                               |
+|---------|--------------------------------|---------------------------------------|
+| **F11** | Closes switch Y5:X10 (NMI)     | Sends NMI bit in SPI frame (bit 0)    |
+| **F12** | Closes switch Y6:X11 (RESET)   | Sends RESET bit in SPI frame (bit 1)  |
+
+In all cases the signal is **level-based**: it follows the key state (active while held, released when key is released).
+
+The EPM3256 CPLD receives the NMI/RESET bits on every SPI frame and emulates the corresponding hardware button presses on the ZX Spectrum board.
+
+---
+
+## USB Mouse (Kempston)
+
+USB mice are supported in SPI/EPM3256 firmware builds.
+
+| Button        | Default mapping (D-bit) |
+|---------------|-------------------------|
+| Right button  | D0                      |
+| Left button   | D1                      |
+
+The default matches the original hardware schematic (right→D0, left→D1).  
+**F6** toggles the mapping: swapped = left→D0, right→D1.
+
+The mouse X/Y position is accumulated (0–255, wrapping) in Kempston format.
+Y-axis direction is inverted (USB reports screen-down as positive; Kempston expects the opposite).
 
 ---
 
@@ -167,3 +200,4 @@ Keyboard support is enabled per-board in `g_config.h`:
 | `PS2_KBD_ENABLE` | Enable PS/2 keyboard (PIO driver)  |
 | `USB_KBD_ENABLE` | Enable USB keyboard (TinyUSB Host) |
 | `KBD_ENABLE`     | Auto-derived: PS2 or USB enabled   |
+| `SPI_KB_ENABLE`  | EPM3256 SPI output (enables mouse) |

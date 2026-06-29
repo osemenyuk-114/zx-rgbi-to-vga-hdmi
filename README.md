@@ -2,15 +2,15 @@
 
 A converter for ZX Spectrum RGBI video signals to modern VGA and HDMI displays.
 
-For detailed hardware and original software information, see the upstream project:  
-🔗 [ZX_RGBI2VGA-HDMI](https://github.com/AlexEkb4ever/ZX_RGBI2VGA-HDMI/)
+For detailed hardware and original software information, see the upstream project:
+[ZX_RGBI2VGA-HDMI](https://github.com/AlexEkb4ever/ZX_RGBI2VGA-HDMI/)
 
 ## Alternative Firmware Build: Native Pico SDK
 
-If you prefer working directly with the **Raspberry Pi Pico SDK** and **CMake**, check out the companion project:  
-🔗 [zx-rgbi-to-vga-hdmi-PICOSDK](https://github.com/osemenyuk-114/zx-rgbi-to-vga-hdmi-PICOSDK)
+If you prefer working directly with the **Raspberry Pi Pico SDK** and **CMake**, check out the companion project:
+[zx-rgbi-to-vga-hdmi-PICOSDK](https://github.com/osemenyuk-114/zx-rgbi-to-vga-hdmi-PICOSDK)
 
-This version of the firmware:
+That companion firmware version:
 
 - Uses the **native Pico SDK** instead of the Arduino framework  
 - Enables more direct control and customization of **PIO programs**  
@@ -40,8 +40,11 @@ This version of the firmware:
   - PS/2 keyboard support (PIO-based, IRQ-driven).
   - USB keyboard support (TinyUSB Host, boot protocol).
   - Full ZX Spectrum keyboard emulation via CH446Q analog switch matrix.
-  - OSD menu control via keyboard (F11, arrows, Enter, Esc).
-  - Gotek/FlashFloppy control via keyboard (F12 toggle, arrows, Enter).
+  - OSD menu control via keyboard (F9, arrows, Enter, Esc).
+  - Gotek/FlashFloppy control via keyboard (F10 toggle, arrows, Enter).
+  - NMI signal via F11: CH446Q mode — closes switch Y5:X10; EPM3256 mode — sends NMI bit in SPI frame (EPM3256 emulates button press).
+  - RESET signal via F12: CH446Q mode — closes switch Y6:X11; EPM3256 mode — sends RESET bit in SPI frame.
+  - USB mouse support with Kempston-compatible output (SPI/EPM3256 builds); F6 toggles button mapping.
   - Visual indicator: FF OSD text turns Cyan when keyboard controls Gotek.
 - **On-Screen Display (OSD) Menu:**
   - Full-featured graphical menu system overlaid on video output.
@@ -65,8 +68,8 @@ This version of the firmware:
 ### Hardware
 
 - **Analog to Digital Conversion:** Converts analog RGB to digital RGBI.
-  - Based on the project:  
-🔗 [RGBtoHDMI](https://github.com/hoglet67/RGBtoHDMI)
+  - Based on the project:
+    [RGBtoHDMI](https://github.com/hoglet67/RGBtoHDMI)
 
 ---
 
@@ -83,8 +86,10 @@ This version of the firmware:
 - **PS/2 Keyboard**: PIO-based driver with IRQ-driven scancode decoding.
 - **USB Keyboard**: TinyUSB Host boot keyboard driver with O(1) HID→universal key mapping.
 - **ZX Spectrum Emulation**: Universal→ZX 8×5 matrix mapping via CH446Q analog switch.
-- **OSD Control**: F11 toggles menu, arrows/Enter/Esc navigate. Controlled repeat (400ms delay, 80ms rate).
-- **Gotek Control**: F12 toggles keyboard→Gotek mode (arrows→LEFT/RIGHT, Enter→SELECT). Cyan text indicator.
+- **OSD Control**: F9 toggles menu, arrows/Enter/Esc navigate. Controlled repeat (400ms delay, 80ms rate).
+- **Gotek Control**: F10 toggles keyboard→Gotek mode (arrows→LEFT/RIGHT, Enter→SELECT). Cyan text indicator.
+- **NMI / RESET**: F11/F12 are level-based. CH446Q mode: directly drives switches Y5:X10 (NMI) and Y6:X11 (RESET). EPM3256 mode: NMI/RESET bits sent in every SPI frame; EPM3256 emulates button presses. EPM3256 V0: not supported.
+- **USB Mouse**: Kempston-compatible X/Y accumulation and buttons (SPI builds). Default: right→D0, left→D1 (original schematic). F6 toggles mapping.
 - See [Keyboard Guide](docs/KEYBOARD_GUIDE.md) for full details.
 
 ### Video Output Stability
@@ -137,6 +142,7 @@ This version of the firmware:
    | `38LJE24`       | ✓        | ✓      | ✓        | ✓       |         | ✓            | DVI pins reversed, VGA R/B swapped     |
    | `11XGA24_1`     | ✓        |        |          |         | ✓       |              | No I2C, no FF OSD                      |
    | `11XGA24_2`     | ✓        |        |          |         | ✓       |              | No I2C, no FF OSD (alt pin config)     |
+   | `LEO_V2`        | ✓        | ✓      |          |         | ✓       | ✓            | WS2812 LED                             |
    | `LEO_V3`        | ✓        | ✓      | ✓        | ✓       |         | ✓            | SPI keyboard (EPM3256), WS2812 LED     |
    | `LEO_V3_2040BT` | ✓        | ✓      | ✓        | ✓       |         | ✓            | SPI keyboard (EPM3256)                 |
    | `09LJV23`       | ✓        | ✓      |          |         | ✓       | ✓            |                                        |
@@ -146,11 +152,12 @@ This version of the firmware:
    ```ini
    [platformio]
    default_envs =
-     ; 36LJU22
+     36LJU22
      ; RP2040_ZERO
-     38LJE24
+     ; 38LJE24
      ; 11XGA24_1
      ; 11XGA24_2
+     ; LEO_V2
      ; LEO_V3
      ; LEO_V3_2040BT
      ; 09LJV23
@@ -167,7 +174,7 @@ This version of the firmware:
      -D NO_USB
    ```
 
-   For boards without keyboard support (`36LJU22`, `RP2040_ZERO`, `11XGA24_*`, `09LJV23`), serial is enabled via the `[env_serial]` section.
+   For boards without keyboard support (`36LJU22`, `RP2040_ZERO`, `LEO_V2`, `11XGA24_*`, `09LJV23`), serial is enabled via the `[env_serial]` section.
 
 4. **Build and upload**  
    Use **PlatformIO: Build** and **PlatformIO: Upload** from the VS Code toolbar, or run:
@@ -176,38 +183,6 @@ This version of the firmware:
    pio run --target upload
    ```
 
-### Source Structure
+### PIO Compilation (`.pio` -> `.pio.h`)
 
-```text
-src/
-  main.cpp              Entry point (setup/loop, Core 0 + Core 1)
-  g_config.h/c          Global config: board variants, feature flags, pin maps
-  settings.h/c          Persistent settings (flash, CRC-32 validated)
-  serial_menu.h/cpp     Serial terminal menu
-  led.c/h               WS2812 RGB LED driver
-  ws2812.pio            PIO program for WS2812 LED control
-  video/                Video subsystem
-    rgb_capture.c/h       PIO-based RGBI input capture
-    vga.c/h               VGA signal generation
-    dvi.c/h               DVI/HDMI signal generation
-    video_output.c/h      VGA/DVI output coordination
-    v_buf.c/h             Video buffer management
-    video.pio             PIO assembly programs
-  osd/                  On-screen display
-    osd.c/h               OSD base layer
-    osd_menu.c/h          OSD graphical menu system
-    ff_osd.c/h            FlashFloppy/Gotek I2C OSD
-    font.h                OSD font data
-  kbd/                  Keyboard subsystem
-    kbd.c/h               Keyboard dispatcher (PS/2 + USB merge)
-    key_codes.h           Universal keyboard codes
-    osd_kbd.c/h           Keyboard↔OSD bridge
-    ps2_kbd.c/h           PS/2 keyboard driver (PIO + IRQ)
-    usb_kbd.c/h           USB HID keyboard driver (TinyUSB Host)
-    zx_kbd.c/h            ZX Spectrum 8×5 matrix mapping
-    ch446q.c/h            CH446Q analog switch driver
-    epm3256.c/h           SPI keyboard+mouse output driver (EPM3256 CPLD)
-    kbd.pio               PIO program for PS/2 and CH446Q
-  usb/                  TinyUSB host configuration
-  i2c/                  I2C slave driver
-```
+Header files `*.pio.h` are compiled and updated automatically during build.

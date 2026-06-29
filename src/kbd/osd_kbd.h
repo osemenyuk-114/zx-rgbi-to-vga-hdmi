@@ -21,18 +21,26 @@
 #define OSD_VIRT_SEL 4
 #define OSD_VIRT_BACK 8
 
+// Hotkey assignments (override in g_config.h if needed)
+#ifndef OSD_HOTKEY_MENU
+#define OSD_HOTKEY_MENU KEY_F9
+#endif
+#ifndef OSD_HOTKEY_GOTEK
+#define OSD_HOTKEY_GOTEK KEY_F10
+#endif
+
 // Cross-core volatile flags
 extern volatile uint8_t osd_virtual_buttons; // Edge-triggered events (SEL, BACK)
 extern volatile uint8_t osd_virtual_held;    // Level state: which arrows/keys are currently held
-extern volatile bool osd_menu_request;       // F11 → toggle OSD menu
-extern volatile bool ff_osd_request;         // F12 → toggle Gotek OSD
+extern volatile bool osd_menu_request;       // Hotkey → toggle OSD menu
+extern volatile bool ff_osd_request;         // Hotkey → toggle Gotek OSD
 
 // True while keyboard is driving OSD (suppresses ZX output in kbd.c)
 extern bool osd_kbd_active;
 
 /**
  * Core 1 entry point — called from kbd_on_event() after state update.
- * Detects hotkeys (F11, F12) and maps arrow/Enter/ESC to
+ * Detects OSD hotkeys (F9 = menu, F10 = Gotek) and maps arrow/Enter/ESC to
  * virtual buttons when the OSD menu is active.
  */
 void __not_in_flash_func(osd_kbd_intercept)(kbd_state_t *state);
