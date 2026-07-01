@@ -35,7 +35,6 @@ jobs:
         with:
           path: |
             ~/.platformio
-            .pio
           key: ${{ runner.os }}-platformio-${{ hashFiles('**/platformio.ini') }}
           restore-keys: |
             ${{ runner.os }}-platformio-
@@ -62,7 +61,23 @@ jobs:
       - name: Rename firmware for release
         run: |
           VERSION_NO_V="${{ steps.fw_version.outputs.version_no_v }}"
-          mv .pio/build/${{ matrix.board }}/firmware.uf2 "ZX_RGBI_TO_VGA_HDMI-${{ matrix.board }}-${VERSION_NO_V}.uf2"
+          BUILD_DIR=".pio/build/${{ matrix.board }}"
+
+          if [ ! -f "${BUILD_DIR}/firmware.uf2" ]; then
+            if [ -f "${BUILD_DIR}/firmware.elf" ]; then
+              echo "firmware.uf2 missing, generating from firmware.elf"
+              pio pkg exec -p tool-picotool-rp2040-earlephilhower -- \
+                picotool uf2 convert -t elf "${BUILD_DIR}/firmware.elf" "${BUILD_DIR}/firmware.uf2"
+            fi
+          fi
+
+          if [ ! -f "${BUILD_DIR}/firmware.uf2" ]; then
+            echo "::error::Expected UF2 artifact not found for ${{ matrix.board }}"
+            ls -la "${BUILD_DIR}" || true
+            exit 1
+          fi
+
+          mv "${BUILD_DIR}/firmware.uf2" "ZX_RGBI_TO_VGA_HDMI-${{ matrix.board }}-${VERSION_NO_V}.uf2"
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
