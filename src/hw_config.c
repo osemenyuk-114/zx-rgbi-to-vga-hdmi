@@ -9,12 +9,6 @@ const uint hw_gpio_pins[] = {
     HW_PIN_RAM_SIZE,
     HW_PIN_GOTEK_DRIVE_D0,
     HW_PIN_GOTEK_DRIVE_D1,
-#ifdef HW_GOTEK_BTN_L
-    HW_GOTEK_BTN_L,
-#endif
-#ifdef HW_GOTEK_BTN_R
-    HW_GOTEK_BTN_R,
-#endif
 };
 
 const int num_hw_gpio_pins = sizeof(hw_gpio_pins) / sizeof(hw_gpio_pins[0]);
@@ -44,12 +38,16 @@ void hw_init(hw_config_t *hw_config)
 
 #ifdef HW_GOTEK_BTN_L
     // Set Gotek button pins to HIGH (inactive state)
-    gpio_put(HW_GOTEK_BTN_L, 1);
+    gpio_init(HW_GOTEK_BTN_L);
+    gpio_set_dir(HW_GOTEK_BTN_L, GPIO_IN);
+    gpio_pull_up(HW_GOTEK_BTN_L);
 #endif
 
 #ifdef HW_GOTEK_BTN_R
     // Set Gotek button pins to HIGH (inactive state)
-    gpio_put(HW_GOTEK_BTN_R, 1);
+    gpio_init(HW_GOTEK_BTN_R);
+    gpio_set_dir(HW_GOTEK_BTN_R, GPIO_IN);
+    gpio_pull_up(HW_GOTEK_BTN_R);
 #endif
 }
 
