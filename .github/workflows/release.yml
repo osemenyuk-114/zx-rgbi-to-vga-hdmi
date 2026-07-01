@@ -62,7 +62,17 @@ jobs:
       - name: Rename firmware for release
         run: |
           VERSION_NO_V="${{ steps.fw_version.outputs.version_no_v }}"
-          mv .pio/build/${{ matrix.board }}/firmware.uf2 "ZX_RGBI_TO_VGA_HDMI-${{ matrix.board }}-${VERSION_NO_V}.uf2"
+          UF2_FILE=".pio/build/${{ matrix.board }}/firmware.uf2"
+          if [ ! -f "$UF2_FILE" ]; then
+            echo "firmware.uf2 not found, generating from ELF using picotool..."
+            PICOTOOL=$(find ~/.platformio/packages/tool-picotool-rp2040-earlephilhower -name "picotool" -maxdepth 2 -type f 2>/dev/null | head -1)
+            if [ -z "$PICOTOOL" ]; then
+              echo "Error: picotool not found in ~/.platformio/packages/tool-picotool-rp2040-earlephilhower"
+              exit 1
+            fi
+            "$PICOTOOL" uf2 convert ".pio/build/${{ matrix.board }}/firmware.elf" "$UF2_FILE" --family rp2040
+          fi
+          mv "$UF2_FILE" "ZX_RGBI_TO_VGA_HDMI-${{ matrix.board }}-${VERSION_NO_V}.uf2"
 
       - name: Upload firmware artifact
         uses: actions/upload-artifact@v4
