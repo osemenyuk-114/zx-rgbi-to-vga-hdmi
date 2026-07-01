@@ -55,7 +55,6 @@ jobs:
 
       - name: Build firmware
         run: |
-          export PLATFORMIO_BUILD_FLAGS='-DFW_VER="\"${{ steps.fw_version.outputs.version }}\""'
           pio run --environment ${{ matrix.board }}
 
       - name: Rename firmware for release
