@@ -44,7 +44,13 @@
 #define osd_kbd_active false
 #endif
 
+#ifdef HW_CONFIG_ENABLE
+#include "hw_config.h"
+#endif
+
 #ifdef KBD_ENABLE
+
+extern settings_t settings;
 
 volatile uint32_t kbd_activity_cnt;
 
@@ -106,8 +112,8 @@ static void __not_in_flash_func(kbd_on_event)(void)
     // Toggle mouse button swap (edge-detect on press, SPI mode only)
 #ifdef SPI_KB_ENABLE
     static bool prev_mouse_swap = false;
-
     bool mouse_swap = GET_STATE_KEY(kbd_state.new_state, KBD_HOTKEY_MOUSE_SWAP);
+
     if (mouse_swap && !prev_mouse_swap)
         mouse_buttons_swapped = !mouse_buttons_swapped;
 
@@ -121,6 +127,11 @@ static void __not_in_flash_func(kbd_on_event)(void)
     static bool prev_reset = false;
     bool nmi = GET_STATE_KEY(kbd_state.new_state, KBD_HOTKEY_NMI);
     bool reset = GET_STATE_KEY(kbd_state.new_state, KBD_HOTKEY_RESET);
+
+#ifdef HW_CONFIG_ENABLE
+    if (reset && !prev_reset)
+        hw_set_rom_bank(settings.hw_config.rom_bank);
+#endif
 
 #ifndef SPI_KB_ENABLE
     if (nmi != prev_nmi)
@@ -157,6 +168,7 @@ static void __not_in_flash_func(kbd_on_event)(void)
             btn = (btn & ~0x03u) | (b_right << 0) | (b_left << 1);
 
         uint8_t special_keys = (nmi ? 1 : 0) | (reset ? 2 : 0);
+
         epm3256_send(special_keys, btn, mouse->x, mouse->y, &kbd_zx_state);
 #else
         kbd_apply_output(&kbd_zx_state, &kbd_zx_state_old);

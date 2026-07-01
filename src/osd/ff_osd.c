@@ -19,8 +19,7 @@
 volatile bool ff_osd_needs_i2c_init = false;
 
 // Helper macros
-#define ARRAY_SIZE(a) (sizeof(a) / sizeof((a)[0]))
-#define MASK(r, x) ((x) & (ARRAY_SIZE(r) - 1))
+#define MASK(r, x) ((x) & (count_of(r) - 1))
 
 #define barrier() asm volatile("" ::: "memory")
 

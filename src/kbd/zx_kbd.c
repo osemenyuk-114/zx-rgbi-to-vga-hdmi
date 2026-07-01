@@ -128,7 +128,7 @@ static const zx_key_map_t zx_key_map[] = {
     {KEY_NUM_PERIOD, ZX_SS, ZX(7, 2)}, // SS+M = .
 };
 
-#define ZX_KEY_MAP_SIZE (sizeof(zx_key_map) / sizeof(zx_key_map[0]))
+#define ZX_KEY_MAP_SIZE (count_of(zx_key_map))
 
 // Fast lookup: key_code → index into zx_key_map (+1), 0 = unmapped
 

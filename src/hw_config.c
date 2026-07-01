@@ -11,7 +11,7 @@ const uint hw_gpio_pins[] = {
     HW_PIN_GOTEK_DRIVE_D1,
 };
 
-const int num_hw_gpio_pins = sizeof(hw_gpio_pins) / sizeof(hw_gpio_pins[0]);
+const int num_hw_gpio_pins = count_of(hw_gpio_pins);
 
 void hw_init(hw_config_t *hw_config)
 {

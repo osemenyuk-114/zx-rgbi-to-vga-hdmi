@@ -150,7 +150,7 @@ static const uint8_t usb_hid_to_universal[] = {
     NO_KEY,
 };
 
-#define USB_HID_TO_UNIVERSAL_SIZE (sizeof(usb_hid_to_universal) / sizeof(usb_hid_to_universal[0]))
+#define USB_HID_TO_UNIVERSAL_SIZE (count_of(usb_hid_to_universal))
 
 static kbd_state_t usb_kbd_state;
 static usb_mouse_state_t usb_mouse_state;

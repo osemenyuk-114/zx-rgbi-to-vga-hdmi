@@ -228,7 +228,11 @@ GOTEK DRIVE OFF / A / B
 - Press SEL to switch between **128 KB** and **1024 KB**
 - No tuning mode — value changes immediately on each SEL press
 
-All three settings take effect immediately via GPIO when changed.
+**GPIO effect timing:**
+
+- **RAM (KB)** and **GOTEK DRIVE** take effect immediately via GPIO when changed.
+- **ROM BANK** is applied to GPIO only on the next **RESET** (**F12** key press); changing it in the menu updates the stored value but does not switch the bank until reset.
+
 Use **SAVE** from the main menu to persist the values across reboot.
 
 ## Visual Indicators

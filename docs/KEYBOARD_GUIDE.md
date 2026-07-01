@@ -59,6 +59,8 @@ In all cases the signal is **level-based**: it follows the key state (active whi
 
 The EPM3256 CPLD receives the NMI/RESET bits on every SPI frame and emulates the corresponding hardware button presses on the ZX Spectrum board.
 
+On **LEO V3** boards (**HW_CONFIG_ENABLE**), pressing **F12** (RESET) also applies the current **ROM BANK** selection to GPIO immediately before the reset signal is sent.
+
 ---
 
 ## USB Mouse (Kempston)
