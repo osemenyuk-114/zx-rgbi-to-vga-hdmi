@@ -8,7 +8,9 @@
 #define OSD_FONT_HEIGHT 8
 #define OSD_COLUMNS (OSD_WIDTH / OSD_FONT_WIDTH)
 #define OSD_ROWS (OSD_HEIGHT / OSD_FONT_HEIGHT)
-#define OSD_TEXT_BUFFER_SIZE (OSD_COLUMNS * OSD_ROWS)
+// FF OSD can use more columns than the pixel canvas; must match FF_OSD_COLUMNS_MAX in g_config.h
+#define OSD_TEXT_COLUMNS_MAX 40
+#define OSD_TEXT_BUFFER_SIZE (OSD_TEXT_COLUMNS_MAX * OSD_ROWS)
 
 #define OSD_COLOR_BACKGROUND 0x0 // Black
 #define OSD_COLOR_TEXT 0xB       // Bright cyan
@@ -62,7 +64,9 @@ typedef struct
 } osd_buttons_t;
 
 extern osd_state_t osd_state;
-extern osd_mode_t osd_mode;
+extern osd_mode_t osd_mode_menu;
+extern osd_mode_t osd_mode_ff;
+extern osd_mode_t * volatile osd_mode;
 extern osd_buttons_t osd_buttons;
 extern const uint8_t (*osd_font)[8];
 extern uint8_t osd_font_ram_1[256][8]; // SRAM copy of font style 1
@@ -74,7 +78,8 @@ extern uint8_t osd_text_heights[OSD_ROWS];            // 0 = normal height, 1 = 
 
 void osd_init();
 void osd_update(); // Main update function - handles both menu and FF OSD
-void osd_set_position();
+void osd_set_position(osd_mode_t *mode);
+void osd_update_positions();
 void osd_show();
 void osd_hide();
 void osd_update_activity();

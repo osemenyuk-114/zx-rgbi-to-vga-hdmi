@@ -206,17 +206,17 @@ static void __not_in_flash_func(dma_handler_vga)()
 
 #ifdef OSD_ENABLE
   // main image area with OSD compositing
-  bool osd_active = osd_state.visible && (scaled_y >= osd_mode.start_y && scaled_y < osd_mode.end_y);
+  bool osd_active = osd_state.visible && (scaled_y >= osd_mode->start_y && scaled_y < osd_mode->end_y);
 
   if (osd_active)
   { // calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
-    uint8_t *osd_line = &osd_buffer[(scaled_y - osd_mode.start_y) * (osd_mode.width / 2)];
+    uint8_t *osd_line = &osd_buffer[(scaled_y - osd_mode->start_y) * (osd_mode->width / 2)];
 
     int x = 0;
 
-    if (!osd_mode.full_width)
+    if (!osd_mode->full_width)
     {
-      for (; (x + 4) <= osd_mode.start_x; x += 4)
+      for (; (x + 4) <= osd_mode->start_x; x += 4)
       { // ultra-fast direct byte processing for pre-OSD area with loop unrolling
         *line_buf++ = palette[*scr_line++];
         *line_buf++ = palette[*scr_line++];
@@ -224,17 +224,17 @@ static void __not_in_flash_func(dma_handler_vga)()
         *line_buf++ = palette[*scr_line++];
       }
 
-      for (; x < osd_mode.start_x; x++)
+      for (; x < osd_mode->start_x; x++)
         *line_buf++ = palette[*scr_line++];
     }
     else
-      for (; x < osd_mode.start_x; x++)
+      for (; x < osd_mode->start_x; x++)
       {
         scr_line++;
         *line_buf++ = palette[0];
       }
 
-    for (; (x + 4) <= osd_mode.end_x; x += 4)
+    for (; (x + 4) <= osd_mode->end_x; x += 4)
     { // ultra-simplified OSD compositing with optimized unrolling
       scr_line += 4;
 
@@ -244,13 +244,13 @@ static void __not_in_flash_func(dma_handler_vga)()
       *line_buf++ = palette[*osd_line++];
     }
 
-    for (; x < osd_mode.end_x; x++)
+    for (; x < osd_mode->end_x; x++)
     { // handle remaining bytes (0-3 bytes)
       scr_line++;
       *line_buf++ = palette[*osd_line++];
     }
 
-    if (!osd_mode.full_width)
+    if (!osd_mode->full_width)
     {
       for (; (x + 4) <= h_visible_area; x += 4)
       {

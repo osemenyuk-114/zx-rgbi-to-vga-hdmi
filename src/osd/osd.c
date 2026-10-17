@@ -36,21 +36,39 @@ osd_state_t osd_state = {
     .needs_redraw = true,
     .text_updated = true};
 
-osd_mode_t osd_mode = {
+osd_mode_t osd_mode_menu = {
     .x = 0,
     .y = 0,
     .start_x = 0,
     .end_x = OSD_WIDTH,
     .start_y = 0,
     .end_y = OSD_HEIGHT,
-    .width = OSD_WIDTH,
-    .height = OSD_HEIGHT,
+    .width = OSD_COLUMNS * OSD_FONT_WIDTH,
+    .height = OSD_ROWS * OSD_FONT_HEIGHT,
     .buffer_size = OSD_BUFFER_SIZE,
     .columns = OSD_COLUMNS,
     .rows = OSD_ROWS,
     .border_enabled = true,
     .full_width = false,
-    .text_buffer_size = OSD_TEXT_BUFFER_SIZE};
+    .text_buffer_size = OSD_COLUMNS * OSD_ROWS};
+
+osd_mode_t osd_mode_ff = {
+    .x = 0,
+    .y = 1,
+    .start_x = 0,
+    .end_x = 0,
+    .start_y = 0,
+    .end_y = 0,
+    .width = 0,
+    .height = 0,
+    .buffer_size = 0,
+    .columns = 0,
+    .rows = 0,
+    .border_enabled = false,
+    .full_width = true,
+    .text_buffer_size = 0};
+
+osd_mode_t *volatile osd_mode = &osd_mode_menu;
 
 uint8_t osd_buffer[OSD_BUFFER_SIZE];
 char osd_text_buffer[OSD_TEXT_BUFFER_SIZE];
@@ -75,26 +93,26 @@ static void osd_clear_buffer()
 
 static void osd_draw_border()
 {
-    if (!osd_mode.border_enabled)
+    if (!osd_mode->border_enabled)
         return;
 
     osd_text_set_char(0, 0, OSD_CHAR_BORDER_TL, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
 
-    for (uint8_t col = 1; col < osd_mode.columns - 1; col++)
+    for (uint8_t col = 1; col < osd_mode->columns - 1; col++)
         osd_text_set_char(0, col, OSD_CHAR_BORDER_HT, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
 
-    osd_text_set_char(0, osd_mode.columns - 1, OSD_CHAR_BORDER_TR, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
-    osd_text_set_char(osd_mode.rows - 1, 0, OSD_CHAR_BORDER_BL, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+    osd_text_set_char(0, osd_mode->columns - 1, OSD_CHAR_BORDER_TR, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+    osd_text_set_char(osd_mode->rows - 1, 0, OSD_CHAR_BORDER_BL, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
 
-    for (uint8_t col = 1; col < osd_mode.columns - 1; col++)
-        osd_text_set_char(osd_mode.rows - 1, col, OSD_CHAR_BORDER_HB, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+    for (uint8_t col = 1; col < osd_mode->columns - 1; col++)
+        osd_text_set_char(osd_mode->rows - 1, col, OSD_CHAR_BORDER_HB, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
 
-    osd_text_set_char(osd_mode.rows - 1, osd_mode.columns - 1, OSD_CHAR_BORDER_BR, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+    osd_text_set_char(osd_mode->rows - 1, osd_mode->columns - 1, OSD_CHAR_BORDER_BR, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
 
-    for (uint8_t row = 1; row < osd_mode.rows - 1; row++)
+    for (uint8_t row = 1; row < osd_mode->rows - 1; row++)
     {
         osd_text_set_char(row, 0, OSD_CHAR_BORDER_VL, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
-        osd_text_set_char(row, osd_mode.columns - 1, OSD_CHAR_BORDER_VR, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
+        osd_text_set_char(row, osd_mode->columns - 1, OSD_CHAR_BORDER_VR, OSD_COLOR_BORDER, OSD_COLOR_BACKGROUND);
     }
 }
 
@@ -120,96 +138,103 @@ void osd_init()
 #endif
 }
 
-void __not_in_flash_func(osd_set_position)()
+void __not_in_flash_func(osd_set_position)(osd_mode_t *mode)
 {
     // Limit OSD dimensions to fit within the available display area
     // Horizontal: width/2 must not exceed h_visible_area
-    if (osd_mode.width / 2 > h_visible_area)
+    if (mode->width / 2 > h_visible_area)
     {
-        osd_mode.width = h_visible_area * 2;
-        osd_mode.columns = osd_mode.width / OSD_FONT_WIDTH;
+        mode->width = h_visible_area * 2;
+        mode->columns = mode->width / OSD_FONT_WIDTH;
     }
 
     // Vertical: height must not exceed available vertical display lines
     uint16_t v_display_lines = (video_mode.v_visible_area - 2 * v_margin) / video_mode.div;
-    if (osd_mode.height > v_display_lines)
+    if (mode->height > v_display_lines)
     {
-        osd_mode.height = v_display_lines;
-        osd_mode.rows = osd_mode.height / OSD_FONT_HEIGHT;
+        mode->height = v_display_lines;
+        mode->rows = mode->height / OSD_FONT_HEIGHT;
     }
 
     // Enforce static array bounds
-    if (osd_mode.rows > OSD_ROWS)
-        osd_mode.rows = OSD_ROWS;
+    if (mode->rows > OSD_ROWS)
+        mode->rows = OSD_ROWS;
 
-    if (osd_mode.columns > 0 && osd_mode.columns * osd_mode.rows > OSD_TEXT_BUFFER_SIZE)
-        osd_mode.rows = OSD_TEXT_BUFFER_SIZE / osd_mode.columns;
+    if (mode->columns > 0 && mode->columns * mode->rows > OSD_TEXT_BUFFER_SIZE)
+        mode->rows = OSD_TEXT_BUFFER_SIZE / mode->columns;
 
     // Recalculate derived values after limiting
-    osd_mode.width = osd_mode.columns * OSD_FONT_WIDTH;
-    osd_mode.height = osd_mode.rows * OSD_FONT_HEIGHT;
-    osd_mode.buffer_size = osd_mode.width * osd_mode.height / 2;
+    mode->width = mode->columns * OSD_FONT_WIDTH;
+    mode->height = mode->rows * OSD_FONT_HEIGHT;
+    mode->buffer_size = mode->width * mode->height / 2;
 
-    if (osd_mode.buffer_size > OSD_BUFFER_SIZE)
+    if (mode->buffer_size > OSD_BUFFER_SIZE)
     {
-        osd_mode.buffer_size = OSD_BUFFER_SIZE;
-        osd_mode.rows = (OSD_BUFFER_SIZE * 2 / osd_mode.width) / OSD_FONT_HEIGHT;
-        osd_mode.height = osd_mode.rows * OSD_FONT_HEIGHT;
-        osd_mode.buffer_size = osd_mode.width * osd_mode.height / 2;
+        mode->buffer_size = OSD_BUFFER_SIZE;
+        mode->rows = (OSD_BUFFER_SIZE * 2 / mode->width) / OSD_FONT_HEIGHT;
+        mode->height = mode->rows * OSD_FONT_HEIGHT;
+        mode->buffer_size = mode->width * mode->height / 2;
     }
 
-    osd_mode.text_buffer_size = osd_mode.columns * osd_mode.rows;
+    mode->text_buffer_size = mode->columns * mode->rows;
 
-    uint16_t osd_half_w = osd_mode.width / 2;
+    uint16_t osd_half_w = mode->width / 2;
 
-    switch (osd_mode.x)
+    switch (mode->x)
     {
     case 0: // Center horizontally (menu OSD)
     case 3: // Center
-        osd_mode.start_x = (h_visible_area - osd_half_w) / 2;
+        mode->start_x = (h_visible_area - osd_half_w) / 2;
         break;
 
     case 1: // Left
-        osd_mode.start_x = 0;
+        mode->start_x = 0;
         break;
 
     case 2: // Between left and center
-        osd_mode.start_x = (h_visible_area - osd_half_w) / 4;
+        mode->start_x = (h_visible_area - osd_half_w) / 4;
         break;
 
     case 4: // Between center and right
-        osd_mode.start_x = (h_visible_area - osd_half_w) * 3 / 4;
+        mode->start_x = (h_visible_area - osd_half_w) * 3 / 4;
         break;
 
     case 5: // Right
-        osd_mode.start_x = h_visible_area - osd_half_w;
+        mode->start_x = h_visible_area - osd_half_w;
         break;
     }
 
-    if (osd_mode.start_x + osd_half_w > h_visible_area)
-        osd_mode.start_x = h_visible_area - osd_half_w;
+    if (mode->start_x + osd_half_w > h_visible_area)
+        mode->start_x = h_visible_area - osd_half_w;
 
-    osd_mode.end_x = osd_mode.start_x + osd_half_w;
+    mode->end_x = mode->start_x + osd_half_w;
 
-    switch (osd_mode.y)
+    switch (mode->y)
     {
     case 0: // Center vertically
-        osd_mode.start_y = (v_display_lines - osd_mode.height) / 2;
+        mode->start_y = (v_display_lines - mode->height) / 2;
         break;
 
     case 1: // Top
-        osd_mode.start_y = 0;
+        mode->start_y = 0;
         break;
 
     case 2: // Bottom
-        osd_mode.start_y = v_display_lines - osd_mode.height;
+        mode->start_y = v_display_lines - mode->height;
         break;
     }
 
-    osd_mode.end_y = osd_mode.start_y + osd_mode.height;
+    mode->end_y = mode->start_y + mode->height;
 
-    if (osd_mode.end_y > v_display_lines)
-        osd_mode.end_y = v_display_lines;
+    if (mode->end_y > v_display_lines)
+        mode->end_y = v_display_lines;
+}
+
+void osd_update_positions()
+{
+    osd_set_position(&osd_mode_menu);
+    if (osd_mode_ff.columns > 0 && osd_mode_ff.rows > 0)
+        osd_set_position(&osd_mode_ff);
 }
 
 void osd_show()
@@ -239,13 +264,13 @@ void osd_clear_text_buffer()
 {
     uint8_t default_color = (OSD_COLOR_TEXT << 4) | OSD_COLOR_BACKGROUND;
 
-    for (uint8_t row = 0; row < osd_mode.rows; row++)
+    for (uint8_t row = 0; row < osd_mode->rows; row++)
     {
-        for (uint8_t col = 0; col < osd_mode.columns; col++)
+        for (uint8_t col = 0; col < osd_mode->columns; col++)
         {
-            uint16_t pos = row * osd_mode.columns + col;
+            uint16_t pos = row * osd_mode->columns + col;
 
-            if (osd_mode.border_enabled && (row == 0 || row == osd_mode.rows - 1 || col == 0 || col == osd_mode.columns - 1))
+            if (osd_mode->border_enabled && (row == 0 || row == osd_mode->rows - 1 || col == 0 || col == osd_mode->columns - 1))
                 continue;
 
             osd_text_buffer[pos] = ' ';
@@ -258,27 +283,27 @@ void osd_clear_text_buffer()
 
 void osd_text_set_char(uint8_t row, uint8_t col, uint8_t c, uint8_t fg_color, uint8_t bg_color)
 {
-    if (row >= osd_mode.rows || col >= osd_mode.columns)
+    if (row >= osd_mode->rows || col >= osd_mode->columns)
         return;
 
-    uint16_t pos = row * osd_mode.columns + col;
+    uint16_t pos = row * osd_mode->columns + col;
     osd_text_buffer[pos] = c;
     osd_text_colors[pos] = (fg_color << 4) | bg_color;
 }
 
 void __not_in_flash_func(osd_text_print)(uint8_t row, uint8_t col, const char *str, uint8_t fg_color, uint8_t bg_color, uint8_t height)
 {
-    if (row >= osd_mode.rows)
+    if (row >= osd_mode->rows)
         return;
 
     osd_text_heights[row] = height;
 
-    uint16_t row_start = row * osd_mode.columns;
+    uint16_t row_start = row * osd_mode->columns;
     uint16_t pos = row_start + col;
-    uint8_t max_len = osd_mode.columns - col;
+    uint8_t max_len = osd_mode->columns - col;
     uint8_t packed_color = (fg_color << 4) | bg_color;
 
-    uint8_t start_col = osd_mode.border_enabled ? 1 : 0;
+    uint8_t start_col = osd_mode->border_enabled ? 1 : 0;
 
     for (uint8_t i = start_col; i < col; i++)
     {
@@ -289,8 +314,8 @@ void __not_in_flash_func(osd_text_print)(uint8_t row, uint8_t col, const char *s
     uint8_t i;
     uint8_t effective_max_len;
 
-    if (osd_mode.border_enabled)
-        effective_max_len = (col + max_len >= osd_mode.columns) ? (osd_mode.columns - col - 1) : max_len;
+    if (osd_mode->border_enabled)
+        effective_max_len = (col + max_len >= osd_mode->columns) ? (osd_mode->columns - col - 1) : max_len;
     else
         effective_max_len = max_len;
 
@@ -309,16 +334,16 @@ void __not_in_flash_func(osd_text_print)(uint8_t row, uint8_t col, const char *s
 
 void osd_text_print_centered(uint8_t row, const char *str, uint8_t fg_color, uint8_t bg_color, uint8_t height)
 {
-    if (row >= osd_mode.rows)
+    if (row >= osd_mode->rows)
         return;
 
     uint8_t len = strlen(str);
-    uint8_t available_width = osd_mode.border_enabled ? (osd_mode.columns - 2) : osd_mode.columns;
+    uint8_t available_width = osd_mode->border_enabled ? (osd_mode->columns - 2) : osd_mode->columns;
 
     if (len > available_width)
         len = available_width;
 
-    uint8_t start_col = osd_mode.border_enabled ? 1 : 0;
+    uint8_t start_col = osd_mode->border_enabled ? 1 : 0;
     uint8_t col = start_col + (available_width - len) / 2;
 
     osd_text_print(row, col, str, fg_color, bg_color, height);
@@ -326,10 +351,10 @@ void osd_text_print_centered(uint8_t row, const char *str, uint8_t fg_color, uin
 
 void osd_text_printf(uint8_t row, uint8_t col, uint8_t fg_color, uint8_t bg_color, uint8_t height, const char *format, ...)
 {
-    if (row >= osd_mode.rows)
+    if (row >= osd_mode->rows)
         return;
 
-    char temp[osd_mode.columns + 1];
+    char temp[osd_mode->columns + 1];
     va_list args;
     va_start(args, format);
     vsnprintf(temp, sizeof(temp), format, args);
@@ -342,13 +367,13 @@ void __not_in_flash_func(osd_render_text_to_buffer)()
 {
     uint16_t y_offset = 0;
 
-    for (uint8_t row = 0; row < osd_mode.rows; row++)
+    for (uint8_t row = 0; row < osd_mode->rows; row++)
     {
         uint8_t height = osd_text_heights[row];
 
-        for (uint8_t col = 0; col < osd_mode.columns; col++)
+        for (uint8_t col = 0; col < osd_mode->columns; col++)
         {
-            uint16_t pos = row * osd_mode.columns + col;
+            uint16_t pos = row * osd_mode->columns + col;
             uint8_t c = (uint8_t)osd_text_buffer[pos];
             uint8_t packed_color = osd_text_colors[pos];
             uint8_t fg_color = (packed_color >> 4) & 0x0F;
@@ -357,7 +382,7 @@ void __not_in_flash_func(osd_render_text_to_buffer)()
             uint16_t x = col * OSD_FONT_WIDTH;
             uint16_t y = row * OSD_FONT_HEIGHT + y_offset;
 
-            osd_draw_char(osd_buffer, osd_mode.width, x, y, c, fg_color, bg_color, height);
+            osd_draw_char(osd_buffer, osd_mode->width, x, y, c, fg_color, bg_color, height);
         }
 
         if (height)
@@ -383,12 +408,12 @@ void __not_in_flash_func(osd_draw_char)(uint8_t *buffer, uint16_t buf_width, uin
             {
                 uint16_t px = x + col;
 
-                if (px >= buf_width || py >= osd_mode.height)
+                if (px >= buf_width || py >= osd_mode->height)
                     continue;
 
                 int buffer_offset = py * (buf_width / 2) + (px / 2);
 
-                if (buffer_offset >= osd_mode.buffer_size)
+                if (buffer_offset >= osd_mode->buffer_size)
                     continue;
 
                 uint8_t pixel_color = (line & (0x80 >> col)) ? fg_color : bg_color;

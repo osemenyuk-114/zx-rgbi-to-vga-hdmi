@@ -425,7 +425,7 @@ void __not_in_flash_func(ff_osd_update)()
 
     if (!settings.ff_osd_config.enabled)
     {
-        ff_osd_set_buttons(0);
+        ff_osd_info.buttons = 0;
         osd_state.visible = false;
         return;
     }
@@ -512,7 +512,7 @@ void __not_in_flash_func(ff_osd_update)()
     }
 #endif
 
-    ff_osd_set_buttons(buttons);
+    ff_osd_info.buttons = buttons;
 
     if (ff_osd_display.on || ff_osd_kbd_active)
     {
@@ -521,24 +521,56 @@ void __not_in_flash_func(ff_osd_update)()
         const uint8_t fg_color = ff_osd_kbd_active ? 0x3 : 7; // Cyan when keyboard controls Gotek
         const uint8_t bg_color = 0;
 
-        osd_mode.x = settings.ff_osd_config.h_position;
-        osd_mode.y = settings.ff_osd_config.v_position ? 2 : 1; // 1 = top, 2 = bottom
-        osd_mode.columns = ff_osd_display.cols;
-
         uint8_t double_height_rows = 0;
 
         for (int i = 0; i < ff_osd_display.rows; i++)
             if ((ff_osd_display.heights >> i) & 1)
                 double_height_rows++;
 
-        osd_mode.rows = ff_osd_display.rows + double_height_rows;
-        osd_mode.border_enabled = false;
-        osd_mode.full_width = true;
-        osd_mode.width = osd_mode.columns * OSD_FONT_WIDTH;
-        osd_mode.height = osd_mode.rows * OSD_FONT_HEIGHT;
-        osd_mode.buffer_size = osd_mode.width * osd_mode.height / 2;
+        uint8_t ff_rows = ff_osd_display.rows;
+        if (ff_rows == 0)
+            ff_rows = 1;
+        if (ff_rows > FF_OSD_ROWS_MAX)
+            ff_rows = FF_OSD_ROWS_MAX;
 
-        osd_set_position();
+        uint8_t new_cols = ff_osd_set_cols(ff_osd_display.cols);
+        uint8_t new_rows = ff_rows + double_height_rows;
+        uint8_t new_hpos = settings.ff_osd_config.h_position;
+        uint8_t new_vpos = settings.ff_osd_config.v_position;
+
+        static uint8_t prev_cols = 0, prev_rows = 0, prev_hpos = 0xFF, prev_vpos = 0xFF;
+
+        if (new_cols != prev_cols || new_rows != prev_rows ||
+            new_hpos != prev_hpos || new_vpos != prev_vpos)
+        {
+            // Hide for one update while mode fields are rebuilt for ISR readers.
+            osd_state.visible = false;
+            barrier();
+
+            prev_cols = new_cols;
+            prev_rows = new_rows;
+            prev_hpos = new_hpos;
+            prev_vpos = new_vpos;
+
+            osd_mode_ff.x = new_hpos;
+            osd_mode_ff.y = new_vpos ? 2 : 1; // 1 = top, 2 = bottom
+            osd_mode_ff.columns = new_cols;
+            osd_mode_ff.rows = new_rows;
+            osd_mode_ff.border_enabled = false;
+            osd_mode_ff.full_width = true;
+            osd_mode_ff.width = new_cols * OSD_FONT_WIDTH;
+            osd_mode_ff.height = new_rows * OSD_FONT_HEIGHT;
+            osd_mode_ff.buffer_size = osd_mode_ff.width * osd_mode_ff.height / 2;
+            osd_mode_ff.text_buffer_size = new_cols * new_rows;
+
+            osd_set_position(&osd_mode_ff);
+            barrier();
+            osd_mode = &osd_mode_ff;
+        }
+        else
+        {
+            osd_mode = &osd_mode_ff;
+        }
 
         uint8_t start_row = 0;
 
@@ -547,7 +579,7 @@ void __not_in_flash_func(ff_osd_update)()
         {
             uint8_t osd_row = start_row + row;
 
-            if (osd_row >= osd_mode.rows)
+            if (osd_row >= osd_mode->rows)
                 break;
 
             // Check if this row should be double-height
@@ -560,7 +592,7 @@ void __not_in_flash_func(ff_osd_update)()
 
             uint8_t out_pos = 0;
 
-            for (uint8_t col = 0; col < ff_osd_display.cols && col < osd_mode.columns; col++)
+            for (uint8_t col = 0; col < ff_osd_display.cols && col < osd_mode->columns; col++)
             {
                 uint8_t glyph = (uint8_t)ff_osd_display.text[row][col];
 

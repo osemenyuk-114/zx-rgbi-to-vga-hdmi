@@ -147,17 +147,17 @@ static void __not_in_flash_func(dma_handler_dvi)()
 
 #ifdef OSD_ENABLE
         // check if OSD is visible and overlaps with current scaled scanline
-        bool osd_active = osd_state.visible && (scaled_y >= osd_mode.start_y && scaled_y < osd_mode.end_y);
+        bool osd_active = osd_state.visible && (scaled_y >= osd_mode->start_y && scaled_y < osd_mode->end_y);
 
         if (osd_active)
         { // calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
-          uint8_t *osd_line = &osd_buffer[(scaled_y - osd_mode.start_y) * (osd_mode.width / 2)];
+          uint8_t *osd_line = &osd_buffer[(scaled_y - osd_mode->start_y) * (osd_mode->width / 2)];
 
           int x = 0;
 
-          if (!osd_mode.full_width)
+          if (!osd_mode->full_width)
           {
-            for (; (x + 4) <= osd_mode.start_x; x += 4)
+            for (; (x + 4) <= osd_mode->start_x; x += 4)
             {
               *line_buf++ = pixels[*scr_line++];
               *line_buf++ = pixels[*scr_line++];
@@ -165,17 +165,17 @@ static void __not_in_flash_func(dma_handler_dvi)()
               *line_buf++ = pixels[*scr_line++];
             }
 
-            for (; x < osd_mode.start_x; x++)
+            for (; x < osd_mode->start_x; x++)
               *line_buf++ = pixels[*scr_line++];
           }
           else
-            for (; x < osd_mode.start_x; x++)
+            for (; x < osd_mode->start_x; x++)
             {
               scr_line++;
               *line_buf++ = pixels[0]; // black pixels
             }
 
-          for (; (x + 4) <= osd_mode.end_x; x += 4)
+          for (; (x + 4) <= osd_mode->end_x; x += 4)
           {
             scr_line += 4;
 
@@ -185,13 +185,13 @@ static void __not_in_flash_func(dma_handler_dvi)()
             *line_buf++ = pixels[*osd_line++];
           }
 
-          for (; x < osd_mode.end_x; x++)
+          for (; x < osd_mode->end_x; x++)
           {
             scr_line++;
             *line_buf++ = pixels[*osd_line++];
           }
 
-          if (!osd_mode.full_width)
+          if (!osd_mode->full_width)
           {
             for (; (x + 4) <= h_visible_area; x += 4)
             {

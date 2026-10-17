@@ -105,7 +105,7 @@ void start_video_output(video_out_type_t output_type)
   set_video_mode_params(*(video_modes[settings.video_out_mode]));
 
 #ifdef OSD_ENABLE
-  osd_set_position();
+  osd_update_positions();
 #endif
 
   switch (output_type)

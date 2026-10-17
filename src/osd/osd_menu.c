@@ -1,4 +1,5 @@
 #include "hardware/timer.h"
+#include "hardware/sync.h"
 
 #include "g_config.h"
 #include "osd_menu.h"
@@ -674,19 +675,12 @@ void osd_menu_update()
 
         if (open_menu)
         {
+            // Hide before geometry switch so ISR never sees menu layout over FF OSD values.
+            osd_state.visible = false;
+            __dmb();
             osd_state.menu_active = true;
             osd_font = osd_font_ram_1;
-            osd_mode.x = 0;
-            osd_mode.y = 0;
-            osd_mode.columns = 30;
-            osd_mode.rows = 15;
-            osd_mode.border_enabled = true;
-            osd_mode.full_width = false;
-            osd_mode.width = osd_mode.columns * OSD_FONT_WIDTH;
-            osd_mode.height = osd_mode.rows * OSD_FONT_HEIGHT;
-            osd_mode.buffer_size = osd_mode.width * osd_mode.height / 2;
-
-            osd_set_position();
+            osd_mode = &osd_mode_menu;
 
             osd_show();
             // Always require a full release after opening to avoid immediate

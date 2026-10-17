@@ -48,7 +48,7 @@
         {
             "label": "Run Project",
             "type": "process",
-            "command": "${userHome}/.pico-sdk/picotool/2.3.0/picotool/picotool",
+            "command": "${userHome}/.pico-sdk/picotool/2.3.1/picotool/picotool",
             "args": [
                 "load",
                 "${command:raspberry-pi-pico.launchTargetPath}",
@@ -60,13 +60,13 @@
             },
             "problemMatcher": [],
             "windows": {
-                "command": "${env:USERPROFILE}/.pico-sdk/picotool/2.3.0/picotool/picotool.exe"
+                "command": "${env:USERPROFILE}/.pico-sdk/picotool/2.3.1/picotool/picotool.exe"
             }
         },
         {
             "label": "Reset to BOOTSEL",
             "type": "process",
-            "command": "${userHome}/.pico-sdk/picotool/2.3.0/picotool/picotool",
+            "command": "${userHome}/.pico-sdk/picotool/2.3.1/picotool/picotool",
             "args": [
                 "reboot",
                 "-f",
@@ -78,7 +78,7 @@
             },
             "problemMatcher": [],
             "windows": {
-                "command": "${env:USERPROFILE}/.pico-sdk/picotool/2.3.0/picotool/picotool.exe"
+                "command": "${env:USERPROFILE}/.pico-sdk/picotool/2.3.1/picotool/picotool.exe"
             }
         },
         {
@@ -89,7 +89,7 @@
                 "Reset to BOOTSEL"
             ],
             "type": "process",
-            "command": "${userHome}/.pico-sdk/picotool/2.3.0/picotool/picotool",
+            "command": "${userHome}/.pico-sdk/picotool/2.3.1/picotool/picotool",
             "args": [
                 "load",
                 "${command:raspberry-pi-pico.launchTargetPath}",
@@ -101,7 +101,7 @@
             },
             "problemMatcher": [],
             "windows": {
-                "command": "${env:USERPROFILE}/.pico-sdk/picotool/2.3.0/picotool/picotool.exe"
+                "command": "${env:USERPROFILE}/.pico-sdk/picotool/2.3.1/picotool/picotool.exe"
             },
             "group": {
                 "kind": "build",
