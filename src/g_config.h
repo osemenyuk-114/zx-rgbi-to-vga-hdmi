@@ -9,7 +9,7 @@
 #include "pico.h"
 #include "pico/time.h"
 
-#define FW_VER "v1.8.2"
+#define FW_VER "v1.8.3"
 
 #if PICO_RP2350
 #define FW_VERSION FW_VER " (PICO 2)"
@@ -19,7 +19,7 @@
 
 #define GIT_REPO_URL_1 "https://github.com/"
 #define GIT_REPO_URL_2 "osemenyuk-114/"
-#define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi-PICOSDK"
+#define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi"
 
 #if defined(BOARD_36LJU22) || defined(BOARD_RP2040_ZERO) || defined(BOARD_LEO_V2)
 
