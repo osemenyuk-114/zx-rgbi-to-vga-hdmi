@@ -100,7 +100,7 @@ Earlier releases of this project (up to v1.8.2) were built with the **Arduino fr
 
 ### Project Structure
 
-- Source reorganized into subfolders: `video/`, `osd/`, `kbd/`, `usb/`, `i2c/`.
+- Source reorganized into subfolders: `video/`, `osd/`, `kbd/`, `usb/`.
 
 ### Performance Improvements
 

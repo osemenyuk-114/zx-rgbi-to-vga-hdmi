@@ -2,7 +2,7 @@
  * osd_kbd.c - Keyboard-to-OSD bridge
  *
  * Centralizes all keyboard→OSD interaction:
- *   - Hotkey detection (F11 → OSD menu, F12 → Gotek)
+ *   - Hotkey detection (F9 → OSD menu, F10 → Gotek)
  *   - Virtual button generation (arrows, Enter, ESC)
  *   - Controlled repeat for arrows (independent of PS/2 typematic)
  *   - Hold tracking for parameter acceleration (frequency, etc.)

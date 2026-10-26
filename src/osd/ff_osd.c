@@ -67,7 +67,7 @@ ff_osd_display_t ff_osd_display = {
 };
 
 uint8_t ff_osd_buttons_rx;      // button state: Gotek -> OSD
-bool ff_osd_kbd_active = false; // F12 toggle: keyboard controls Gotek
+bool ff_osd_kbd_active = false; // F10 toggle: keyboard controls Gotek
 
 // SELECT forwarding state in FlashFloppy mode:
 // - short tap: forwarded on release as a brief pulse
@@ -460,8 +460,8 @@ void ff_osd_update()
     uint8_t buttons = 0;
 
 #ifdef KBD_ENABLE
-    // Check cross-core Gotek toggle request (from keyboard F12)
-    // F12 toggles keyboard control of Gotek without sending any button codes.
+    // Check cross-core Gotek toggle request (from keyboard F10)
+    // F10 toggles keyboard control of Gotek without sending any button codes.
     if (ff_osd_request)
     {
         ff_osd_request = false;
