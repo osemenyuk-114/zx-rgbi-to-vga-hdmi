@@ -1,0 +1,13 @@
+{
+    "configurations": [
+        {
+            "name": "Pico",
+            "configurationProvider": "ms-vscode.cmake-tools",
+            "compilerPath": "${userHome}/.pico-sdk/toolchain/15_2_Rel1/bin/arm-none-eabi-gcc",
+            "cStandard": "c17",
+            "cppStandard": "c++14",
+            "intelliSenseMode": "linux-gcc-arm"
+        }
+    ],
+    "version": 4
+}

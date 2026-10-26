@@ -1,6 +1,6 @@
-# Video timings
+# Video Timings
 
-## Standard VGA timing parameters
+## Standard VGA Timing Parameters
 
 | Mode                                  | 640 x 480     | 800 x 600     | 1280 x 1024   |
 |---------------------------------------|--------------:|--------------:|--------------:|

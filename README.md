@@ -2,14 +2,16 @@
 
 A converter for RGB video signals to modern VGA and HDMI displays.
 
-For detailed hardware and original software information, see the upstream project:  
-🔗 [ZX_RGBI2VGA-HDMI](https://github.com/AlexEkb4ever/ZX_RGBI2VGA-HDMI/)
+For detailed hardware and original software information, see the upstream projects:
 
+[ZX_RGBI2VGA-HDMI](https://github.com/AlexEkb4ever/ZX_RGBI2VGA-HDMI/)
+[RGBI_TO_VGA](https://github.com/tchv71/RGBI_TO_VGA)
+
+---
 
 ## Documentation
 
 - [OSD Menu Guide](docs/OSD_MENU_GUIDE.md) - local button controls, menu tree, and tuning workflow.
-- [FF OSD Guide](docs/FF_OSD_GUIDE.md) - Gotek/FlashFloppy I2C wiring, protocol modes, and host configuration.
 - [VGA Timings](docs/VGA_TIMINGS.md) - supported VGA/DVI timing tables.
 
 ---
@@ -31,34 +33,47 @@ For detailed hardware and original software information, see the upstream projec
   - See [OSD Menu Guide](docs/OSD_MENU_GUIDE.md) for detailed usage instructions.
 - **Configuration via Serial Terminal:**
   - Alternative text-based menu system for headless configuration.
-  - Frequency presets for self-synchronizing capture mode (supports ZX Spectrum 48K/128K pixel clocks).
+  - Frequency presets for self-synchronizing capture mode (ZX Spectrum 48K/128K pixel clocks).
   - Real-time adjustment of all parameters (changes applied immediately).
   - Settings can be saved to flash memory without restart.
+- **Capture Frequency Presets:** OSD and serial menus support preset snap for ZX Spectrum 48K (7.0 MHz) and 128K/+2/+2A/+3 (7.0938 MHz) pixel clocks.
 - **Test/Welcome Screen**
 
 ### Hardware
 
-- **Analog to Digital Conversion:** Converts Analog RGB to digital RGBI.
-  - Based on the project:  
-🔗 [RGBtoHDMI](https://github.com/hoglet67/RGBtoHDMI)
+- **Analog to Digital Conversion:** Converts analog RGB to digital RGBI.
+  - Based on the project:
+    [RGBtoHDMI](https://github.com/hoglet67/RGBtoHDMI)
+
+---
+
+## Removed Features
+
+- Z80 CLK external clock source. Self-sync capture mode is now preferred.
 
 ---
 
 ## Recent Improvements
+
+### Video Output Stability
+
+- DMA IRQ priority set to highest (`PICO_HIGHEST_IRQ_PRIORITY`) in both VGA and DVI drivers.
+
+### Project Structure
+
+- Source reorganized into subfolders: `video/`, `osd/`.
 
 ### Performance Improvements
 
 - **Video Output Optimization**: Streamlined DMA handling for both VGA and DVI/HDMI output modes, resulting in more efficient memory usage and cleaner code structure.
 - **Buffer Management**: Simplified buffer switching mechanisms for improved video processing performance.
 
-### Development Experience
-
-- **PlatformIO Integration**: Full PlatformIO support with Arduino framework for easier development and dependency management.
-- **Arduino IDE builds**: The project can also be built using the Arduino IDE for those who prefer a simpler setup (requires: Optimization **-O3**, USB Stack - **Pico SDK**).
-
 ### Code Quality
 
 - **Settings Integrity**: CRC-32 validation on saved settings — corrupted or uninitialized flash data is detected on boot and automatically replaced with safe defaults.
+- **Memory Safety**: All video buffer allocations are checked — `watchdog_reboot()` on allocation failure prevents undefined behavior.
+- **Dual-Core Synchronization**: Memory barriers (`__dmb()`) on all cross-core flag variables (`stop_core1`, `core1_inactive`, `buf_is_free[]`) ensure correct operation on both RP2040 (Cortex-M0+) and RP2350 (Cortex-M33 with caches).
+- **Clean Video Mode Switching**: ISR state variables (`y`, `scr_buffer`, `active_buf_idx`) are reset on `stop_dvi()`/`stop_vga()`, eliminating first-frame glitches after mode changes.
 - **Memory Optimization**: Reduced unnecessary memory allocations and pointer complexity in video output modules.
 - **Architecture Refinements**: Better separation of concerns between video input capture and output generation systems.
 - **Maintainability**: Cleaner code structure while preserving critical hardware-specific requirements for reliable video processing.

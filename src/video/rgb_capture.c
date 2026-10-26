@@ -1,18 +1,16 @@
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
 #include "hardware/irq.h"
-#include "hardware/structs/pll.h"
-#include "hardware/structs/systick.h"
 
 #include "g_config.h"
 #include "rgb_capture.h"
-#include "pio_programs.h"
+#include "video.pio.h"
 #include "v_buf.h"
 
+// Ring buffer configuration
 #define CAP_LINE_LENGTH 1024
-// the number of DMA buffers can be increased if there is image fluttering
-#define CAP_DMA_BUF_CNT 8
-#define CAP_DMA_BUF_SIZE (CAP_LINE_LENGTH * CAP_DMA_BUF_CNT)
+#define CAP_DMA_BUF_COUNT 16     // 16 line buffers for better granularity
+#define CAP_DMA_BUF_COUNT_LOG2 4 // log2(16) for ring wrapping
 
 extern settings_t settings;
 
@@ -23,11 +21,22 @@ static const pio_program_t *program = NULL;
 
 static uint16_t h_sync_pulse_2;
 static uint16_t v_sync_pulse;
+static volatile uint8_t capture_sync_mask = (uint8_t)(1u << CAP_CS);
 
 volatile uint32_t frame_count = 0;
 
-static uint32_t cap_dma_buf[2][CAP_DMA_BUF_SIZE / 4];
-static uint32_t *cap_dma_buf_addr[2];
+// Ring buffer: 16 line buffers
+static uint8_t cap_dma_buf[CAP_DMA_BUF_COUNT][CAP_LINE_LENGTH];
+static uint8_t *cap_dma_buf_addr[CAP_DMA_BUF_COUNT] __attribute__((aligned(CAP_DMA_BUF_COUNT * 4)));
+
+// DMA handler persistent state (file-scope for reset_capture_state access)
+static int cap_x_s;
+static int cap_y_s;
+static uint cap_CS_idx_s;
+static uint8_t cap_pix8_s;
+static uint8_t *cap_buf8_s;
+static uint8_t *cap_buf;
+static uint32_t cap_active_buf_idx;
 
 void set_capture_frequency(uint32_t frequency)
 {
@@ -82,7 +91,7 @@ int8_t set_capture_delay(int8_t delay)
     settings.delay = delay;
 
   uint16_t pio_capture_offset_delay = pio_capture_0_offset_delay;
-  PIO_CAP->instr_mem[offset + pio_capture_offset_delay] = nop_opcode | (settings.delay << 8);
+  PIO_CAP->instr_mem[offset + pio_capture_offset_delay] = pio_encode_nop() | pio_encode_delay(settings.delay);
 
   return settings.delay;
 }
@@ -100,37 +109,25 @@ void set_pin_inversion_mask(uint8_t pin_inversion_mask)
 
 void __attribute__((hot)) __not_in_flash_func(dma_handler_capture())
 {
-  static int x_s;
-  int x = x_s;
-
-  static int y_s;
-  int y = y_s;
-
-  static uint CS_idx_s = 0;
-  uint CS_idx = CS_idx_s;
-
-  static uint8_t pix8_s;
-  uint8_t pix8 = pix8_s;
+  int x = cap_x_s;
+  int y = cap_y_s;
+  uint CS_idx = cap_CS_idx_s;
+  uint8_t pix8 = cap_pix8_s;
 
   const int shX = settings.shX;
   const int shY = settings.shY;
-  const uint8_t sync_mask = 1u << CS_PIN;
+  const uint8_t sync_mask = capture_sync_mask;
 
-  static uint8_t *cap_buf8_s = g_v_buf;
   uint8_t *cap_buf8 = cap_buf8_s;
-
-  static uint8_t *cap_buf = NULL;
-  static uint32_t active_buf_idx = 0;
 
   dma_hw->ints1 = 1u << dma_ch1;
 
-  uint32_t cur_buf_idx = active_buf_idx & 1u;
-  dma_channel_set_read_addr(dma_ch1, &cap_dma_buf_addr[cur_buf_idx], false);
+  uint32_t cur_buf_idx = cap_active_buf_idx % CAP_DMA_BUF_COUNT;
 
-  uint8_t *buf8 = (uint8_t *)cap_dma_buf[cur_buf_idx];
-  uint8_t *const buf8_end = buf8 + CAP_DMA_BUF_SIZE;
+  uint8_t *buf8 = cap_dma_buf[cur_buf_idx];
+  uint8_t *const buf8_end = buf8 + CAP_LINE_LENGTH;
 
-  active_buf_idx++;
+  cap_active_buf_idx++;
 
   while (buf8 < buf8_end)
   {
@@ -190,20 +187,30 @@ void __attribute__((hot)) __not_in_flash_func(dma_handler_capture())
     y = -shY - 1;
   }
 
-  x_s = x;
-  y_s = y;
-  pix8_s = pix8;
+  cap_x_s = x;
+  cap_y_s = y;
+  cap_pix8_s = pix8;
   cap_buf8_s = cap_buf8;
-  CS_idx_s = CS_idx;
+  cap_CS_idx_s = CS_idx;
 }
 
 void start_capture()
 {
+  // Reset capture handler state (video buffers cleared later at frame_count == 5)
+  cap_x_s = 0;
+  cap_y_s = 0;
+  cap_CS_idx_s = 0;
+  cap_pix8_s = 0;
+  cap_buf8_s = g_v_buf;
+  cap_buf = NULL;
+  cap_active_buf_idx = 0;
+  frame_count = 0;
+
   uint8_t pin_inversion_mask = settings.pin_inversion_mask;
 
   // video timing variables measured in pixels
-  h_sync_pulse_2 = 3 * settings.frequency / 1000000; // 3 µs - 1/2 of the H_SYNC pulse
-  v_sync_pulse = 30 * settings.frequency / 1000000;  // 30 µs - V_SYNC pulse
+  h_sync_pulse_2 = 3 * (uint16_t)(settings.frequency / 1000000); // 3 µs - 1/2 of the H_SYNC pulse
+  v_sync_pulse = 30 * (uint16_t)(settings.frequency / 1000000);  // 30 µs - V_SYNC pulse
 
   // set capture pins
   for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)
@@ -215,9 +222,9 @@ void start_capture()
     pin_inversion_mask >>= 1;
   }
 
-  // Initialize buffer address array
-  cap_dma_buf_addr[0] = cap_dma_buf[0];
-  cap_dma_buf_addr[1] = cap_dma_buf[1];
+  // Initialize ring buffer address array
+  for (int i = 0; i < CAP_DMA_BUF_COUNT; i++)
+    cap_dma_buf_addr[i] = cap_dma_buf[i];
 
   // PIO initialization
   pio_sm_config c = pio_get_default_sm_config();
@@ -231,7 +238,7 @@ void start_capture()
   set_capture_delay(settings.delay);
 
   sm_config_set_in_pins(&c, CAP_PIN_D0);
-  sm_config_set_jmp_pin(&c, CS_PIN);
+  sm_config_set_jmp_pin(&c, CAP_CS);
 
   sm_config_set_in_shift(&c, true, false, 32); // 32-bit push with direct byte-order DMA reads
   sm_config_set_fifo_join(&c, PIO_FIFO_JOIN_RX);
@@ -262,9 +269,9 @@ void start_capture()
   dma_channel_configure(
       dma_ch0,
       &c0,
-      &cap_dma_buf[0][0],    // write address
+      cap_dma_buf[0],        // write address (will be updated by control channel)
       &PIO_CAP->rxf[SM_CAP], // read address
-      CAP_DMA_BUF_SIZE / 4,  //
+      CAP_LINE_LENGTH / 4,   // transfer count in 32-bit words (1024 bytes / 4)
       false                  // don't start yet
   );
 
@@ -272,16 +279,17 @@ void start_capture()
   dma_channel_config c1 = dma_channel_get_default_config(dma_ch1);
 
   channel_config_set_transfer_data_size(&c1, DMA_SIZE_32);
-  channel_config_set_read_increment(&c1, false);
+  channel_config_set_read_increment(&c1, true);
   channel_config_set_write_increment(&c1, false);
-  channel_config_set_chain_to(&c1, dma_ch0); // chain to other channel
+  channel_config_set_ring(&c1, false, 2 + CAP_DMA_BUF_COUNT_LOG2); // ring on read address
+  channel_config_set_chain_to(&c1, dma_ch0);                       // chain to data channel
 
   dma_channel_configure(
       dma_ch1,
       &c1,
       &dma_hw->ch[dma_ch0].write_addr, // write address
-      &cap_dma_buf_addr[0],            // read address
-      1,                               //
+      cap_dma_buf_addr,                // read address (with ring wrapping)
+      1,                               // transfer 1 address pointer
       false                            // don't start yet
   );
 
@@ -291,7 +299,7 @@ void start_capture()
   irq_set_exclusive_handler(DMA_IRQ_1, dma_handler_capture);
   irq_set_enabled(DMA_IRQ_1, true);
 
-  dma_start_channel_mask((1u << dma_ch0));
+  dma_channel_start(dma_ch0);
 }
 
 void stop_capture()
@@ -312,8 +320,4 @@ void stop_capture()
   dma_channel_cleanup(dma_ch1);
   dma_channel_unclaim(dma_ch0);
   dma_channel_unclaim(dma_ch1);
-
-  // reset buffer pointers
-  cap_dma_buf_addr[0] = NULL;
-  cap_dma_buf_addr[1] = NULL;
 }

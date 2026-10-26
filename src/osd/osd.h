@@ -16,10 +16,6 @@
 #define OSD_COLOR_SELECTED 0b00111111   // Bright white
 #define OSD_COLOR_BORDER 0b00010101     // White
 
-// Button pins
-#define OSD_BTN_UP 26
-#define OSD_BTN_DOWN 27
-#define OSD_BTN_SEL 28
 // Long-hold threshold used by OSD activation and release blocker.
 #define OSD_HOLD_US 1000000u
 

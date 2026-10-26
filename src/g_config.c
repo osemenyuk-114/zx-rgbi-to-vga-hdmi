@@ -2,7 +2,7 @@
 
 video_mode_t mode_640x480_60Hz = {
     .sys_freq = 252000,
-    .pixel_freq = 25175000.0,
+    .pixel_freq = 25200000.0, // 25175000.0,
     .h_visible_area = 640,
     .v_visible_area = 480,
     .whole_line = 800,
@@ -68,6 +68,11 @@ video_mode_t mode_1280x1024_60Hz_d4 = {
     .div = 4,
 };
 
-video_mode_t *video_modes[] = {&mode_640x480_60Hz, &mode_720x576_50Hz, &mode_800x600_60Hz, &mode_1280x1024_60Hz_d4};
+video_mode_t *video_modes[VIDEO_MODE_MAX + 1] = {
+    [MODE_640x480_60Hz] = &mode_640x480_60Hz,
+    [MODE_720x576_50Hz] = &mode_720x576_50Hz,
+    [MODE_800x600_60Hz] = &mode_800x600_60Hz,
+    [MODE_1280x1024_60Hz_d4] = &mode_1280x1024_60Hz_d4,
+};
 
 uint8_t g_v_buf[V_BUF_SZ];

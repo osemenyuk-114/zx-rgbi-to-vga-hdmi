@@ -2,15 +2,27 @@
 
 #include "hardware/flash.h"
 #include "hardware/sync.h"
-#include "hardware/watchdog.h"
 
 #include "g_config.h"
 #include "settings.h"
 
 extern volatile bool stop_core1;
 extern volatile bool core1_inactive;
+extern volatile bool restart_capture;
 
 extern settings_t settings;
+
+settings_t default_settings = {
+    .video_out_type = VIDEO_OUT_TYPE_DEF,
+    .video_out_mode = VIDEO_OUT_MODE_DEF,
+    .scanlines_mode = false,
+    .frequency = FREQUENCY_DEF,
+    .delay = DELAY_DEF,
+    .shX = shX_DEF,
+    .shY = shY_DEF,
+    .pin_inversion_mask = PIN_INVERSION_MASK_DEF,
+    .crc = 0,
+};
 
 void check_settings(settings_t *settings)
 {
@@ -50,14 +62,7 @@ void check_settings(settings_t *settings)
 
 void reset_settings_to_defaults(settings_t *settings)
 {
-  settings->video_out_type = VIDEO_OUT_TYPE_DEF;
-  settings->video_out_mode = VIDEO_OUT_MODE_DEF;
-  settings->frequency = FREQUENCY_DEF;
-  settings->delay = DELAY_DEF;
-  settings->shX = shX_DEF;
-  settings->shY = shY_DEF;
-  settings->pin_inversion_mask = PIN_INVERSION_MASK_DEF;
-  settings->scanlines_mode = false;
+  memcpy(settings, &default_settings, sizeof(settings_t));
   settings->crc = calculate_settings_crc(settings);
 }
 
@@ -99,8 +104,10 @@ void save_settings(settings_t *settings)
 
   stop_core1 = true;
 
+  __dmb();
+
   while (!core1_inactive)
-    ;
+    __dmb();
 
   uint32_t ints = save_and_disable_interrupts();
 
@@ -108,6 +115,11 @@ void save_settings(settings_t *settings)
   flash_range_program((PICO_FLASH_SIZE_BYTES - FLASH_SECTOR_SIZE), (uint8_t *)settings, FLASH_PAGE_SIZE);
 
   restore_interrupts_from_disabled(ints);
+
+  // Force core 1 to re-enter the capture initialization path after flash save.
+  restart_capture = true;
+
+  __dmb();
 
   stop_core1 = false;
   core1_inactive = false;

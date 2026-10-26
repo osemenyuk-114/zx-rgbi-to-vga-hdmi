@@ -1,6 +1,6 @@
 #pragma once
 
-// Serial menu system for RGB to VGA/HDMI converter
+// Serial menu system for RGB to VGA/HDMI converter.
 
 // Menu print functions
 void print_main_menu();

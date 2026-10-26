@@ -1,13 +1,20 @@
 #pragma once
 
-#include <Arduino.h>
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <stdint.h>
+#include <stdbool.h>
 
 #include "pico.h"
 #include "pico/time.h"
 
-// FW_VERSION can be overridden at build time via -DFW_VERSION="..."
-#ifndef FW_VERSION
-#define FW_VERSION "v1.7.0"
+#define FW_VER "v1.8.3"
+
+#if PICO_RP2350
+#define FW_VERSION FW_VER " (PICO 2)"
+#else
+#define FW_VERSION FW_VER
 #endif
 
 #define GIT_REPO_URL_1 "https://github.com/"
@@ -15,8 +22,100 @@
 #define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi/"
 #define GIT_REPO_URL_4 "tree/6bit-color"
 
-#define BOARD_CODE_36LJU22
-// #define BOARD_CODE_09LJV23
+#if defined(BOARD_36LJU22) || defined(BOARD_RP2040_ZERO)
+#define VIDEO_OUTPUT_AUTO_DETECT
+
+#ifdef BOARD_36LJU22
+#define HW_VERSION "36LJU22"
+#elif BOARD_RP2040_ZERO
+#define HW_VERSION "RP2040 Zero"
+#define WS2812_LED_ENABLE
+#endif
+
+#define DVI_PIN_D0 8
+#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
+#define VGA_PIN_D0 DVI_PIN_D0
+#define CAP_PIN_D0 0
+#define OSD_BTN_UP 26
+#define OSD_BTN_DOWN 27
+#define OSD_BTN_SEL 28
+
+#elif defined(BOARD_11XGA24_1) || defined(BOARD_11XGA24_2)
+
+#define HW_VERSION "11XGA24"
+#define DVI_PINS_REVERSED // DVI pins are in reverse order (D0 is the last pin, D5 is the first)
+#define VGA_PINS_SWAPPED  // VGA R and B pins are swapped
+
+#ifdef BOARD_11XGA24_1
+
+#define DVI_PIN_D0 2
+#define DVI_PIN_CLK0 0
+#define VGA_PIN_D0 8
+
+#else
+
+#define DVI_PIN_D0 10
+#define DVI_PIN_CLK0 8
+#define VGA_PIN_D0 0
+
+#endif
+
+#define CAP_PIN_D0 16
+#define OSD_BTN_UP 26
+#define OSD_BTN_DOWN 27
+#define OSD_BTN_SEL 28
+
+#elif defined(BOARD_09LJV23)
+
+#define HW_VERSION "09LJV23"
+#define VIDEO_OUTPUT_AUTO_DETECT
+#define DVI_PIN_D0 7
+#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
+#define VGA_PIN_D0 DVI_PIN_D0
+#define CAP_PIN_D0 0
+#define OSD_BTN_UP 26
+#define OSD_BTN_DOWN 27
+#define OSD_BTN_SEL 28
+
+#else
+
+#error "Unsupported board variant. Please define the board variant in CMakeLists.txt."
+
+#endif
+
+// capture pins bit positions
+#define CAP_R1 0
+#define CAP_R0 1
+#define CAP_G1 2
+#define CAP_G0 3
+#define CAP_B1 4
+#define CAP_B0 5
+#define CAP_CS 6
+
+// capture GPIO pin numbers
+#define CAP_HS_PIN (CAP_PIN_D0 + CAP_HS)
+#define CAP_VS_PIN (CAP_PIN_D0 + CAP_VS)
+#define CAP_F_PIN (CAP_PIN_D0 + CAP_F)
+
+// PIO and SM for DVI
+#define PIO_DVI pio0
+#define DREQ_PIO_DVI DREQ_PIO0_TX0
+#define SM_DVI 0
+#define SM_DVI_CONV (SM_DVI + 1)
+
+// PIO and SM for VGA
+#define PIO_VGA pio0
+#define DREQ_PIO_VGA DREQ_PIO0_TX0
+#define SM_VGA 0
+
+// capture PIO and SM
+#define PIO_CAP pio1
+#define DREQ_PIO_CAP DREQ_PIO1_RX0
+#define SM_CAP 0
+
+// PIO and SM for WS2812B RGB LED (on PIO0 to avoid PIO1 memory pressure)
+#define PIO_WS2812 pio0
+#define SM_WS2812 2
 
 typedef enum video_out_type_t
 {
@@ -68,59 +167,9 @@ typedef struct video_mode_t
   uint8_t div;
 } video_mode_t;
 
-extern video_mode_t mode_640x480_60Hz;
-extern video_mode_t mode_720x576_50Hz;
-extern video_mode_t mode_800x600_60Hz;
-extern video_mode_t mode_1280x1024_60Hz_d4;
-
-extern video_mode_t *video_modes[];
+extern video_mode_t *video_modes[VIDEO_MODE_MAX + 1];
 
 extern uint8_t g_v_buf[];
-
-// board pin configurations
-#ifdef BOARD_CODE_36LJU22
-// first VGA pin
-#define VGA_PIN_D0 8
-// DVI pins
-#define DVI_PIN_D0 VGA_PIN_D0
-#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
-#else
-// 09LJV23 and others
-// first VGA pin
-#define VGA_PIN_D0 7
-// DVI pins
-#define DVI_PIN_D0 VGA_PIN_D0
-#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
-#endif
-
-// DVI settings
-// #define DVI_PIN_invert_diffpairs
-// #define DVI_PIN_RGB_notBGR
-
-// capture pins
-#define CAP_PIN_D0 0
-#define R1_PIN CAP_PIN_D0
-#define R0_PIN (CAP_PIN_D0 + 1)
-#define G1_PIN (CAP_PIN_D0 + 2)
-#define G0_PIN (CAP_PIN_D0 + 3)
-#define B1_PIN (CAP_PIN_D0 + 4)
-#define B0_PIN (CAP_PIN_D0 + 5)
-#define CS_PIN (CAP_PIN_D0 + 6)
-
-// PIO and SM for VGA
-#define PIO_VGA pio0
-#define DREQ_PIO_VGA DREQ_PIO0_TX0
-#define SM_VGA 0
-
-// PIO and SM for DVI
-#define PIO_DVI pio0
-#define DREQ_PIO_DVI DREQ_PIO0_TX0
-#define SM_DVI 0
-
-// capture PIO and SM
-#define PIO_CAP pio1
-#define DREQ_PIO_CAP DREQ_PIO1_RX0
-#define SM_CAP 0
 
 // settings MIN values
 #define VIDEO_OUT_TYPE_MIN OUTPUT_TYPE_MIN
@@ -135,8 +184,8 @@ extern uint8_t g_v_buf[];
 #define VIDEO_OUT_MODE_MAX VIDEO_MODE_MAX
 #define FREQUENCY_MAX 10000000
 #define DELAY_MAX 31
-#define shX_MAX 200
-#define shY_MAX 200
+#define shX_MAX 100
+#define shY_MAX 100
 #define PIN_INVERSION_MASK 0x7f
 
 // settings DEFAULT values
@@ -166,3 +215,7 @@ extern uint8_t g_v_buf[];
 // thin - show scanline once every four lines
 // thick - show scanline twice in four lines
 #define SCANLINES_USE_THIN
+
+#if defined(OSD_MENU_ENABLE)
+#define OSD_ENABLE
+#endif

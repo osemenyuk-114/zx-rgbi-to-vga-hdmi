@@ -6,12 +6,13 @@
 
 Connect three push buttons to the Raspberry Pi Pico (pins 31-34):
 
-| Button | GPIO   | Pico Pin | Connection                            |
-|--------|--------|----------|---------------------------------------|
-| UP     | GPIO26 | 31       | Connect button between GPIO26 and GND |
-| DOWN   | GPIO27 | 32       | Connect button between GPIO27 and GND |
-| GND    | GND    | 33       | Common ground for all buttons         |
-| SEL    | GPIO28 | 34       | Connect button between GPIO28 and GND |
+| Button | GPIO   | Pico Pin |
+|--------|--------|----------|
+| UP     | GPIO26 | 31       |
+| DOWN   | GPIO27 | 32       |
+| GND    | GND    | 33       |
+
+Connect each button between its GPIO pin and GND.
 
 **Notes:**
 
@@ -39,7 +40,7 @@ Connect three push buttons to the Raspberry Pi Pico (pins 31-34):
 
 ### Video Output Type Toggle
 
-- **Hold SEL for 5+ seconds** - Toggles between VGA and DVI output
+- **Hold SEL for 5+ seconds** - toggle between VGA and DVI output
   - Does not open menu
   - Automatically switches output and resets to default resolution
   - Short press of SEL has no action when menu is closed
@@ -74,8 +75,8 @@ SCANLINES    ON/OFF          - Scanline filter (VGA only, certain modes)
 
 **Available Modes:**
 
-- **DVI:** 640x480@60Hz, 720x576@50Hz
-- **VGA:** 640x480@60Hz, 800x600@60Hz, 1280x1024@60Hz (DIV4)
+- **DVI:** 640×480@60Hz, 720×576@50Hz
+- **VGA:** 640×480@60Hz, 800×600@60Hz, 1280×1024@60Hz (DIV4)
 
 ### CAPTURE SETTINGS
 
@@ -97,6 +98,17 @@ MASK      >                  - Pin inversion mask submenu
 - After 1s: 1 kHz steps
 - After 2s: 10 kHz steps
 - After 5s: 100 kHz steps
+
+**FREQ Presets:**
+
+- **7,000,000 Hz** — ZX Spectrum 16K/48K
+- **7,093,800 Hz** — ZX Spectrum 128/+2/+2A/+3
+- While holding UP/DOWN, the value automatically snaps to the nearest preset when approaching it
+- After snapping, counting stops until the button is released
+
+**Toggle Parameters (MODE, SYNC):**
+
+- Press SEL to toggle between values
 
 ### PIN INVERSION MASK
 
@@ -139,6 +151,7 @@ RESET TO DEFAULTS
 
 ```text
 VERSION   [version number]
+BOARD     [board variant]
 
 https://github.com/
 osemenyuk-114/
@@ -151,9 +164,10 @@ tree/6bit-color
 Displays:
 
 - Current firmware version
+- Board variant identifier
 - Project GitHub URL (with branch)
 
-Press SEL on BACK to return to main menu.
+Press SEL on BACK to return to the main menu.
 
 ## Visual Indicators
 
@@ -185,7 +199,7 @@ To exit without saving, select **EXIT** instead.
 
 ## Tips
 
-- Menu has 10-second auto-timeout - any button press resets the timer
+- Menu has a 10-second auto-timeout; any button press resets the timer
 - Dimmed items indicate unavailable settings (e.g., SCANLINES on DVI or when not in DIV4 mode)
 - Tuning mode allows real-time adjustment while viewing the image
 - Video mode changes only restart output if the resolution actually changed

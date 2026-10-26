@@ -12,9 +12,9 @@
 #include "osd_menu.h"
 #endif
 
-#define DEBOUNCE_TIME_US 250000 // 250ms debounce (slower cursor movement)
-#define REPEAT_DELAY_US 500000  // 500ms initial repeat delay
-#define REPEAT_RATE_US 100000   // 100ms repeat rate
+#define DEBOUNCE_TIME_US 20000 // 20ms debounce (mechanical bounce filter only)
+#define REPEAT_DELAY_US 400000 // 400ms initial repeat delay
+#define REPEAT_RATE_US 80000   // 80ms repeat rate
 
 extern video_mode_t video_mode;
 extern int16_t h_visible_area;
@@ -523,6 +523,10 @@ void osd_buttons_update()
         else
         { // Button released
             *button_pressed[i] = false;
+
+            if (osd_buttons.key_held[i])
+                osd_buttons.last_press_time[i] = current_time; // debounce from release edge
+
             osd_buttons.key_held[i] = false;
         }
     }
