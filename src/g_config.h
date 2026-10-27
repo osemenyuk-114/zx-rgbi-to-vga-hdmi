@@ -20,7 +20,7 @@
 #define GIT_REPO_URL_1 "https://github.com/"
 #define GIT_REPO_URL_2 "osemenyuk-114/"
 #define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi/"
-#define GIT_REPO_URL_4 "tree/6bit-color"
+#define GIT_REPO_URL_4 "tree/feat/6bit-color"
 
 #if defined(BOARD_36LJU22) || defined(BOARD_RP2040_ZERO)
 #define VIDEO_OUTPUT_AUTO_DETECT
