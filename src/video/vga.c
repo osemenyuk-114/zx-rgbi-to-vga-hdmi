@@ -52,8 +52,7 @@ static uint32_t *v_out_sync_vsync;    // pre-filled V-sync line (VH sync)
 // ISR state (file-scope for reset in stop_vga)
 static uint16_t y = 0;
 static uint8_t *scr_buffer = NULL;
-// 2KB-aligned palette for better cache performance (compile-time alignment)
-static uint16_t palette[256] __attribute__((aligned(2048)));
+static uint16_t palette[256];
 
 static void __not_in_flash_func(dma_handler_vga)()
 {

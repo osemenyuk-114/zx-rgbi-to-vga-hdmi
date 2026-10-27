@@ -26,7 +26,7 @@ volatile bool ff_osd_needs_i2c_init = false;
 static const uint I2C_SLAVE_SDA_PIN = I2C_PIN_SDA;
 static const uint I2C_SLAVE_SCL_PIN = I2C_PIN_SCL;
 
-// 100 kHz: I2C Standard Mode, matching flashfloppy setting
+// 100 kHz: I2C Standard Mode, matching FlashFloppy setting
 #define I2C_BAUDRATE 100000
 
 #define FF_OSD_FW_VER "1.9"

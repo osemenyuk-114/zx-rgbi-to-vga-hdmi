@@ -136,13 +136,11 @@ static void __not_in_flash_func(dma_handler_dvi)()
     {
       active_buf_idx++;
 
-      uint32_t *active_buf = v_out_dma_buf[active_buf_idx & 1];
-
       if (scr_buffer != NULL)
       {
         uint16_t scaled_y = y / video_mode.div;
         uint8_t *scr_line = &scr_buffer[scaled_y * (V_BUF_W / 2)];
-        uint32_t *line_buf = active_buf;
+        uint32_t *line_buf = v_out_dma_buf[active_buf_idx & 1];
 
 #ifdef OSD_ENABLE
         // check if OSD is visible and overlaps with current scaled scanline
