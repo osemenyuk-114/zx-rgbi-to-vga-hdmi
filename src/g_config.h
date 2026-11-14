@@ -9,7 +9,7 @@
 #include "pico.h"
 #include "pico/time.h"
 
-#define FW_VER "v1.8.3"
+#define FW_VER "v1.8.4"
 
 #if PICO_RP2350
 #define FW_VERSION FW_VER " (PICO 2)"
@@ -332,6 +332,8 @@ typedef struct video_mode_t
   uint8_t v_back_porch;
   uint8_t sync_polarity;
   uint8_t div;
+  int16_t shX;
+  int16_t shY;
 } video_mode_t;
 
 extern video_mode_t *video_modes[VIDEO_MODE_MAX + 1];

@@ -426,6 +426,9 @@ void osd_menu_update()
                             osd_menu_state.original_video_mode != settings.video_out_mode)
                         {
                             stop_video_output();
+                            // Update the horizontal and vertical shift values for the new video mode
+                            settings.shX = video_modes[settings.video_out_mode]->shX;
+                            settings.shY = video_modes[settings.video_out_mode]->shY;
                             start_video_output(active_video_output);
                             // Adjust capture frequency for new system clock
                             set_capture_frequency(settings.frequency);

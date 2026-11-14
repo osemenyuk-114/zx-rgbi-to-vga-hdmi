@@ -15,6 +15,8 @@ video_mode_t mode_640x480_60Hz = {
     .v_back_porch = 33,
     .sync_polarity = 0b11000000, // negative
     .div = 2,
+    .shX = 68,
+    .shY = 34,
 };
 
 video_mode_t mode_720x576_50Hz = {
@@ -32,6 +34,8 @@ video_mode_t mode_720x576_50Hz = {
     .v_back_porch = 39,
     .sync_polarity = 0b11000000, // negative
     .div = 2,
+    .shX = 48,
+    .shY = 12,
 };
 
 video_mode_t mode_800x600_60Hz = {
@@ -49,6 +53,8 @@ video_mode_t mode_800x600_60Hz = {
     .v_back_porch = 23,
     .sync_polarity = 0b00000000, // positive
     .div = 2,
+    .shX = 46,
+    .shY = 4,
 };
 
 video_mode_t mode_1024x768_60Hz_d3 = {
@@ -66,6 +72,8 @@ video_mode_t mode_1024x768_60Hz_d3 = {
     .v_back_porch = 29,
     .sync_polarity = 0b11000000, // negative
     .div = 3,
+    .shX = 58,
+    .shY = 27,
 };
 
 video_mode_t mode_1024x768_60Hz_d4 = {
@@ -83,6 +91,8 @@ video_mode_t mode_1024x768_60Hz_d4 = {
     .v_back_porch = 29,
     .sync_polarity = 0b11000000, // negative
     .div = 4,
+    .shX = 99,
+    .shY = 58,
 };
 
 video_mode_t mode_1280x1024_60Hz_d3 = {
@@ -100,6 +110,8 @@ video_mode_t mode_1280x1024_60Hz_d3 = {
     .v_back_porch = 38,
     .sync_polarity = 0b00000000, // positive
     .div = 3,
+    .shX = 46,
+    .shY = 2,
 };
 
 video_mode_t mode_1280x1024_60Hz_d4 = {
@@ -117,6 +129,8 @@ video_mode_t mode_1280x1024_60Hz_d4 = {
     .v_back_porch = 38,
     .sync_polarity = 0b00000000, // positive
     .div = 4,
+    .shX = 68,
+    .shY = 27,
 };
 
 video_mode_t *video_modes[VIDEO_MODE_MAX + 1] = {
