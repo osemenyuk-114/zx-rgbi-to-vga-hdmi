@@ -23,38 +23,12 @@ settings_t default_settings = {
     .delay = DELAY_DEF,
     .shX = shX_DEF,
     .shY = shY_DEF,
-
-#if defined(BOARD_LEO_V2) || defined(BOARD_LEO_V3) || defined(BOARD_LEO_V3_2040BT)
-    .video_sync_mode = true,
-    .pin_inversion_mask = (1 << CAP_VS) | PIN_INVERSION_MASK_DEF,
-#else
     .video_sync_mode = false,
     .pin_inversion_mask = PIN_INVERSION_MASK_DEF,
-#endif
 
-#ifdef OSD_FF_ENABLE
-    .ff_osd_config = {
-
-#if defined(BOARD_LEO_V2) || defined(BOARD_LEO_V3) || defined(BOARD_LEO_V3_2040BT)
-        .enabled = true,
-#else
-        .enabled = false,
-#endif
-
-        .i2c_protocol = true,
-        .cols = FF_OSD_COLUMNS_MAX,
-        .rows = 3,
-        .h_position = 3,
-        .v_position = false,
-    },
-#endif
-
-#if defined(BOARD_LEO_V3) || defined(BOARD_LEO_V3_2040BT)
-    .hw_config = {
-        .rom_bank = HW_ROM_BANK_DEF,
-        .ram_size = HW_RAM_SIZE_DEF,
-        .gotek_drive = HW_GOTEK_DRIVE_DEF,
-    },
+#ifdef HDMI_AUDIO_ENABLE
+    .audio_enabled = true,
+    .audio_mode = AUDIO_STEREO,
 #endif
 
     .crc = 0,
@@ -103,33 +77,9 @@ void check_settings(settings_t *settings)
     settings->video_sync_mode = false;
   }
 
-#ifdef OSD_FF_ENABLE
-  if (settings->ff_osd_config.cols < FF_OSD_COLUMNS_MIN)
-    settings->ff_osd_config.cols = FF_OSD_COLUMNS_MIN;
-
-  if (settings->ff_osd_config.cols > FF_OSD_COLUMNS_MAX)
-    settings->ff_osd_config.cols = FF_OSD_COLUMNS_MAX;
-
-  if (settings->ff_osd_config.rows < FF_OSD_ROWS_MIN)
-    settings->ff_osd_config.rows = FF_OSD_ROWS_MIN;
-
-  if (settings->ff_osd_config.rows > FF_OSD_ROWS_MAX)
-    settings->ff_osd_config.rows = FF_OSD_ROWS_MAX;
-
-  if (settings->ff_osd_config.h_position < 1)
-    settings->ff_osd_config.h_position = 1;
-
-  if (settings->ff_osd_config.h_position > 5)
-    settings->ff_osd_config.h_position = 5;
-#endif
-
-#if defined(BOARD_LEO_V3) || defined(BOARD_LEO_V3_2040BT)
-  if (settings->hw_config.rom_bank < HW_ROM_BANK_MIN ||
-      settings->hw_config.rom_bank > HW_ROM_BANK_MAX)
-    settings->hw_config.rom_bank = HW_ROM_BANK_DEF;
-
-  if (settings->hw_config.gotek_drive > HW_GOTEK_DRIVE_MAX)
-    settings->hw_config.gotek_drive = HW_GOTEK_DRIVE_DEF;
+#ifdef HDMI_AUDIO_ENABLE
+  if (settings->audio_mode > AUDIO_MODE_MAX)
+    settings->audio_mode = AUDIO_STEREO;
 #endif
 
   settings->crc = calculate_settings_crc(settings);

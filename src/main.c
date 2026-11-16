@@ -14,26 +14,13 @@
 #include "osd.h"
 #endif
 
-#ifdef OSD_FF_ENABLE
-#include "ff_osd.h"
-#endif
-
-#ifdef HW_CONFIG_ENABLE
-#include "hw_config.h"
-#endif
-
-#ifdef KBD_ENABLE
-#include "kbd.h"
-#endif
-
-#ifdef USB_KBD_ENABLE
-#include "tusb.h"
-#include "usb_kbd.h"
-#endif
-
 #ifdef SERIAL_MENU_ENABLE
 #include "pico/stdio_usb.h"
 #include "serial_menu.h"
+#endif
+
+#ifdef HDMI_AUDIO_ENABLE
+#include "hdmi_audio.h"
 #endif
 
 settings_t settings;
@@ -55,17 +42,7 @@ void setup()
   stdio_init_all();
 #endif
 
-#ifdef USB_KBD_ENABLE
-  // Initialize TinyUSB Host directly (not tusb_init() which comes from
-  // pre-compiled libpico.a and is device-mode only).
-  tuh_init(0);
-#endif
-
   load_settings(&settings);
-
-#ifdef HW_CONFIG_ENABLE
-  hw_init(&settings.hw_config);
-#endif
 
 #ifdef VIDEO_OUTPUT_AUTO_DETECT
   settings.video_out_type = detect_video_output_type();
@@ -89,6 +66,10 @@ void setup()
 
 void loop()
 {
+#ifdef HDMI_AUDIO_ENABLE
+  hdmi_audio_poll();
+#endif
+
 #ifdef OSD_ENABLE
   osd_update();
 #endif
@@ -99,34 +80,12 @@ void loop()
 #endif
     handle_serial_menu();
 #endif
-
-#ifdef USB_KBD_ENABLE
-  {
-    static uint32_t last_usb_us = 0;
-    uint32_t now_us = time_us_32();
-
-    if (now_us - last_usb_us >= 500)
-    {
-      usb_kbd_task();
-      last_usb_us = now_us;
-    }
-  }
-#endif
 }
 
 void __attribute__((weak)) setup1()
 {
   while (!start_core0)
     sleep_ms(10);
-
-#ifdef OSD_FF_ENABLE
-  if (settings.ff_osd_config.enabled)
-    ff_osd_i2c_init();
-#endif
-
-#ifdef KBD_ENABLE
-  kbd_init();
-#endif
 
   start_capture();
 }
@@ -135,38 +94,7 @@ void __attribute__((weak)) __not_in_flash_func(loop1())
 {
   uint32_t frame_count_tmp1 = frame_count;
 
-#ifdef OSD_FF_ENABLE
-  if (ff_osd_needs_i2c_init)
-  {
-    ff_osd_i2c_init();
-    ff_osd_needs_i2c_init = false;
-  }
-
-  //  Call osd_process frequently to keep up with I2C data
-  if (settings.ff_osd_config.enabled)
-  {
-    for (int i = 0; i < 100; i++)
-    {
-      ff_osd_i2c_process();
-      sleep_ms(1);
-    }
-  }
-  else
-    sleep_ms(100);
-#else
   sleep_ms(100);
-#endif
-
-#ifdef KBD_ENABLE
-  // Timeout: turn off blue LED if no keyboard activity for this cycle
-  {
-    static uint32_t prev_kbd_cnt = 0;
-    uint32_t cnt = kbd_activity_cnt;
-    if (cnt == prev_kbd_cnt)
-      led_put(LED_B, 0);
-    prev_kbd_cnt = cnt;
-  }
-#endif
 
   if (frame_count > 1)
   {

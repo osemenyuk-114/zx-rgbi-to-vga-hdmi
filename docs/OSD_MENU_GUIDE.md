@@ -4,13 +4,13 @@
 
 ### Button Wiring
 
-Connect three push buttons to the Raspberry Pi Pico on boards where free GPIO inputs are available. Pin assignments depend on the board variant.
+Connect three push buttons to the Raspberry Pi Pico (pins 31-34):
 
-| Button | Most boards | LEO_V3/LEO_V3_2040BT      |
-|--------|-------------|---------------------------|
-| UP     | GPIO26      | Not available (GPIO busy) |
-| DOWN   | GPIO27      | Not available (GPIO busy) |
-| SEL    | GPIO28      | Not available (GPIO busy) |
+| Button | GPIO   | Pico Pin |
+|--------|--------|----------|
+| UP     | GPIO26 | 31       |
+| DOWN   | GPIO27 | 32       |
+| GND    | GND    | 33       |
 
 Connect each button between its GPIO pin and GND.
 
@@ -19,9 +19,6 @@ Connect each button between its GPIO pin and GND.
 - All buttons use internal pull-up resistors (active LOW)
 - Press each button to connect its GPIO pin to GND
 - No external resistors required
-- On LEO V3 variants, local OSD button navigation is not possible: these lines are used as outputs for external hardware configuration, and no free GPIO inputs remain for OSD buttons
-
-For LEO V3 variants, use keyboard hotkeys for OSD navigation (F9, arrows, Enter, Esc).
 
 ## Button Layout
 
@@ -33,9 +30,7 @@ For LEO V3 variants, use keyboard hotkeys for OSD navigation (F9, arrows, Enter,
 
 ### Opening the Menu
 
-- **Default behavior (boards with local buttons):** Press **UP**, **DOWN**, or **SEL** to open the OSD menu
-- **When FF OSD is enabled in FLASHFLOPPY protocol mode (boards with local buttons):** Hold **SEL** for about 1 second to open the menu **only when the Gotek display is currently off**
-- If the Gotek display is on, local buttons stay mapped to Gotek controls; use keyboard **F9** for immediate menu access
+- Press **UP**, **DOWN**, or **SEL** to open the OSD menu
 - When opened by a long hold, input is blocked until all buttons are released once
 
 ### Closing the Menu
@@ -45,11 +40,10 @@ For LEO V3 variants, use keyboard hotkeys for OSD navigation (F9, arrows, Enter,
 
 ### Video Output Type Toggle
 
-- **Hold SEL for 5+ seconds (boards with local buttons)** - toggle between VGA and DVI output
+- **Hold SEL for 5+ seconds** - toggle between VGA and DVI output
   - Does not open menu
   - Automatically switches output and resets to default resolution
   - Short press of SEL has no action when menu is closed
-  - In FLASHFLOPPY protocol mode, this long-press toggle is ignored while Gotek display is on
 
 ## Menu Structure
 
@@ -59,17 +53,10 @@ For LEO V3 variants, use keyboard hotkeys for OSD navigation (F9, arrows, Enter,
 OUTPUT SETTINGS      >
 CAPTURE SETTINGS     >
 IMAGE ADJUST         >
-FF OSD CONFIG        >   (FlashFloppy builds only)
-HARDWARE CONFIG      >   (LEO V3 boards only)
 ABOUT                >
 SAVE
 EXIT
 ```
-
-**Note:**
-
-- **FF OSD CONFIG** is available on firmware builds with FlashFloppy OSD support enabled
-- **HARDWARE CONFIG** is available on LEO V3 and LEO V3 2040BT board variants
 
 ### OUTPUT SETTINGS
 
@@ -173,7 +160,8 @@ BOARD     [board variant]
 
 https://github.com/
 osemenyuk-114/
-zx-rgbi-to-vga-hdmi
+zx-rgbi-to-vga-hdmi/
+tree/feat/hstx
 
 < BACK TO MAIN
 ```
@@ -182,61 +170,9 @@ Displays:
 
 - Current firmware version
 - Board variant identifier
-- Project GitHub URL
+- Project GitHub URL (with branch)
 
 Press SEL on BACK to return to the main menu.
-
-### FF OSD CONFIG
-
-```text
-ENABLE    ON/OFF
-PROTOCOL  FLASHFLOPPY/LCD HD44780
-ROWS      [value]
-COLUMNS   [value]
-H_POS     LEFT..RIGHT
-V_POS     TOP/BOTTOM
-< BACK TO MAIN
-```
-
-This menu configures the optional I2C on-screen display interface for Gotek drives running FlashFloppy.
-
-- **ENABLE** toggles FF OSD runtime state.
-- **PROTOCOL** switches between native **FLASHFLOPPY** and **LCD HD44780** compatibility modes.
-- **ROWS** and **COLUMNS** are editable only in LCD mode.
-- **H_POS** and **V_POS** control FF OSD placement.
-
-To avoid duplicating protocol behavior, addresses, host-side configuration, and troubleshooting, see:
-
-- [FF OSD Guide](FF_OSD_GUIDE.md)
-
-### HARDWARE CONFIG
-
-> Available on **LEO V3** and **LEO V3 2040BT** board variants only.
-
-```text
-ROM BANK    [1..8]
-RAM (KB)    128 / 1024
-GOTEK DRIVE OFF / A / B
-< BACK TO MAIN
-```
-
-**ROM BANK** and **GOTEK DRIVE** use tuning mode:
-
-- Press SEL to enter tuning mode (`>` indicator, bright cyan highlight)
-- Use UP/DOWN to change the value
-- Press SEL again to exit tuning mode
-
-**RAM (KB)** is a direct toggle:
-
-- Press SEL to switch between **128 KB** and **1024 KB**
-- No tuning mode — value changes immediately on each SEL press
-
-**GPIO effect timing:**
-
-- **RAM (KB)** and **GOTEK DRIVE** take effect immediately via GPIO when changed.
-- **ROM BANK** is applied to GPIO immediately before the next **RESET** (**F12** key press); changing it in the menu updates the stored value but does not switch the bank until reset.
-
-Use **SAVE** from the main menu to persist the values across reboot.
 
 ## Visual Indicators
 
@@ -273,4 +209,3 @@ To exit without saving, select **EXIT** instead.
 - Tuning mode allows real-time adjustment while viewing the image
 - Video mode changes only restart output if the resolution actually changed
 - Long SEL press (5s) for quick VGA/DVI toggle without opening menu
-- FF OSD protocol-specific button behavior is documented in [FF OSD Guide](FF_OSD_GUIDE.md)

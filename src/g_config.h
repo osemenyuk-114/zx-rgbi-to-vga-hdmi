@@ -9,7 +9,7 @@
 #include "pico.h"
 #include "pico/time.h"
 
-#define FW_VER "v1.8.2"
+#define FW_VER "v1.9.0"
 
 #if PICO_RP2350
 #define FW_VERSION FW_VER " (PICO 2)"
@@ -19,31 +19,21 @@
 
 #define GIT_REPO_URL_1 "https://github.com/"
 #define GIT_REPO_URL_2 "osemenyuk-114/"
-#define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi-PICOSDK"
+#define GIT_REPO_URL_3 "zx-rgbi-to-vga-hdmi/"
+#define GIT_REPO_URL_$ "tree/feat/hstx"
 
-#if defined(BOARD_36LJU22) || defined(BOARD_RP2040_ZERO) || defined(BOARD_LEO_V2)
+#if defined(BOARD_36LJU22) || defined(BOARD_RP2040_ZERO)
 
 #define VIDEO_OUTPUT_AUTO_DETECT
 
 #ifdef BOARD_36LJU22
 
 #define HW_VERSION "36LJU22"
-#define I2C_PIN_SDA 16
-#define I2C_PIN_SCL 17
-#define I2C_INST i2c0
 
 #else
 
-#ifdef BOARD_RP2040_ZERO
 #define HW_VERSION "RP2040 Zero"
-#else
-#define HW_VERSION "LEO v2"
-#endif
-
 #define WS2812_LED_ENABLE
-#define I2C_PIN_SDA 18
-#define I2C_PIN_SCL 19
-#define I2C_INST i2c1
 
 #endif
 
@@ -55,14 +45,9 @@
 #define OSD_BTN_DOWN 27
 #define OSD_BTN_SEL 28
 
-#elif defined(BOARD_38LJE24) || defined(BOARD_38LJU24)
+#elif defined(BOARD_38LJU24)
 
-#ifdef BOARD_38LJE24
-#define HW_VERSION "38LJE24"
-#else
 #define HW_VERSION "38LJU24"
-#endif
-
 #define VIDEO_OUTPUT_AUTO_DETECT
 #define DVI_PINS_REVERSED // DVI pins are in reverse order (D0 is the last pin, D5 is the first)
 #define DVI_PIN_D0 14
@@ -73,14 +58,12 @@
 #define OSD_BTN_UP 26
 #define OSD_BTN_DOWN 27
 #define OSD_BTN_SEL 28
-#define I2C_PIN_SDA 20
-#define I2C_PIN_SCL 21
-#define I2C_INST i2c0
-#define PS2_PIN_DATA 1
-#define PS2_PIN_CLK 0
-#define KBD_PIN_DATA 2
-#define KBD_PIN_CLK 3
-#define KBD_PIN_STB 4
+
+#ifdef HDMI_AUDIO_ENABLE
+#define HDMI_AUDIO_PIN_DATA 20
+#define HDMI_AUDIO_PIN_BCK 21
+#define HDMI_AUDIO_PIN_LRCK 22
+#endif
 
 #elif defined(BOARD_11XGA24_1) || defined(BOARD_11XGA24_2)
 
@@ -107,57 +90,6 @@
 #define OSD_BTN_DOWN 27
 #define OSD_BTN_SEL 28
 
-#elif defined(BOARD_LEO_V3) || defined(BOARD_LEO_V3_2040BT)
-
-#define VIDEO_OUTPUT_AUTO_DETECT
-#define SPI_KB_ENABLE
-#define HW_CONFIG_ENABLE
-
-#ifdef BOARD_LEO_V3
-
-#define HW_VERSION "LEO v3.0"
-#define WS2812_LED_ENABLE
-#define I2C_PIN_SDA 18
-#define I2C_PIN_SCL 19
-#define I2C_INST i2c1
-
-#else
-
-#define HW_VERSION "LEO v3.0.2040BT"
-#define I2C_PIN_SDA 16
-#define I2C_PIN_SCL 17
-#define I2C_INST i2c0
-// Not used in this board variant, but defined and pulled up to avoid Gotek menu navigation issues
-#define HW_GOTEK_BTN_L 18
-#define HW_GOTEK_BTN_R 19
-
-#endif
-
-#define DVI_PIN_D0 8
-#define DVI_PIN_CLK0 (DVI_PIN_D0 + 6)
-#define VGA_PIN_D0 DVI_PIN_D0
-#define CAP_PIN_D0 0
-
-// Buttons are not connected to GPIOs on LEO v3.0, so use the same GPIOs as the ROM bank pins for OSD buttons
-// Inputs are internally overriden and are read as HIGH to avoid OSD menu navigation issues
-#define NO_OSD_BUTTONS
-#define OSD_BTN_UP 20
-#define OSD_BTN_DOWN 21
-#define OSD_BTN_SEL 22
-
-#define PS2_PIN_DATA 29
-#define PS2_PIN_CLK 28
-#define KBD_PIN_DATA 7
-#define KBD_PIN_CLK 26
-#define KBD_PIN_STB 27
-
-#define HW_PIN_ROM_BANK_D0 20
-#define HW_PIN_ROM_BANK_D1 21
-#define HW_PIN_ROM_BANK_D2 22
-#define HW_PIN_GOTEK_DRIVE_D0 23
-#define HW_PIN_GOTEK_DRIVE_D1 24
-#define HW_PIN_RAM_SIZE 25
-
 #elif defined(BOARD_09LJV23)
 
 #define HW_VERSION "09LJV23"
@@ -169,9 +101,6 @@
 #define OSD_BTN_UP 26
 #define OSD_BTN_DOWN 27
 #define OSD_BTN_SEL 28
-#define I2C_PIN_SDA 16
-#define I2C_PIN_SCL 17
-#define I2C_INST i2c0
 
 #else
 
@@ -199,6 +128,12 @@
 #define SM_DVI 0
 #define SM_DVI_CONV (SM_DVI + 1)
 
+// PIO and SM for the HDMI audio I2S receiver
+// pio0 is otherwise unused by the HSTX video output
+#define PIO_AUDIO pio0
+#define DREQ_PIO_AUDIO DREQ_PIO0_RX0
+#define SM_AUDIO 0
+
 // PIO and SM for VGA
 #define PIO_VGA pio0
 #define DREQ_PIO_VGA DREQ_PIO0_TX0
@@ -208,17 +143,6 @@
 #define PIO_CAP pio1
 #define DREQ_PIO_CAP DREQ_PIO1_RX0
 #define SM_CAP 0
-
-#define PIO_PS2 pio1
-// Use IRQ index 1 (PIO1_IRQ_1) to avoid conflicts with capture SM
-#define PIO_PS2_IRQ PIO1_IRQ_1
-#define SM_PS2 1
-
-#define PIO_CH446Q pio1
-#define SM_CH446Q 2
-
-#define PIO_SPI pio1
-#define SM_SPI 2
 
 // PIO and SM for WS2812B RGB LED (on PIO0 to avoid PIO1 memory pressure)
 #define PIO_WS2812 pio0
@@ -260,41 +184,16 @@ typedef enum cap_sync_mode_t
   SYNC_MODE_MAX = EXT,
 } cap_sync_mode_t;
 
-#ifdef OSD_FF_ENABLE
-typedef struct ff_osd_config_t
+#ifdef HDMI_AUDIO_ENABLE
+typedef enum audio_mode_t
 {
-  bool enabled;
-  bool i2c_protocol; // false = LCD_HD44780, true = FlashFloppy
-  uint16_t cols;
-  uint16_t rows;
-  uint8_t h_position; // 1=left, 2=left-center, 3=center, 4=center-right, 5=right
-  bool v_position;    // false = at the top, true = at the bottom of the screen
-} ff_osd_config_t;
-
-#define FF_OSD_COLUMNS_MIN 16
-#define FF_OSD_COLUMNS_MAX 40
-#define FF_OSD_ROWS_MIN 2
-#define FF_OSD_ROWS_MAX 4
-
-#endif
-
-#ifdef HW_CONFIG_ENABLE
-typedef struct hw_config_t
-{
-  uint8_t rom_bank;    // 1-8
-  bool ram_size;       // false = 128KB, true = 1024KB
-  uint8_t gotek_drive; // 0 = OFF, 1 = A, 2 = B
-} hw_config_t;
-
-#define HW_ROM_BANK_MIN 1
-#define HW_GOTEK_DRIVE_MIN 0
-
-#define HW_ROM_BANK_MAX 8
-#define HW_GOTEK_DRIVE_MAX 2
-
-#define HW_ROM_BANK_DEF 1
-#define HW_RAM_SIZE_DEF true
-#define HW_GOTEK_DRIVE_DEF 1
+  AUDIO_MODE_MIN,
+  AUDIO_STEREO = AUDIO_MODE_MIN,
+  AUDIO_MONO_L,
+  AUDIO_MONO_R,
+  AUDIO_SWAPPED,
+  AUDIO_MODE_MAX = AUDIO_SWAPPED,
+} audio_mode_t;
 
 #endif
 
@@ -305,6 +204,10 @@ typedef struct settings_t
   bool scanlines_mode;
   bool buffering_mode;
   bool video_sync_mode;
+#ifdef HDMI_AUDIO_ENABLE
+  bool audio_enabled;
+  audio_mode_t audio_mode;
+#endif
   cap_sync_mode_t cap_sync_mode;
   uint32_t frequency;
   int8_t ext_clk_divider;
@@ -312,12 +215,6 @@ typedef struct settings_t
   int16_t shX;
   int16_t shY;
   uint8_t pin_inversion_mask;
-#ifdef OSD_FF_ENABLE
-  ff_osd_config_t ff_osd_config;
-#endif
-#ifdef HW_CONFIG_ENABLE
-  hw_config_t hw_config;
-#endif
   uint32_t crc;
 } settings_t;
 
@@ -337,6 +234,8 @@ typedef struct video_mode_t
   uint8_t v_back_porch;
   uint8_t sync_polarity;
   uint8_t div;
+  int16_t shX;
+  int16_t shY;
 } video_mode_t;
 
 extern video_mode_t *video_modes[VIDEO_MODE_MAX + 1];
@@ -394,11 +293,6 @@ extern uint8_t g_v_buf[];
 // thick - show scanline twice in four lines
 #define SCANLINES_USE_THIN
 
-#if defined(OSD_MENU_ENABLE) || defined(OSD_FF_ENABLE)
+#if defined(OSD_MENU_ENABLE)
 #define OSD_ENABLE
-#endif
-
-// Keyboard subsystem meta-flag: enabled if any keyboard backend is enabled
-#if defined(PS2_KBD_ENABLE) || defined(USB_KBD_ENABLE)
-#define KBD_ENABLE
 #endif

@@ -6,13 +6,12 @@
 
 #include "g_config.h"
 #include "dvi.h"
+#include "video.pio.h"
 #include "v_buf.h"
 
 #ifdef OSD_ENABLE
 #include "osd.h"
 #endif
-
-#include "video.pio.h"
 
 extern settings_t settings;
 
@@ -28,11 +27,15 @@ extern int16_t h_visible_area;
 
 static uint32_t *v_out_dma_buf[2];
 static uint32_t *v_out_dma_buf_alloc; // single contiguous allocation for both ping-pong buffers
+static uint32_t *v_out_sync_hblank;   // pre-filled H-blank line (NO_SYNC + H_SYNC + NO_SYNC)
+static uint32_t *v_out_sync_vsync;    // pre-filled V-sync line (V_SYNC + VH_SYNC + V_SYNC)
 
+// ISR state (file-scope for reset in stop_dvi)
+static uint16_t y = 0;
 static uint8_t *scr_buffer = NULL;
 static uint32_t active_buf_idx = 0;
 
-static uint32_t *pixels = NULL;
+static uint32_t pixels[256];
 // 4KB-aligned palette: 20 entries × 16 bytes (4 × uint32_t each)
 // Each entry: {normal_lo, normal_hi, inverted_lo, inverted_hi}
 // Entries 0-15: colors, 16-19: sync patterns
@@ -42,12 +45,6 @@ static const uint8_t NO_SYNC = 16;
 static const uint8_t H_SYNC = 17;
 static const uint8_t V_SYNC = 18;
 static const uint8_t VH_SYNC = 19;
-
-static uint32_t *v_out_sync_hblank; // pre-filled H-blank line (NO_SYNC + H_SYNC + NO_SYNC)
-static uint32_t *v_out_sync_vsync;  // pre-filled V-sync line (V_SYNC + VH_SYNC + V_SYNC)
-
-// ISR state (file-scope for reset in stop_dvi)
-static uint16_t y = 0;
 
 static uint64_t get_ser_diff_data(uint16_t dataR, uint16_t dataG, uint16_t dataB)
 {
@@ -147,17 +144,17 @@ static void __not_in_flash_func(dma_handler_dvi)()
 
 #ifdef OSD_ENABLE
         // check if OSD is visible and overlaps with current scaled scanline
-        bool osd_active = osd_state.visible && (scaled_y >= osd_mode->start_y && scaled_y < osd_mode->end_y);
+        bool osd_active = osd_state.visible && (scaled_y >= osd_mode.start_y && scaled_y < osd_mode.end_y);
 
         if (osd_active)
         { // calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
-          uint8_t *osd_line = &osd_buffer[(scaled_y - osd_mode->start_y) * (osd_mode->width / 2)];
+          uint8_t *osd_line = &osd_buffer[(scaled_y - osd_mode.start_y) * (osd_mode.width / 2)];
 
           int x = 0;
 
-          if (!osd_mode->full_width)
+          if (!osd_mode.full_width)
           {
-            for (; (x + 4) <= osd_mode->start_x; x += 4)
+            for (; (x + 4) <= osd_mode.start_x; x += 4)
             {
               *line_buf++ = pixels[*scr_line++];
               *line_buf++ = pixels[*scr_line++];
@@ -165,17 +162,17 @@ static void __not_in_flash_func(dma_handler_dvi)()
               *line_buf++ = pixels[*scr_line++];
             }
 
-            for (; x < osd_mode->start_x; x++)
+            for (; x < osd_mode.start_x; x++)
               *line_buf++ = pixels[*scr_line++];
           }
           else
-            for (; x < osd_mode->start_x; x++)
+            for (; x < osd_mode.start_x; x++)
             {
               scr_line++;
               *line_buf++ = pixels[0]; // black pixels
             }
 
-          for (; (x + 4) <= osd_mode->end_x; x += 4)
+          for (; (x + 4) <= osd_mode.end_x; x += 4)
           {
             scr_line += 4;
 
@@ -185,13 +182,13 @@ static void __not_in_flash_func(dma_handler_dvi)()
             *line_buf++ = pixels[*osd_line++];
           }
 
-          for (; x < osd_mode->end_x; x++)
+          for (; x < osd_mode.end_x; x++)
           {
             scr_line++;
             *line_buf++ = pixels[*osd_line++];
           }
 
-          if (!osd_mode->full_width)
+          if (!osd_mode.full_width)
           {
             for (; (x + 4) <= h_visible_area; x += 4)
             {
@@ -244,15 +241,14 @@ static void __not_in_flash_func(dma_handler_dvi)()
 
 void start_dvi()
 {
+  int whole_line = video_mode.whole_line;
+
   set_sys_clock_khz(video_mode.sys_freq, true);
   sleep_ms(10);
 
   // pixels[] lookup: each input byte (2 packed 4-bit pixels) → 2 palette indices
   // byte order (LSB first): p1_color, p2_color (each palette entry has norm+inv)
-  pixels = calloc(256, sizeof(uint32_t));
-  if (!pixels)
-    watchdog_reboot(0, 0, 0);
-
+  // pixels[]: byte (2 packed 4-bit pixels) → 2 palette indices
   for (int i = 0; i < 256; i++)
     pixels[i] = (uint32_t)(((i >> 4) << 8) | (i & 0x0f));
 
@@ -316,7 +312,6 @@ void start_dvi()
     gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
   }
 
-  int whole_line = video_mode.whole_line;
   // allocate sync line buffers (pre-filled, never modified)
   v_out_sync_hblank = calloc(whole_line, sizeof(uint8_t));
 
@@ -385,7 +380,7 @@ void start_dvi()
   pio_sm_init(PIO_DVI, SM_DVI_CONV, offset_conv, &c_conv);
   pio_sm_set_enabled(PIO_DVI, SM_DVI_CONV, true);
 
-  // === DMA initialization ===
+  // === DMA initialization (4 channels) ===
   dma_ch0 = dma_claim_unused_channel(true);
   dma_ch1 = dma_claim_unused_channel(true);
   dma_ch2 = dma_claim_unused_channel(true);
@@ -483,16 +478,6 @@ void stop_dvi()
   scr_buffer = NULL;
   active_buf_idx = 0;
 
-  // cleanup and free all DMA channels
-  dma_channel_cleanup(dma_ch0);
-  dma_channel_cleanup(dma_ch1);
-  dma_channel_cleanup(dma_ch2);
-  dma_channel_cleanup(dma_ch3);
-  dma_channel_unclaim(dma_ch0);
-  dma_channel_unclaim(dma_ch1);
-  dma_channel_unclaim(dma_ch2);
-  dma_channel_unclaim(dma_ch3);
-
   // stop output PIO (SM0)
   pio_sm_set_enabled(PIO_DVI, SM_DVI, false);
   pio_sm_init(PIO_DVI, SM_DVI, offset, NULL);
@@ -503,6 +488,16 @@ void stop_dvi()
   pio_sm_init(PIO_DVI, SM_DVI_CONV, offset_conv, NULL);
   pio_remove_program(PIO_DVI, &pio_dvi_conv_program, offset_conv);
 
+  // cleanup and free all 4 DMA channels
+  dma_channel_cleanup(dma_ch0);
+  dma_channel_cleanup(dma_ch1);
+  dma_channel_cleanup(dma_ch2);
+  dma_channel_cleanup(dma_ch3);
+  dma_channel_unclaim(dma_ch0);
+  dma_channel_unclaim(dma_ch1);
+  dma_channel_unclaim(dma_ch2);
+  dma_channel_unclaim(dma_ch3);
+
   // free index buffers (single contiguous allocation)
   if (v_out_dma_buf_alloc != NULL)
   {
@@ -512,13 +507,6 @@ void stop_dvi()
 
   v_out_dma_buf[0] = NULL;
   v_out_dma_buf[1] = NULL;
-
-  // free pixels lookup table
-  if (pixels != NULL)
-  {
-    free(pixels);
-    pixels = NULL;
-  }
 
   // free sync buffers
   if (v_out_sync_hblank != NULL)

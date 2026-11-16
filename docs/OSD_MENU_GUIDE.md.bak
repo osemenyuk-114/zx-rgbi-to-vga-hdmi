@@ -1,0 +1,215 @@
+# OSD Menu Guide
+
+## Hardware Connections
+
+### Button Wiring
+
+Connect three push buttons to the Raspberry Pi Pico on boards where free GPIO inputs are available. Pin assignments depend on the board variant.
+
+| Button | Most boards | LEO_V3/LEO_V3_2040BT      |
+|--------|-------------|---------------------------|
+| UP     | GPIO26      | Not available (GPIO busy) |
+| DOWN   | GPIO27      | Not available (GPIO busy) |
+| SEL    | GPIO28      | Not available (GPIO busy) |
+
+Connect each button between its GPIO pin and GND.
+
+**Notes:**
+
+- All buttons use internal pull-up resistors (active LOW)
+- Press each button to connect its GPIO pin to GND
+- No external resistors required
+- On LEO V3 variants, local OSD button navigation is not possible: these lines are used as outputs for external hardware configuration, and no free GPIO inputs remain for OSD buttons
+
+For LEO V3 variants, use keyboard hotkeys for OSD navigation (F9, arrows, Enter, Esc).
+
+## Button Layout
+
+- **UP** - Navigate up / Increase value
+- **DOWN** - Navigate down / Decrease value
+- **SEL** - Select item / Toggle mode / Confirm
+
+## Basic Navigation
+
+### Opening the Menu
+
+- **Default behavior (boards with local buttons):** Press **UP**, **DOWN**, or **SEL** to open the OSD menu
+- When opened by a long hold, input is blocked until all buttons are released once
+
+### Closing the Menu
+
+- Select **EXIT** from main menu, or
+- Menu auto-closes after 10 seconds of inactivity
+
+### Video Output Type Toggle
+
+- **Hold SEL for 5+ seconds (boards with local buttons)** - toggle between VGA and DVI output
+  - Does not open menu
+  - Automatically switches output and resets to default resolution
+  - Short press of SEL has no action when menu is closed
+  - In FLASHFLOPPY protocol mode, this long-press toggle is ignored while Gotek display is on
+
+## Menu Structure
+
+### MAIN MENU
+
+```text
+OUTPUT SETTINGS      >
+CAPTURE SETTINGS     >
+IMAGE ADJUST         >
+ABOUT                >
+SAVE
+EXIT
+```
+
+### OUTPUT SETTINGS
+
+```text
+MODE         [resolution]    - Video output resolution
+SCANLINES    ON/OFF          - Scanline filter (VGA only, certain modes)
+BUFFERING    X1/X3           - Frame buffering mode
+< BACK TO MAIN
+```
+
+**MODE Setting:**
+
+- Press SEL to enter tuning mode (`>` indicator, bright cyan highlight)
+- Use UP/DOWN to cycle through available resolutions
+- Press SEL again to apply and exit tuning mode
+- Only restarts video if resolution actually changed
+
+**Available Modes:**
+
+- **DVI:** 640×480@60Hz, 720×576@50Hz
+- **DVI (HSTX builds):** additionally 800×600@72Hz
+- **VGA:** 640×480@60Hz, 800×600@60Hz, 1024×768@60Hz (DIV3 and DIV4), 1280×1024@60Hz (DIV3 and DIV4)
+
+### CAPTURE SETTINGS
+
+```text
+FREQ      [value]            - Capture frequency (Hz)
+MODE      SELF-SYNC/EXTERNAL - Sync source
+DIVIDER   [value]            - External clock divider (EXT mode only)
+SYNC      COMPOSITE/SEPARATE - Video sync mode
+MASK      >                  - Pin inversion mask submenu
+< BACK TO MAIN
+```
+
+**Adjustable Parameters (FREQ, DIVIDER):**
+
+- Press SEL to enter tuning mode (`>` indicator, bright cyan highlight)
+- Use UP/DOWN to adjust value
+- Press SEL again to exit tuning mode
+
+**FREQ Acceleration:**
+
+- First second: 100 Hz steps
+- After 1s: 1 kHz steps
+- After 2s: 10 kHz steps
+- After 5s: 100 kHz steps
+
+**FREQ Presets:**
+
+- **7,000,000 Hz** — ZX Spectrum 16K/48K
+- **7,093,800 Hz** — ZX Spectrum 128/+2/+2A/+3
+- While holding UP/DOWN, the value automatically snaps to the nearest preset when approaching it
+- After snapping, counting stops until the button is released
+
+**Toggle Parameters (MODE, SYNC):**
+
+- Press SEL to toggle between values
+
+### PIN INVERSION MASK
+
+```text
+F   (FREQ)      ON/OFF
+SSI (HSYNC)     ON/OFF
+KSI (VSYNC)     ON/OFF
+I   (BRIGHT)    ON/OFF
+R   (RED)       ON/OFF
+G   (GREEN)     ON/OFF
+B   (BLUE)      ON/OFF
+< BACK TO CAPTURE
+```
+
+- Press SEL on any signal to toggle inversion ON/OFF
+- Changes apply immediately and restart capture
+
+### IMAGE ADJUST
+
+```text
+H_POS    [value]             - Horizontal position
+V_POS    [value]             - Vertical position
+DELAY    [value]             - Capture delay
+RESET TO DEFAULTS
+< BACK TO MAIN
+```
+
+**Adjustable Parameters (H_POS, V_POS, DELAY):**
+
+- Press SEL to enter tuning mode (`>` indicator, bright cyan highlight)
+- Use UP/DOWN to adjust value
+- Press SEL again to exit tuning mode
+
+**RESET TO DEFAULTS:**
+
+- Press SEL to reset all image adjustment values
+- Menu closes automatically after reset
+
+### ABOUT
+
+```text
+VERSION   [version number]
+BOARD     [board variant]
+
+https://github.com/
+osemenyuk-114/
+zx-rgbi-to-vga-hdmi/
+tree/feat/hstx
+
+< BACK TO MAIN
+```
+
+Displays:
+
+- Current firmware version
+- Board variant identifier
+- Project GitHub URL (with branch)
+
+Press SEL on BACK to return to the main menu.
+
+## Visual Indicators
+
+### Selection Highlighting
+
+- **White background** - Currently selected item (normal)
+- **Bright cyan background** - Selected item in tuning mode
+- **`>` indicator** - Tuning mode active (left side of line)
+- **Cyan text** - Dimmed/unavailable items
+
+### Menu Colors
+
+- **Bright cyan text** - Title text
+- **Bright white text** - Tuning mode highlight
+- **White text** - Border and normal items
+- **Cyan text** - Dimmed/unavailable items
+- **Black background** - Default background
+
+## Saving Settings
+
+From the main menu:
+
+1. Select **SAVE**
+2. Press SEL
+3. Settings are saved to flash memory
+4. Menu closes automatically
+
+To exit without saving, select **EXIT** instead.
+
+## Tips
+
+- Menu has a 10-second auto-timeout; any button press resets the timer
+- Dimmed items indicate unavailable settings (e.g., SCANLINES on DVI, DIVIDER when MODE is SELF-SYNC)
+- Tuning mode allows real-time adjustment while viewing the image
+- Video mode changes only restart output if the resolution actually changed
+- Long SEL press (5s) for quick VGA/DVI toggle without opening menu

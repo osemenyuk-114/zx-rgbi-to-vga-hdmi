@@ -17,21 +17,16 @@ set(EXECUTABLE_NAME "ZX_RGBI_TO_VGA_HDMI")
 # =============================================================================
 
 # Board variant (pass -DBOARD=BOARD_XXX to override)
-# Supported: BOARD_36LJU22, BOARD_38LJE24, BOARD_38LJU24, BOARD_RP2040_ZERO
+# Supported: BOARD_36LJU22, BOARD_38LJU24, BOARD_RP2040_ZERO
 #            BOARD_11XGA24_1, BOARD_11XGA24_2,
-#            BOARD_LEO_V2, BOARD_LEO_V3, BOARD_LEO_V3_2040BT 
 #            BOARD_09LJV23
 #
 if(NOT DEFINED BOARD)
     # set(BOARD "BOARD_36LJU22")
-    set(BOARD "BOARD_38LJE24")
-    # set(BOARD "BOARD_38LJU24")
+    set(BOARD "BOARD_38LJU24")
     # set(BOARD "BOARD_RP2040_ZERO")
     # set(BOARD "BOARD_11XGA24_1")
     # set(BOARD "BOARD_11XGA24_2")
-    # set(BOARD "BOARD_LEO_V2")
-    # set(BOARD "BOARD_LEO_V3")
-    # set(BOARD "BOARD_LEO_V3_2040BT")
     # set(BOARD "BOARD_09LJV23")
 endif()
 
@@ -45,17 +40,12 @@ endif()
 # =============================================================================
 
 # Force USE_PICO2 OFF for RP2040-based boards (no RP2350 variant)
-if(BOARD STREQUAL "BOARD_RP2040_ZERO" OR BOARD STREQUAL "BOARD_LEO_V2" OR BOARD STREQUAL "BOARD_LEO_V3" OR BOARD STREQUAL "BOARD_LEO_V3_2040BT")
+if(BOARD STREQUAL "BOARD_RP2040_ZERO")
     set(USE_PICO2 OFF)
 endif()
 
-if((BOARD STREQUAL "BOARD_38LJE24" OR BOARD STREQUAL "BOARD_38LJU24") AND USE_PICO2)
+if((BOARD STREQUAL "BOARD_38LJU24") AND USE_PICO2)
     set(DVI_USE_HSTX ON)
-endif()
-
-# Enable hardware configuration code for LEO v3 boards
-if(BOARD STREQUAL "BOARD_LEO_V3" OR BOARD STREQUAL "BOARD_LEO_V3_2040BT")
-    set(HW_CONFIG_ENABLE ON)
 endif()
 
 # Select Pico board type based on board variant (FORCE overrides cached value)
@@ -93,54 +83,24 @@ pico_sdk_init()
 
 # ====================================================================================
 
-# Set board options based on board variant
-if(BOARD STREQUAL "BOARD_36LJU22" OR BOARD STREQUAL "BOARD_RP2040_ZERO" OR BOARD STREQUAL "BOARD_09LJV23" OR BOARD STREQUAL "BOARD_LEO_V2")
-    set(OSD_MENU_ENABLE ON)
-    set(OSD_FF_ENABLE ON)
-    set(PS2_KBD_ENABLE OFF)
-    set(USB_KBD_ENABLE OFF)
-    set(SERIAL_MENU_ENABLE ON)
-elseif(BOARD STREQUAL "BOARD_38LJE24" OR BOARD STREQUAL "BOARD_LEO_V3" OR BOARD STREQUAL "BOARD_LEO_V3_2040BT")
-    set(OSD_MENU_ENABLE ON)
-    set(OSD_FF_ENABLE ON)
-    set(PS2_KBD_ENABLE ON)
-    set(USB_KBD_ENABLE ON)
-    set(SERIAL_MENU_ENABLE OFF)
-elseif(BOARD STREQUAL "BOARD_38LJU24")
-    set(OSD_MENU_ENABLE ON)
-    set(OSD_FF_ENABLE ON)
-    set(PS2_KBD_ENABLE OFF)
-    set(USB_KBD_ENABLE OFF)
-    set(SERIAL_MENU_ENABLE ON)
-elseif(BOARD STREQUAL "BOARD_11XGA24_1" OR BOARD STREQUAL "BOARD_11XGA24_2")
-    set(OSD_MENU_ENABLE ON)
-    set(OSD_FF_ENABLE OFF)
-    set(PS2_KBD_ENABLE OFF)
-    set(USB_KBD_ENABLE OFF)
-    set(SERIAL_MENU_ENABLE ON)
-else()
-    message(FATAL_ERROR "Unsupported board variant: ${BOARD}")
+# Set board options
+set(OSD_MENU_ENABLE ON)
+set(SERIAL_MENU_ENABLE ON)
+
+if(DVI_USE_HSTX)
+    set(HDMI_AUDIO_ENABLE ON)
+    # Experimental: encode paced HDMI audio packets in the DMA IRQ; polling still measures I2S rate
+    set(HDMI_AUDIO_ISR OFF)
 endif()
 
-# Automatically fetch pico_i2c_slave when FlashFloppy OSD is enabled.
-# Only add the i2c_slave library subdirectory, skip examples.
-if(OSD_FF_ENABLE)
-    # Use modern FetchContent pattern while excluding example subdirectories
-    FetchContent_Declare(
-        pico_i2c_slave
-        GIT_REPOSITORY https://github.com/vmilea/pico_i2c_slave.git
-        GIT_TAG master
-    )
-    FetchContent_GetProperties(pico_i2c_slave)
-    if(NOT pico_i2c_slave_POPULATED)
-        FetchContent_Populate(pico_i2c_slave)
-        # Only add the i2c_slave library, not the examples
-        add_subdirectory(
-            ${pico_i2c_slave_SOURCE_DIR}/i2c_slave
-            ${pico_i2c_slave_BINARY_DIR}/i2c_slave
-            EXCLUDE_FROM_ALL
-        )
-    endif()
+if(HDMI_AUDIO_ENABLE)
+    set(SERIAL_MENU_ENABLE OFF)
+endif()
+
+if(SERIAL_MENU_ENABLE)
+    set(USB_STDIO_ENABLE ON)
+else()
+    set(USB_STDIO_ENABLE OFF)
 endif()
 
 # Add executable
@@ -163,6 +123,11 @@ if(DVI_USE_HSTX)
     target_sources(${EXECUTABLE_NAME} PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/src/video/dvi_hstx.c
     )
+    if(HDMI_AUDIO_ENABLE)
+        target_sources(${EXECUTABLE_NAME} PRIVATE
+            ${CMAKE_CURRENT_LIST_DIR}/src/video/hdmi_audio.c
+        )
+    endif()
 else()
     target_sources(${EXECUTABLE_NAME} PRIVATE
         ${CMAKE_CURRENT_LIST_DIR}/src/video/dvi_pio.c
@@ -176,79 +141,31 @@ if(SERIAL_MENU_ENABLE)
     )
 endif()
 
-# Conditionally add OSD common code (used by both MENU and FF)
-if(OSD_MENU_ENABLE OR OSD_FF_ENABLE)
-    target_sources(${EXECUTABLE_NAME} PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}/src/osd/osd.c
-    )
-endif()
-
 # Conditionally add OSD menu source files
 if(OSD_MENU_ENABLE)
-    target_sources(${EXECUTABLE_NAME} PRIVATE
+    target_sources(
+        ${EXECUTABLE_NAME} PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}/src/osd/osd.c
         ${CMAKE_CURRENT_LIST_DIR}/src/osd/osd_menu.c
-    )
-endif()
-
-# Conditionally add FlashFloppy OSD source files
-if(OSD_FF_ENABLE)
-    target_sources(${EXECUTABLE_NAME} PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}/src/osd/ff_osd.c
-    )
-endif()
-
-# Conditionally add keyboard source files
-if(PS2_KBD_ENABLE OR USB_KBD_ENABLE)
-    target_sources(${EXECUTABLE_NAME} PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}/src/kbd/kbd.c
-        ${CMAKE_CURRENT_LIST_DIR}/src/kbd/osd_kbd.c
-        ${CMAKE_CURRENT_LIST_DIR}/src/kbd/zx_kbd.c
-        ${CMAKE_CURRENT_LIST_DIR}/src/kbd/ch446q.c
-        ${CMAKE_CURRENT_LIST_DIR}/src/kbd/epm3256.c
-    )
-endif()
-
-if(PS2_KBD_ENABLE)
-    target_sources(${EXECUTABLE_NAME} PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}/src/kbd/ps2_kbd.c
-    )
-endif()
-
-if(USB_KBD_ENABLE)
-    target_sources(${EXECUTABLE_NAME} PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}/src/kbd/usb_kbd.c
-    )
-endif()
-
-if(HW_CONFIG_ENABLE)
-    target_sources(${EXECUTABLE_NAME} PRIVATE
-        ${CMAKE_CURRENT_LIST_DIR}/src/hw_config.c
     )
 endif()
 
 # Generate PIO header
 pico_generate_pio_header(${EXECUTABLE_NAME}
     ${CMAKE_CURRENT_LIST_DIR}/src/video/video.pio
-    ${CMAKE_CURRENT_LIST_DIR}/src/kbd/kbd.pio
+    ${CMAKE_CURRENT_LIST_DIR}/src/video/hdmi_audio.pio
     ${CMAKE_CURRENT_LIST_DIR}/src/ws2812.pio
 )
 
 # Modify the below lines to enable/disable output over UART/USB
 pico_enable_stdio_uart(${EXECUTABLE_NAME} 0)
-if(USB_KBD_ENABLE)
-    # USB port is in host mode — disable device-mode stdio entirely
-    pico_enable_stdio_usb(${EXECUTABLE_NAME} 0)
-else()
-    pico_enable_stdio_usb(${EXECUTABLE_NAME} $<BOOL:${SERIAL_MENU_ENABLE}>)
-endif()
+pico_enable_stdio_usb(${EXECUTABLE_NAME} $<BOOL:${USB_STDIO_ENABLE}>)
 
 # Add the standard include files to the build
 target_include_directories(${EXECUTABLE_NAME} PRIVATE
     ${CMAKE_CURRENT_LIST_DIR}/src
     ${CMAKE_CURRENT_LIST_DIR}/src/video
     ${CMAKE_CURRENT_LIST_DIR}/src/osd
-    ${CMAKE_CURRENT_LIST_DIR}/src/kbd
-    ${CMAKE_CURRENT_LIST_DIR}/src/usb
 )
 
 # Add any user requested libraries
@@ -262,25 +179,9 @@ target_link_libraries(${EXECUTABLE_NAME}
     pico_stdlib
 )
 
-# Link USB stdio library when serial menu is active (needs USB device mode)
-if(SERIAL_MENU_ENABLE)
+# Link USB stdio library when serial menu or audio diagnostics are active (needs USB device mode)
+if(USB_STDIO_ENABLE)
     target_link_libraries(${EXECUTABLE_NAME} pico_stdio_usb)
-endif()
-
-# Conditionally link TinyUSB host library for USB keyboard
-if(USB_KBD_ENABLE)
-    target_link_libraries(${EXECUTABLE_NAME}
-        tinyusb_host
-        tinyusb_board
-    )
-endif()
-
-# Conditionally link I2C libraries for FlashFloppy OSD
-if(OSD_FF_ENABLE)
-    target_link_libraries(${EXECUTABLE_NAME}
-        hardware_i2c
-        pico_i2c_slave
-    )
 endif()
 
 target_compile_options(${EXECUTABLE_NAME} PRIVATE 
@@ -292,6 +193,12 @@ target_compile_definitions(${EXECUTABLE_NAME} PRIVATE ${BOARD})
 
 if(DVI_USE_HSTX)
     target_compile_definitions(${EXECUTABLE_NAME} PRIVATE DVI_USE_HSTX)
+    if(HDMI_AUDIO_ENABLE)
+        target_compile_definitions(${EXECUTABLE_NAME} PRIVATE HDMI_AUDIO_ENABLE)
+        if(HDMI_AUDIO_ISR)
+            target_compile_definitions(${EXECUTABLE_NAME} PRIVATE HDMI_AUDIO_ISR)
+        endif()
+    endif()
 endif()
 
 # Add compile definitions for OSD features
@@ -299,25 +206,8 @@ if(OSD_MENU_ENABLE)
     target_compile_definitions(${EXECUTABLE_NAME} PRIVATE OSD_MENU_ENABLE)
 endif()
 
-if(OSD_FF_ENABLE)
-    target_compile_definitions(${EXECUTABLE_NAME} PRIVATE OSD_FF_ENABLE)
-endif()
-
 if(SERIAL_MENU_ENABLE)
     target_compile_definitions(${EXECUTABLE_NAME} PRIVATE SERIAL_MENU_ENABLE)
-endif()
-
-# Keyboard compile definitions
-if(PS2_KBD_ENABLE)
-    target_compile_definitions(${EXECUTABLE_NAME} PRIVATE PS2_KBD_ENABLE)
-endif()
-
-if(USB_KBD_ENABLE)
-    target_compile_definitions(${EXECUTABLE_NAME} PRIVATE
-        USB_KBD_ENABLE
-        NO_USB
-        CFG_TUSB_CONFIG_FILE="tusb_config_host.h"
-    )
 endif()
 
 # Add linker flag to print memory usage

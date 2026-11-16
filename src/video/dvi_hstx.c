@@ -1,8 +1,11 @@
 #include "hardware/clocks.h"
 #include "hardware/dma.h"
+#include "hardware/gpio.h"
 #include "hardware/irq.h"
 #include "hardware/watchdog.h"
 #include "hardware/structs/bus_ctrl.h"
+#include "hardware/structs/hstx_fifo.h"
+#include "hardware/structs/hstx_ctrl.h"
 
 #include "g_config.h"
 #include "dvi.h"
@@ -12,9 +15,9 @@
 #include "osd.h"
 #endif
 
-#include "hardware/gpio.h"
-#include "hardware/structs/hstx_fifo.h"
-#include "hardware/structs/hstx_ctrl.h"
+#ifdef HDMI_AUDIO_ENABLE
+#include "hdmi_audio.h"
+#endif
 
 extern settings_t settings;
 
@@ -46,11 +49,71 @@ static uint32_t SYNC_V0_H0, SYNC_V0_H1, SYNC_V1_H0, SYNC_V1_H1;
 #define HSTX_CMD_TMDS (0x2u << 12)
 #define HSTX_CMD_TMDS_REPEAT (0x3u << 12)
 #define HSTX_CMD_NOP (0xfu << 12)
-// Number of HSTX command words prepended to each active-line pixel buffer
+
+#ifdef HDMI_AUDIO_ENABLE
+// HDMI "video guard band": 2 fixed TERC4 symbols that MUST immediately precede
+// the active video period whenever a data island occurred earlier in the same
+// line (HDMI spec 5.2.3.3). Distinct from the data island's own guard band.
+#define VIDEO_GUARD_CH0 0x2ccu  // channel 0 (blue)
+#define VIDEO_GUARD_CH12 0x133u // channels 1,2 (green, red)
+static uint32_t VIDEO_GUARD_WORD;
+// Number of HSTX command words prepended to each active-line pixel buffer.
+// With HDMI audio enabled the data island is placed inside the HSYNC pulse
+// (the back porch is too short in 640x480), laid out as:
+//   front porch | HSYNC: 4 ctrl px, 8 data-island preamble px, 36 island px
+//   (2 guard + 32 packet + 2 guard), remaining HSYNC | back porch ctrl |
+//   8 video preamble px + 2 video guard px | active video
+// Preambles are mandatory (HDMI 1.4a 5.2.1.1); without them sinks cannot
+// find the island/video start and show vertical colour bars or no picture.
+// Without audio the prefi
+#define HDMI_PREAMBLE_PIXELS 8
+#define HDMI_ISLAND_LEAD_CTRL 4 // control pixels between HSYNC start and the island preamble
+#define HDMI_ISLAND_SEGMENT_PIXELS (HDMI_ISLAND_LEAD_CTRL + HDMI_PREAMBLE_PIXELS + HDMI_AUDIO_ISLAND_WORDS)
+#define HDMI_VIDEO_LEAD_PIXELS (HDMI_PREAMBLE_PIXELS + 2) // video preamble + video guard band
+// Shared horizontal-blanking prefix (front porch, HSYNC with island): word count and island index
+#define HBLANK_PREFIX_WORDS 51
+#define HBLANK_ISLAND_OFFSET 13 // index of the first of the 36 island words
+#define VACTIVE_CMD_WORDS (HBLANK_PREFIX_WORDS + 3 + HDMI_VIDEO_LEAD_PIXELS + 1)
+#define VACTIVE_ISLAND_OFFSET HBLANK_ISLAND_OFFSET
+// HSTX command lists for vblank lines, double-buffered (2 slots each) so a
+// fresh data island can be written into the slot NOT currently in flight on
+// the chained DMA channel (see dma_handler_dvi)
+#define VBLANK_LINE_WORDS (HBLANK_PREFIX_WORDS + 3)
+#define VBLANK_ISLAND_OFFSET HBLANK_ISLAND_OFFSET
+static uint32_t vblank_line_vsync_off[2][VBLANK_LINE_WORDS];
+static uint32_t vblank_line_vsync_on[2][VBLANK_LINE_WORDS];
+static uint32_t vblank_off_toggle = 0;
+static uint32_t vblank_on_toggle = 0;
+
+// Fills the front porch + HSYNC (with data island) command prefix.
+// `h0`/`h1` are the HSYNC idle/active sync words for the line's VSYNC state.
+// Returns words written.
+static int fill_hblank_island_prefix(uint32_t *p, uint32_t h0, uint32_t h1)
+{
+  uint32_t preamble = (h1 & 0x3ffu) | (TMDS_CTRL_01 << 10) | (TMDS_CTRL_01 << 20); // CTL0=1, CTL1=0, CTL2=1, CTL3=0
+  int n = 0;
+
+  p[n++] = HSTX_CMD_RAW_REPEAT | video_mode.h_front_porch;
+  p[n++] = h0;
+  p[n++] = HSTX_CMD_RAW_REPEAT | HDMI_ISLAND_LEAD_CTRL;
+  p[n++] = h1;
+  p[n++] = HSTX_CMD_RAW | (HDMI_PREAMBLE_PIXELS + HDMI_AUDIO_ISLAND_WORDS);
+
+  for (int i = 0; i < HDMI_PREAMBLE_PIXELS; i++)
+    p[n++] = preamble;
+
+  n += HDMI_AUDIO_ISLAND_WORDS; // island words are refreshed per line
+  p[n++] = HSTX_CMD_RAW_REPEAT | (video_mode.h_sync_pulse - HDMI_ISLAND_SEGMENT_PIXELS);
+  p[n++] = h1;
+
+  return n;
+}
+#else
 #define VACTIVE_CMD_WORDS 9
 // HSTX command lists for vblank lines
 static uint32_t vblank_line_vsync_off[8];
 static uint32_t vblank_line_vsync_on[8];
+#endif
 
 static uint16_t v_out_dma_buf_words = 0;  // words per line buffer (margins + content)
 static uint16_t v_out_dma_line_words = 0; // words per full-line buffer (cmd prefix + pixels)
@@ -79,6 +142,11 @@ static void __not_in_flash_func(dma_handler_dvi)()
     {
       active_buf_idx++;
 
+#ifdef HDMI_AUDIO_ENABLE
+      // VSYNC is never asserted during the active region's back porch
+      hdmi_audio_build_island(v_out_dma_buf[active_buf_idx & 1] + VACTIVE_ISLAND_OFFSET, false);
+#endif
+
       if (scr_buffer != NULL)
       {
         uint16_t scaled_y = y / video_mode.div;
@@ -90,17 +158,17 @@ static void __not_in_flash_func(dma_handler_dvi)()
 
 #ifdef OSD_ENABLE
         // check if OSD is visible and overlaps with current scaled scanline
-        bool osd_active = osd_state.visible && (scaled_y >= osd_mode->start_y && scaled_y < osd_mode->end_y);
+        bool osd_active = osd_state.visible && (scaled_y >= osd_mode.start_y && scaled_y < osd_mode.end_y);
 
         if (osd_active)
         { // calculate OSD buffer line offset using scaled coordinates (2 pixels per byte)
-          uint8_t *osd_line = &osd_buffer[(scaled_y - osd_mode->start_y) * (osd_mode->width / 2)];
+          uint8_t *osd_line = &osd_buffer[(scaled_y - osd_mode.start_y) * (osd_mode.width / 2)];
 
           int x = 0;
 
-          if (!osd_mode->full_width)
+          if (!osd_mode.full_width)
           {
-            for (; (x + 4) <= osd_mode->start_x; x += 4)
+            for (; (x + 4) <= osd_mode.start_x; x += 4)
             {
               *line_buf++ = pixels[*scr_line++];
               *line_buf++ = pixels[*scr_line++];
@@ -108,17 +176,17 @@ static void __not_in_flash_func(dma_handler_dvi)()
               *line_buf++ = pixels[*scr_line++];
             }
 
-            for (; x < osd_mode->start_x; x++)
+            for (; x < osd_mode.start_x; x++)
               *line_buf++ = pixels[*scr_line++];
           }
           else
-            for (; x < osd_mode->start_x; x++)
+            for (; x < osd_mode.start_x; x++)
             {
               scr_line++;
               *line_buf++ = pixels[0]; // black pixels
             }
 
-          for (; (x + 4) <= osd_mode->end_x; x += 4)
+          for (; (x + 4) <= osd_mode.end_x; x += 4)
           {
             scr_line += 4;
 
@@ -128,13 +196,13 @@ static void __not_in_flash_func(dma_handler_dvi)()
             *line_buf++ = pixels[*osd_line++];
           }
 
-          for (; x < osd_mode->end_x; x++)
+          for (; x < osd_mode.end_x; x++)
           {
             scr_line++;
             *line_buf++ = pixels[*osd_line++];
           }
 
-          if (!osd_mode->full_width)
+          if (!osd_mode.full_width)
           {
             for (; (x + 4) <= h_visible_area; x += 4)
             {
@@ -176,18 +244,49 @@ static void __not_in_flash_func(dma_handler_dvi)()
       }
     }
 
+#ifdef HDMI_AUDIO_ENABLE
+    else
+    {
+      // Doubled line: re-send the same pixels but with a fresh data island, so
+      // audio samples are not transmitted twice. The previous buffer is the one
+      // not in flight, so copy the rendered pixels into it and swap.
+      uint32_t *prev = v_out_dma_buf[active_buf_idx & 1];
+      active_buf_idx++;
+      uint32_t *next = v_out_dma_buf[active_buf_idx & 1];
+
+      hdmi_copy_words(next + VACTIVE_CMD_WORDS, prev + VACTIVE_CMD_WORDS, v_out_dma_buf_words);
+      hdmi_audio_build_island(next + VACTIVE_ISLAND_OFFSET, false);
+    }
+#endif
+
     ch->read_addr = (uintptr_t)v_out_dma_buf[active_buf_idx & 1];
     ch->transfer_count = v_out_dma_line_words;
   }
   else if (y >= (video_mode.v_visible_area + video_mode.v_front_porch) && y < (video_mode.v_visible_area + video_mode.v_front_porch + video_mode.v_sync_pulse))
   {
+#ifdef HDMI_AUDIO_ENABLE
+    vblank_on_toggle++;
+    uint32_t slot = vblank_on_toggle & 1;
+    hdmi_audio_build_island(vblank_line_vsync_on[slot] + VBLANK_ISLAND_OFFSET, true);
+    ch->read_addr = (uintptr_t)vblank_line_vsync_on[slot];
+    ch->transfer_count = VBLANK_LINE_WORDS;
+#else
     ch->read_addr = (uintptr_t)vblank_line_vsync_on;
     ch->transfer_count = count_of(vblank_line_vsync_on);
+#endif
   }
   else
   {
+#ifdef HDMI_AUDIO_ENABLE
+    vblank_off_toggle++;
+    uint32_t slot = vblank_off_toggle & 1;
+    hdmi_audio_build_island(vblank_line_vsync_off[slot] + VBLANK_ISLAND_OFFSET, false);
+    ch->read_addr = (uintptr_t)vblank_line_vsync_off[slot];
+    ch->transfer_count = VBLANK_LINE_WORDS;
+#else
     ch->read_addr = (uintptr_t)vblank_line_vsync_off;
     ch->transfer_count = count_of(vblank_line_vsync_off);
+#endif
   }
 }
 
@@ -240,14 +339,8 @@ void start_dvi()
       1 << HSTX_CTRL_EXPAND_SHIFT_RAW_N_SHIFTS_LSB |
       0 << HSTX_CTRL_EXPAND_SHIFT_RAW_SHIFT_LSB;
 
-  // Serializer: CLKDIV=5, N_SHIFTS=5, SHIFT=2 → 10 TMDS bits per pixel clock
-  hstx_ctrl_hw->csr = 0;
-  hstx_ctrl_hw->csr =
-      HSTX_CTRL_CSR_EXPAND_EN_BITS |
-      5u << HSTX_CTRL_CSR_CLKDIV_LSB |
-      5u << HSTX_CTRL_CSR_N_SHIFTS_LSB |
-      2u << HSTX_CTRL_CSR_SHIFT_LSB |
-      HSTX_CTRL_CSR_EN_BITS;
+  // Serializer is enabled just before the DMA starts (see the end of start_dvi), so the sink
+  // never sees a TMDS clock without data while the buffers are being prepared.
 
   // === HSTX pin mapping ===
   // HSTX outputs 0–7 → GPIO 12–19; CLK on GPIO 12-13, data on GPIO 14-19
@@ -285,22 +378,6 @@ void start_dvi()
 #endif
   }
 
-  // set DVI data pins
-  for (int i = DVI_PIN_D0; i < DVI_PIN_D0 + 6; i++)
-  {
-    gpio_set_function(i, GPIO_FUNC_HSTX);
-    gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_12MA);
-    gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
-  }
-
-  // set DVI clock pins
-  for (int i = DVI_PIN_CLK0; i < DVI_PIN_CLK0 + 2; i++)
-  {
-    gpio_set_function(i, GPIO_FUNC_HSTX);
-    gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_12MA);
-    gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
-  }
-
   // === Sync control words ===
   // sync_polarity: bit 7=HSYNC, bit 6=VSYNC; set=negative (active-low)
   // Blue channel: D0=HSYNC, D1=VSYNC; ctrl[vsync_val][hsync_val]
@@ -319,6 +396,15 @@ void start_dvi()
   SYNC_V1_H0 = ctrl[v_neg ? 1 : 0][h_neg ? 0 : 1] | r_g; // vsync idle, hsync active
   SYNC_V1_H1 = ctrl[v_neg ? 1 : 0][h_neg ? 1 : 0] | r_g; // vsync idle, hsync idle
 
+#ifdef HDMI_AUDIO_ENABLE
+  // The data island lives inside HSYNC (preceded by 4 ctrl px + 8 preamble px);
+  // the back porch must fit the 8 px video preamble + 2 px video guard band.
+  hard_assert(video_mode.h_sync_pulse >= HDMI_ISLAND_SEGMENT_PIXELS);
+  hard_assert(video_mode.h_back_porch >= HDMI_VIDEO_LEAD_PIXELS);
+  VIDEO_GUARD_WORD = VIDEO_GUARD_CH0 | (VIDEO_GUARD_CH12 << 10) | (VIDEO_GUARD_CH12 << 20);
+  hdmi_audio_init();
+#endif
+
   // === Line buffers ===
   // Active-line: cmd prefix (VACTIVE_CMD_WORDS) + pixel data; both buffers contiguous
   v_out_dma_buf_words = h_visible_area + h_margin * 2;
@@ -334,6 +420,22 @@ void start_dvi()
   // Fill constant HSTX command prefix (sync preamble + pixel count)
   for (int b = 0; b < 2; b++)
   {
+#ifdef HDMI_AUDIO_ENABLE
+    // indices [VACTIVE_ISLAND_OFFSET .. +35] (the data island) are refreshed
+    // every line by hdmi_audio_build_island() in dma_handler_dvi
+    int n = fill_hblank_island_prefix(v_out_dma_buf[b], SYNC_V1_H1, SYNC_V1_H0);
+    v_out_dma_buf[b][n++] = HSTX_CMD_RAW_REPEAT | (video_mode.h_back_porch - HDMI_VIDEO_LEAD_PIXELS);
+    v_out_dma_buf[b][n++] = SYNC_V1_H1;
+    v_out_dma_buf[b][n++] = HSTX_CMD_RAW | HDMI_VIDEO_LEAD_PIXELS;
+    // video preamble: CTL0=1, CTL1=CTL2=CTL3=0
+    for (int i = 0; i < HDMI_PREAMBLE_PIXELS; i++)
+      v_out_dma_buf[b][n++] = (SYNC_V1_H1 & 0x3ffu) | (TMDS_CTRL_01 << 10) | (TMDS_CTRL_00 << 20);
+    v_out_dma_buf[b][n++] = VIDEO_GUARD_WORD;
+    v_out_dma_buf[b][n++] = VIDEO_GUARD_WORD;
+    v_out_dma_buf[b][n++] = HSTX_CMD_TMDS | video_mode.h_visible_area;
+    // pre-seed the island itself so the very first lines don't send garbage
+    hdmi_audio_build_island(v_out_dma_buf[b] + VACTIVE_ISLAND_OFFSET, false);
+#else
     v_out_dma_buf[b][0] = HSTX_CMD_RAW_REPEAT | video_mode.h_front_porch;
     v_out_dma_buf[b][1] = SYNC_V1_H1;
     v_out_dma_buf[b][2] = HSTX_CMD_NOP;
@@ -343,9 +445,30 @@ void start_dvi()
     v_out_dma_buf[b][6] = HSTX_CMD_RAW_REPEAT | video_mode.h_back_porch;
     v_out_dma_buf[b][7] = SYNC_V1_H1;
     v_out_dma_buf[b][8] = HSTX_CMD_TMDS | video_mode.h_visible_area;
+#endif
   }
 
   // === Vblank command lists ===
+#ifdef HDMI_AUDIO_ENABLE
+  for (int b = 0; b < 2; b++)
+  {
+    uint32_t *off = vblank_line_vsync_off[b];
+    uint32_t *on = vblank_line_vsync_on[b];
+
+    // no vsync
+    int n = fill_hblank_island_prefix(off, SYNC_V1_H1, SYNC_V1_H0);
+    off[n++] = HSTX_CMD_RAW_REPEAT | (video_mode.h_back_porch + video_mode.h_visible_area);
+    off[n++] = SYNC_V1_H1;
+    off[n++] = HSTX_CMD_NOP;
+    hdmi_audio_build_island(off + VBLANK_ISLAND_OFFSET, false);
+    // with vsync
+    n = fill_hblank_island_prefix(on, SYNC_V0_H1, SYNC_V0_H0);
+    on[n++] = HSTX_CMD_RAW_REPEAT | (video_mode.h_back_porch + video_mode.h_visible_area);
+    on[n++] = SYNC_V0_H1;
+    on[n++] = HSTX_CMD_NOP;
+    hdmi_audio_build_island(on + VBLANK_ISLAND_OFFSET, true);
+  }
+#else
   // no vsync
   vblank_line_vsync_off[0] = HSTX_CMD_RAW_REPEAT | video_mode.h_front_porch;
   vblank_line_vsync_off[1] = SYNC_V1_H1;
@@ -364,6 +487,7 @@ void start_dvi()
   vblank_line_vsync_on[5] = SYNC_V0_H1;
   vblank_line_vsync_on[6] = HSTX_CMD_NOP;
   vblank_line_vsync_on[7] = HSTX_CMD_NOP;
+#endif
 
   // === DMA initialization ===
   dma_ch0 = dma_claim_unused_channel(true);
@@ -377,8 +501,13 @@ void start_dvi()
       dma_ch0,
       &c0,
       &hstx_fifo_hw->fifo,
+#ifdef HDMI_AUDIO_ENABLE
+      vblank_line_vsync_off[0],
+      VBLANK_LINE_WORDS,
+#else
       vblank_line_vsync_off,
       count_of(vblank_line_vsync_off),
+#endif
       false //
   );
 
@@ -390,8 +519,13 @@ void start_dvi()
       dma_ch1,
       &c1,
       &hstx_fifo_hw->fifo,
+#ifdef HDMI_AUDIO_ENABLE
+      vblank_line_vsync_off[0],
+      VBLANK_LINE_WORDS,
+#else
       vblank_line_vsync_off,
       count_of(vblank_line_vsync_off),
+#endif
       false //
   );
 
@@ -403,6 +537,31 @@ void start_dvi()
   irq_set_enabled(DMA_IRQ_0, true);
 
   bus_ctrl_hw->priority = BUSCTRL_BUS_PRIORITY_DMA_W_BITS | BUSCTRL_BUS_PRIORITY_DMA_R_BITS;
+
+  // Serializer: CLKDIV=5, N_SHIFTS=5, SHIFT=2 → 10 TMDS bits per pixel clock
+  hstx_ctrl_hw->csr = 0;
+  hstx_ctrl_hw->csr =
+      HSTX_CTRL_CSR_EXPAND_EN_BITS |
+      5u << HSTX_CTRL_CSR_CLKDIV_LSB |
+      5u << HSTX_CTRL_CSR_N_SHIFTS_LSB |
+      2u << HSTX_CTRL_CSR_SHIFT_LSB |
+      HSTX_CTRL_CSR_EN_BITS;
+
+  // set DVI data pins
+  for (int i = DVI_PIN_D0; i < DVI_PIN_D0 + 6; i++)
+  {
+    gpio_set_function(i, GPIO_FUNC_HSTX);
+    gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_12MA);
+    gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
+  }
+
+  // set DVI clock pins
+  for (int i = DVI_PIN_CLK0; i < DVI_PIN_CLK0 + 2; i++)
+  {
+    gpio_set_function(i, GPIO_FUNC_HSTX);
+    gpio_set_drive_strength(i, GPIO_DRIVE_STRENGTH_12MA);
+    gpio_set_slew_rate(i, GPIO_SLEW_RATE_FAST);
+  }
 
   dma_channel_start(dma_ch0);
 }
@@ -417,6 +576,12 @@ void stop_dvi()
   y = 1;
   scr_buffer = NULL;
   active_buf_idx = 0;
+
+#ifdef HDMI_AUDIO_ENABLE
+  hdmi_audio_deinit();
+  vblank_off_toggle = 0;
+  vblank_on_toggle = 0;
+#endif
 
   // cleanup and free all DMA channels
   dma_channel_cleanup(dma_ch0);
