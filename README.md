@@ -68,7 +68,7 @@ For detailed hardware and original software information, see the upstream projec
 
 - **Video Output Optimization**: Streamlined DMA handling for both VGA and DVI/HDMI output modes, resulting in more efficient memory usage and cleaner code structure.
 - **Buffer Management**: Simplified buffer switching mechanisms for improved video processing performance.
-- **HDMI Audio Encoding (HSTX)**: Byte-table BCH ECC, 32-bit TERC4 packing, folded sample parity, and pre-encoded InfoFrames reduce encoding work in both polling and experimental `HDMI_AUDIO_ISR` modes. The ISR hot path and lookup tables reside in RAM. Both modes pace sample packets to the measured I2S rate; `hdmi_audio_poll()` must still run regularly for rate measurement (and ring filling when `HDMI_AUDIO_ISR` is OFF). ISR timing and video/audio stability must be verified on hardware for each video mode.
+- **HDMI Audio Encoding (HSTX)**: Byte-table BCH ECC, 32-bit TERC4 packing, folded sample parity, and pre-encoded InfoFrames reduce the encoding work done in `hdmi_audio_poll()`. Lookup tables and the line-ISR path reside in RAM. Sample packets are paced to the measured I2S rate; `hdmi_audio_poll()` must run regularly.
 
 ### Code Quality
 

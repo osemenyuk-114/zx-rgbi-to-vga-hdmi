@@ -45,6 +45,7 @@ static int i2s_dma_ch = -1;
 static uint i2s_pio_offset;
 static uint32_t i2s_read_idx; // consumer index (words), free-running
 static uint64_t popped_pairs; // input pairs consumed from the I2S ring
+static bool i2s_started;
 
 // Returns the DMA write pointer translated to a word index within the ring.
 static inline __attribute__((always_inline)) uint32_t i2s_write_idx()
@@ -79,14 +80,18 @@ static void i2s_pio_start()
                 "pio_i2s_rx addresses BCK/LRCK as relative pins 1/2 of IN_BASE=DATA; "
                 "DATA, BCK, LRCK must be 3 consecutive GPIOs in that order");
 
-  i2s_pio_offset = pio_add_program(PIO_AUDIO, &pio_i2s_rx_program);
+  if (!i2s_started)
+  {
+    i2s_pio_offset = pio_add_program(PIO_AUDIO, &pio_i2s_rx_program);
 
-  pio_gpio_init(PIO_AUDIO, HDMI_AUDIO_PIN_DATA);
-  pio_gpio_init(PIO_AUDIO, HDMI_AUDIO_PIN_BCK);
-  pio_gpio_init(PIO_AUDIO, HDMI_AUDIO_PIN_LRCK);
-  gpio_set_input_hysteresis_enabled(HDMI_AUDIO_PIN_DATA, true);
-  gpio_set_input_hysteresis_enabled(HDMI_AUDIO_PIN_BCK, true);
-  gpio_set_input_hysteresis_enabled(HDMI_AUDIO_PIN_LRCK, true);
+    pio_gpio_init(PIO_AUDIO, HDMI_AUDIO_PIN_DATA);
+    pio_gpio_init(PIO_AUDIO, HDMI_AUDIO_PIN_BCK);
+    pio_gpio_init(PIO_AUDIO, HDMI_AUDIO_PIN_LRCK);
+    gpio_set_input_hysteresis_enabled(HDMI_AUDIO_PIN_DATA, true);
+    gpio_set_input_hysteresis_enabled(HDMI_AUDIO_PIN_BCK, true);
+    gpio_set_input_hysteresis_enabled(HDMI_AUDIO_PIN_LRCK, true);
+    i2s_started = true;
+  }
 
   pio_sm_config c = pio_get_default_sm_config();
   sm_config_set_wrap(&c, i2s_pio_offset + pio_i2s_rx_wrap_target, i2s_pio_offset + pio_i2s_rx_wrap);
@@ -460,18 +465,15 @@ static int __not_in_flash_func(build_asp_packet)(uint32_t *header, uint64_t sub[
 }
 
 // Packet scheduler
-// Polling mode pre-builds islands into a ring; ISR mode encodes only when
-// a packet is due. Both use the same encoder and packet sequence.
+// hdmi_audio_poll() pre-builds islands into a ring; the line ISR only copies them.
 
 static uint64_t pace_acc;
 static uint64_t pace_step; // credit per video line
 static bool pace_armed;
-#ifndef HDMI_AUDIO_ISR
 static uint8_t island_kind_asp[ISLAND_RING_SLOTS]; // 1 = sample packet, 0 = control packet
 static uint32_t island_ring[ISLAND_RING_SLOTS][HDMI_AUDIO_ISLAND_WORDS];
 static volatile uint32_t island_ring_head = 0; // producer (poll) owns this
 static volatile uint32_t island_ring_tail = 0; // consumer (ISR) owns this
-#endif
 static uint32_t silent_island[HDMI_AUDIO_ISLAND_WORDS];
 static uint32_t avi_island[HDMI_AUDIO_ISLAND_WORDS];
 static uint32_t audio_info_island[HDMI_AUDIO_ISLAND_WORDS];
@@ -520,10 +522,8 @@ void hdmi_audio_init()
   audio_mode = settings.audio_mode;
   frame_counter = 0;
   island_counter = 0;
-#ifndef HDMI_AUDIO_ISR
   island_ring_head = 0;
   island_ring_tail = 0;
-#endif
   meas_t0_us = 0;
   meas_snap_us = 0;
   meas_last_apply_ms = 0;
@@ -565,19 +565,17 @@ void hdmi_audio_init()
 
 void hdmi_audio_deinit()
 {
+  // Stop capture; the program and GPIO setup stay. The system clock may change
+  // with the video mode, which can make a running PIO lose a BCK edge and stay
+  // bit-shifted (noise) — a clean restart re-locks to LRCK.
+  pio_sm_set_enabled(PIO_AUDIO, SM_AUDIO, false);
+
   if (i2s_dma_ch >= 0)
   {
     dma_channel_abort(i2s_dma_ch);
     dma_channel_unclaim(i2s_dma_ch);
     i2s_dma_ch = -1;
   }
-
-  pio_sm_set_enabled(PIO_AUDIO, SM_AUDIO, false);
-  pio_remove_program(PIO_AUDIO, &pio_i2s_rx_program, i2s_pio_offset);
-
-  gpio_set_function(HDMI_AUDIO_PIN_DATA, GPIO_FUNC_NULL);
-  gpio_set_function(HDMI_AUDIO_PIN_BCK, GPIO_FUNC_NULL);
-  gpio_set_function(HDMI_AUDIO_PIN_LRCK, GPIO_FUNC_NULL);
 }
 
 static void apply_measured_rate(double fs)
@@ -600,11 +598,8 @@ static void update_measured_rate()
     return;
   meas_last_apply_ms = now_ms;
 
-  // In ISR mode both the read index and the 64-bit pair count can change here.
-  uint32_t irq = save_and_disable_interrupts();
   uint64_t now = time_us_64();
   uint64_t total = popped_pairs + i2s_pairs_available();
-  restore_interrupts(irq);
 
   if (meas_t0_us == 0)
   {
@@ -647,7 +642,6 @@ void hdmi_audio_poll()
 {
   update_measured_rate();
 
-#ifndef HDMI_AUDIO_ISR
   // Keep the ring topped up with freshly encoded islands (ACR / ASP). This
   // does the expensive TERC4/ECC work, safely off the time-critical ISR.
   while ((island_ring_head - island_ring_tail) < ISLAND_RING_SLOTS)
@@ -662,7 +656,6 @@ void hdmi_audio_poll()
     island_kind_asp[slot] = is_asp;
     island_ring_head++;
   }
-#endif
 }
 
 void __not_in_flash_func(hdmi_audio_build_island)(uint32_t *dst, bool vsync_active)
@@ -676,29 +669,6 @@ void __not_in_flash_func(hdmi_audio_build_island)(uint32_t *dst, bool vsync_acti
     hdmi_copy_words(dst, null_island_vsync, HDMI_AUDIO_ISLAND_WORDS);
     return;
   }
-
-#ifdef HDMI_AUDIO_ISR
-  if (next_island_is_asp())
-  {
-    if (pace_acc < PACE_ONE)
-    {
-      hdmi_copy_words(dst, null_island_idle, HDMI_AUDIO_ISLAND_WORDS);
-      return;
-    }
-
-    pace_acc -= PACE_ONE;
-    if (!pace_armed && i2s_pairs_available() >= PACE_ARM_LEVEL * 4)
-      pace_armed = true;
-
-    if (!pace_armed || !build_next_island(dst))
-    {
-      pace_armed = false;
-      hdmi_copy_words(dst, silent_island, HDMI_AUDIO_ISLAND_WORDS);
-    }
-  }
-  else
-    build_next_island(dst);
-#else
 
   // ISR-safe path: fixed-size copy only, no TERC4/ECC computation here.
   //
@@ -737,7 +707,6 @@ void __not_in_flash_func(hdmi_audio_build_island)(uint32_t *dst, bool vsync_acti
   }
 
   hdmi_copy_words(dst, null_island_idle, HDMI_AUDIO_ISLAND_WORDS);
-#endif
 }
 
 void __not_in_flash_func(hdmi_audio_build_null_island)(uint32_t *dst)

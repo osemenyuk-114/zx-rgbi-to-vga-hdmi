@@ -89,8 +89,6 @@ set(SERIAL_MENU_ENABLE ON)
 
 if(DVI_USE_HSTX)
     set(HDMI_AUDIO_ENABLE ON)
-    # Experimental: encode paced HDMI audio packets in the DMA IRQ; polling still measures I2S rate
-    set(HDMI_AUDIO_ISR OFF)
 endif()
 
 if(HDMI_AUDIO_ENABLE)
@@ -195,9 +193,6 @@ if(DVI_USE_HSTX)
     target_compile_definitions(${EXECUTABLE_NAME} PRIVATE DVI_USE_HSTX)
     if(HDMI_AUDIO_ENABLE)
         target_compile_definitions(${EXECUTABLE_NAME} PRIVATE HDMI_AUDIO_ENABLE)
-        if(HDMI_AUDIO_ISR)
-            target_compile_definitions(${EXECUTABLE_NAME} PRIVATE HDMI_AUDIO_ISR)
-        endif()
     endif()
 endif()
 
