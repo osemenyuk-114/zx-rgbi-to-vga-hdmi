@@ -18,6 +18,8 @@ static int dma_ch0;
 static int dma_ch1;
 static uint offset;
 static const pio_program_t *program = NULL;
+static const pio_program_t *loaded_program = NULL;
+static bool pins_initialized = false;
 
 static uint16_t h_sync_pulse_2;
 static uint16_t v_sync_pulse;
@@ -249,15 +251,21 @@ void start_capture()
   h_sync_pulse_2 = 3 * (uint16_t)(settings.frequency / 1000000); // 3 µs - 1/2 of the H_SYNC pulse
   v_sync_pulse = 30 * (uint16_t)(settings.frequency / 1000000);  // 30 µs - V_SYNC pulse
 
-  // set capture pins
+  // set capture pins (PIO function and hysteresis once; inversion follows settings)
   for (int i = CAP_PIN_D0; i < CAP_PIN_D0 + 7; i++)
   {
-    pio_gpio_init(PIO_CAP, i);
-    gpio_set_input_hysteresis_enabled(i, true);
+    if (!pins_initialized)
+    {
+      pio_gpio_init(PIO_CAP, i);
+      gpio_set_input_hysteresis_enabled(i, true);
+    }
+
     gpio_set_inover(i, pin_inversion_mask & 1);
 
     pin_inversion_mask >>= 1;
   }
+
+  pins_initialized = true;
 
   // Initialize ring buffer address array
   for (int i = 0; i < CAP_DMA_BUF_COUNT; i++)
@@ -280,8 +288,16 @@ void start_capture()
     break;
   }
 
-  // load PIO program
-  offset = pio_add_program(PIO_CAP, program);
+  // load PIO program only if it is not already loaded (it stays loaded across restarts)
+  if (loaded_program != program)
+  {
+    if (loaded_program != NULL)
+      pio_remove_program(PIO_CAP, loaded_program, offset);
+
+    offset = pio_add_program(PIO_CAP, program);
+    loaded_program = program;
+  }
+
   sm_config_set_wrap(&c, offset, offset + program->length - 1);
 
   // set capture parameters
@@ -373,8 +389,8 @@ void stop_capture()
 
   // stop PIO
   pio_sm_set_enabled(PIO_CAP, SM_CAP, false);
+  // the program and pin setup stay loaded for the next start
   pio_sm_init(PIO_CAP, SM_CAP, offset, NULL);
-  pio_remove_program(PIO_CAP, program, offset);
 
   // cleanup and free DMA channels
   dma_channel_cleanup(dma_ch0);
